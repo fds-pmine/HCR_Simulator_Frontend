@@ -13,7 +13,7 @@ export function LogDrawer({ logs, open, onToggle }: LogDrawerProps) {
   return (
     <section
       className={`log-drawer ${open ? 'is-open' : ''}`}
-      aria-label="仿真事件日志"
+      aria-label="Simulation event log"
     >
       <button
         type="button"
@@ -24,17 +24,17 @@ export function LogDrawer({ logs, open, onToggle }: LogDrawerProps) {
       >
         <Terminal size={15} />
         <span>EVENT LOG</span>
-        <p>{latest?.message ?? '等待仿真事件…'}</p>
+        <p>{latest?.message ?? 'Waiting for simulation events…'}</p>
         <small>{logs.length} EVENTS</small>
       </button>
       {open ? (
         <div className="log-drawer__body" data-testid="event-log">
           <div className="log-drawer__title">
-            <span>事件日志 · 最近 {logs.length} 条</span>
+            <span>Event Log · Latest {logs.length} Events</span>
             <button
               type="button"
               onClick={onToggle}
-              aria-label="关闭事件日志"
+              aria-label="Close event log"
             >
               <X size={15} />
             </button>

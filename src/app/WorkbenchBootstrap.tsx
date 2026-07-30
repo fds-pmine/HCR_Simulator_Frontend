@@ -19,7 +19,7 @@ export function WorkbenchBootstrap() {
       .then((summaries) => {
         const first = summaries[0];
         if (!first) {
-          throw new Error('本地 Challenge 列表为空。');
+          throw new Error('The local challenge list is empty.');
         }
         return challengeProvider.getChallenge(first.id);
       })
@@ -33,7 +33,7 @@ export function WorkbenchBootstrap() {
           setError(
             reason instanceof Error
               ? reason.message
-              : 'Challenge 加载失败。',
+              : 'Failed to load the challenge.',
           );
         }
       });
@@ -56,7 +56,7 @@ export function WorkbenchBootstrap() {
       <main className="bootstrap-screen" role="alert">
         <AlertTriangle size={30} />
         <p className="phase-kicker">HCR / PROVIDER ERROR</p>
-        <h1>Challenge 无法加载</h1>
+        <h1>Unable to Load Challenge</h1>
         <p>{error}</p>
         <button
           type="button"
@@ -67,7 +67,7 @@ export function WorkbenchBootstrap() {
           }}
         >
           <RotateCcw size={16} />
-          重试
+          Retry
         </button>
       </main>
     );
@@ -79,7 +79,7 @@ export function WorkbenchBootstrap() {
         <LoaderCircle className="spin" size={30} />
         <p className="phase-kicker">HCR / LOCAL PROVIDER</p>
         <h1>HCR Simulator</h1>
-        <p>正在加载本地 Challenge 与仿真引擎…</p>
+        <p>Loading the local challenge and simulation engine…</p>
       </main>
     );
   }

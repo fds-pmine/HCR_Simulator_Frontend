@@ -66,8 +66,11 @@ export function SimulatorCanvas({
   if (!webglSupported) {
     return (
       <div className="webgl-fallback" role="alert">
-        <strong>无法启动 3D 场景</strong>
-        <span>当前浏览器未提供 WebGL，请使用最新版 Chrome 或 Edge。</span>
+        <strong>Unable to Start 3D Scene</strong>
+        <span>
+          This browser does not support WebGL. Please use the latest version of
+          Chrome or Edge.
+        </span>
       </div>
     );
   }
@@ -77,7 +80,7 @@ export function SimulatorCanvas({
       className="simulator-canvas"
       data-testid="simulator-canvas"
       data-render-state={renderState}
-      aria-label="HCR 三维仿真场景"
+      aria-label="HCR 3D simulation scene"
     >
       <Canvas
         key={canvasGeneration}
@@ -109,19 +112,20 @@ export function SimulatorCanvas({
           {renderState === 'context-lost' ? (
             <>
               <AlertTriangle size={24} />
-              <strong>3D 渲染已中断</strong>
+              <strong>3D Rendering Interrupted</strong>
               <span>
-                WebGL 上下文已丢失，仿真已安全暂停。恢复场景后将自动继续。
+                The WebGL context was lost, so the simulation was safely paused.
+                It will resume automatically once the scene is restored.
               </span>
               <button type="button" onClick={reinitializeCanvas}>
                 <RotateCcw size={15} />
-                重新初始化 3D
+                Reinitialize 3D
               </button>
             </>
           ) : (
             <>
               <LoaderCircle className="spin" size={22} />
-              <strong>正在初始化 3D 场景</strong>
+              <strong>Initializing 3D Scene</strong>
             </>
           )}
         </div>

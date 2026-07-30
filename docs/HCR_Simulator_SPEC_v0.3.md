@@ -41,7 +41,7 @@ HCR Simulator 是一个纯前端可运行的 Web 3D 编程 Demo：用户通过 B
 
 - React + TypeScript + Vite 单页应用。
 - React Three Fiber、Three.js 与 OrbitControls。
-- 一个本地“厚帽型 → 对称整齐短发”Challenge。
+- 一个本地 `Neat Short Haircut` Challenge，发型流程为 `Thick Cap Initial Hairstyle → Symmetric Neat Crop`。
 - 程序化头部、Hair Voxel 和五关节机械臂。
 - 头部不可穿透几何约束、最后安全姿态回退和碰撞错误定位。
 - Blockly 绝对角度、Wait 和 Repeat 积木。
@@ -52,6 +52,7 @@ HCR Simulator 是一个纯前端可运行的 Web 3D 编程 Demo：用户通过 B
 - Completion、Efficiency、Time 与 Final Score。
 - ChallengeProvider、ScoreProvider 及 Local 实现。
 - Vitest 核心单元测试与 Playwright 关键 E2E。
+- 运行时用户可见文案统一使用英文，包括 Challenge 数据、Blockly、工作台、日志、错误与无障碍标签。
 
 ### 3.2 明确不做
 
@@ -169,7 +170,7 @@ export interface RobotState {
 }
 ```
 
-UI 必须由 `JointConfig[]` 动态产生关节名称、角度范围和指标行，不允许假定数组长度。
+UI 必须由 `JointConfig[]` 动态产生关节名称、角度范围和指标行，不允许假定数组长度。`JointConfig.name` 是英文运行时显示文案，内部 ID 与显示名必须保持分离。
 
 ### 5.3 可序列化 Challenge Definition
 
@@ -224,15 +225,23 @@ Provider 必须返回独立集合，避免调用方修改共享数据。Reset �
 
 ## 6. 默认 Challenge
 
+默认运行时显示名称固定如下；这些英文字符串属于 Challenge 的用户可见数据契约：
+
+| 对象 | 英文显示名 |
+|---|---|
+| Challenge | `Neat Short Haircut` |
+| 初始发型 | `Thick Cap Initial Hairstyle` |
+| 目标发型 | `Symmetric Neat Crop` |
+
 ### 6.1 机械臂
 
 | ID | 显示名 | 轴 | 角度范围 | 初始角度 | 速度 |
 |---|---|---|---:|---:|---:|
-| `baseYaw` | 底座旋转 | Y | -60°～60° | -45° | 60°/s |
-| `shoulderRoll` | 肩部侧摆 | X | -45°～45° | 0° | 45°/s |
-| `shoulder` | 肩关节 | Z | -20°～100° | 45° | 45°/s |
-| `elbow` | 肘关节 | Z | -135°～10° | -80° | 60°/s |
-| `wrist` | 腕关节 | Z | -100°～100° | 35° | 75°/s |
+| `baseYaw` | `Base Yaw` | Y | -60°～60° | -45° | 60°/s |
+| `shoulderRoll` | `Shoulder Roll` | X | -45°～45° | 0° | 45°/s |
+| `shoulder` | `Shoulder` | Z | -20°～100° | 45° | 45°/s |
+| `elbow` | `Elbow` | Z | -135°～10° | -80° | 60°/s |
+| `wrist` | `Wrist` | Z | -100°～100° | 35° | 75°/s |
 
 首版关节按 `baseYaw → shoulderRoll → shoulder → elbow → wrist` 顺序构成嵌套链。完整旋转顺序为 `Ry(baseYaw) × Rx(shoulderRoll) × Rz(shoulder/elbow/wrist)`；`shoulderRoll = 0°` 时与原四关节平面姿态兼容。所有命令一次只驱动一个关节。
 
@@ -277,11 +286,11 @@ Provider 必须返回独立集合，避免调用方修改共享数据。Reset �
 
 | 类型 | UI 语义 | 编译结果 | 限制 |
 |---|---|---|---|
-| `set-joint-angle` | 设置关节到绝对角度 | Robot Command | Joint 来自 Challenge，Angle 必须在范围内 |
-| `wait` | 等待指定毫秒 | Robot Command | 0～5000ms |
-| `repeat` | 重复内部语句 | Program Node | 1～20 次 |
+| `set-joint-angle` | 英文积木：将所选 Joint 设置到绝对 Angle | Robot Command | Joint 来自 Challenge，Angle 必须在范围内 |
+| `wait` | 英文积木：等待指定毫秒 | Robot Command | 0～5000ms |
+| `repeat` | 英文积木：重复内部语句 | Program Node | 1～20 次 |
 
-Blockly 内置的 shadow number 不计入 Source Block Count。
+Blockly 积木字段、工具箱分类和 tooltip 均使用英文；Blockly 内置的 shadow number 不计入 Source Block Count。
 
 ### 7.2 Program IR
 
@@ -533,6 +542,7 @@ POST /api/simulations
 - 右侧：约 300～340px 的 Challenge、关节、指标和结果面板。
 - 底部：Run / Pause / Resume / Step / Stop / Reset 工具栏。
 - 日志为底部可展开抽屉，默认展示最近事件摘要。
+- 所有按钮、面板标题、状态、指标、tooltip、空状态和 `aria-label` / `title` 等无障碍文案使用英文；类型、API、内部 ID 和序列化字段不因翻译改变。
 
 1280×720 下允许面板覆盖 Canvas 边缘，但不得遮挡核心运行控制。小于目标宽度时可折叠右侧面板，不承诺手机可用性。
 
@@ -574,6 +584,7 @@ POST /api/simulations
 - Provider、WebGL 或引擎错误。
 
 日志使用递增序号或仿真时间，不使用墙钟作为确定性排序依据。为避免无限增长，只保留最近 200 条。
+所有用户可见日志消息使用英文，稳定的状态值、部件 ID 和 Source Block ID 可作为技术标识保留。
 
 ### 13.2 用户可见错误
 
@@ -583,6 +594,8 @@ POST /api/simulations
 - 运行时错误：状态进入 error，保留现场，允许 Reset 或重新 Run。
 - 头部碰撞：日志包含碰撞部件、活动关节、安全角度和源积木；Blockly 保持高亮并恢复编辑。
 - 非法 Challenge 配置：由 Local Provider 拒绝并报告字段位置。
+
+上述错误标题、说明、重试/恢复操作和 WebGL 降级文案均使用英文；不得只翻译正常流程而保留中文错误或无障碍文本。
 
 ## 14. 测试与验收
 
@@ -613,6 +626,7 @@ POST /api/simulations
 7. Reset 恢复初始 voxel/关节并清除正式结果；
 8. 故意碰头的程序停在安全姿态、进入 error、定位源积木且不显示正式成绩；
 9. 空程序或非法数据能显示错误且不开始执行。
+10. Challenge/发型/关节名称、Blockly、工作台、日志、错误和无障碍标签均显示英文，且关键术语与本规格一致。
 
 ### 14.3 质量门
 

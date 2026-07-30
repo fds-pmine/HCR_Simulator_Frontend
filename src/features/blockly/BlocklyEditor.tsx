@@ -116,7 +116,7 @@ export const BlocklyEditor = forwardRef<
       compile() {
         const workspace = workspaceRef.current;
         if (!workspace) {
-          throw new Error('Blockly Workspace 尚未准备完成。');
+          throw new Error('The Blockly workspace is not ready.');
         }
         return compileWorkspace(workspace, challenge);
       },
@@ -146,14 +146,14 @@ export const BlocklyEditor = forwardRef<
     <div
       className="blockly-editor"
       data-testid="blockly-editor"
-      aria-label="Blockly 程序编辑器"
+      aria-label="Blockly program editor"
       aria-disabled={locked}
     >
       <div ref={containerRef} className="blockly-editor__surface" />
       {locked ? (
         <div className="blockly-editor__lock" aria-live="polite">
           <span>PROGRAM LOCKED</span>
-          程序执行期间编辑已锁定
+          Editing is locked while the program is running
         </div>
       ) : null}
     </div>

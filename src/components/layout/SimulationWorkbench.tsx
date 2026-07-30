@@ -59,13 +59,13 @@ export function SimulationWorkbench({
     try {
       const result = editorRef.current?.compile();
       if (!result) {
-        throw new Error('Blockly Workspace 尚未准备完成。');
+        throw new Error('The Blockly workspace is not ready.');
       }
       setCompileError(undefined);
       return result;
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : '程序编译失败。';
+        error instanceof Error ? error.message : 'Program compilation failed.';
       setCompileError(message);
       if (error instanceof ProgramCompilationError) {
         editorRef.current?.locateError(error);
@@ -127,7 +127,11 @@ export function SimulationWorkbench({
           <button
             type="button"
             onClick={toggleLeftPanel}
-            aria-label={leftPanelOpen ? '收起程序面板' : '展开程序面板'}
+            aria-label={
+              leftPanelOpen
+                ? 'Collapse program panel'
+                : 'Expand program panel'
+            }
             aria-pressed={leftPanelOpen}
           >
             {leftPanelOpen ? (
@@ -139,7 +143,9 @@ export function SimulationWorkbench({
           <button
             type="button"
             onClick={toggleRightPanel}
-            aria-label={rightPanelOpen ? '收起状态面板' : '展开状态面板'}
+            aria-label={
+              rightPanelOpen ? 'Collapse status panel' : 'Expand status panel'
+            }
             aria-pressed={rightPanelOpen}
           >
             {rightPanelOpen ? (
@@ -158,17 +164,17 @@ export function SimulationWorkbench({
           className={`side-panel side-panel--left ${
             leftPanelOpen ? 'is-open' : 'is-closed'
           }`}
-          aria-label="Blockly 程序面板"
+          aria-label="Blockly program panel"
         >
           <div className="panel-header">
             <div>
               <span>PROGRAM</span>
-              <strong>舵机控制程序</strong>
+              <strong>Servo Control Program</strong>
             </div>
             <button
               type="button"
               onClick={toggleLeftPanel}
-              aria-label="收起程序面板"
+              aria-label="Collapse program panel"
             >
               <ChevronLeft size={17} />
             </button>
@@ -192,17 +198,17 @@ export function SimulationWorkbench({
           className={`side-panel side-panel--right ${
             rightPanelOpen ? 'is-open' : 'is-closed'
           }`}
-          aria-label="仿真状态面板"
+          aria-label="Simulation status panel"
         >
           <div className="panel-header">
             <div>
               <span>INSPECTOR</span>
-              <strong>仿真状态</strong>
+              <strong>Simulation Status</strong>
             </div>
             <button
               type="button"
               onClick={toggleRightPanel}
-              aria-label="收起状态面板"
+              aria-label="Collapse status panel"
             >
               <ChevronRight size={17} />
             </button>
@@ -243,7 +249,7 @@ export function SimulationWorkbench({
             <button
               type="button"
               onClick={() => setCompileError(undefined)}
-              aria-label="关闭错误提示"
+              aria-label="Dismiss error message"
             >
               ×
             </button>

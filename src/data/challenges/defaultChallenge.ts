@@ -8,14 +8,14 @@ export const DEFAULT_CHALLENGE_ID = 'neat-short-cap';
 
 export const defaultChallengeDefinition: ChallengeDefinition = {
   id: DEFAULT_CHALLENGE_ID,
-  name: '整齐短发修剪',
+  name: 'Neat Short Haircut',
   description:
-    '使用五关节机械臂安全移除厚帽型外层 voxel，避免机械装置接触头部并尽量保留对称短发目标。',
+    'Use the five-joint robot arm to safely remove the thick cap hairstyle’s outer voxels, avoid contact between the mechanism and the head, and preserve as much of the symmetric neat crop target as possible.',
   robotConfig: {
     joints: [
       {
         id: 'baseYaw',
-        name: '底座旋转',
+        name: 'Base Yaw',
         axis: 'y',
         minAngleDeg: -60,
         maxAngleDeg: 60,
@@ -24,7 +24,7 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
       },
       {
         id: 'shoulderRoll',
-        name: '肩部侧摆',
+        name: 'Shoulder Roll',
         axis: 'x',
         minAngleDeg: -45,
         maxAngleDeg: 45,
@@ -33,7 +33,7 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
       },
       {
         id: 'shoulder',
-        name: '肩关节',
+        name: 'Shoulder',
         axis: 'z',
         minAngleDeg: -20,
         maxAngleDeg: 100,
@@ -42,7 +42,7 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
       },
       {
         id: 'elbow',
-        name: '肘关节',
+        name: 'Elbow',
         axis: 'z',
         minAngleDeg: -135,
         maxAngleDeg: 10,
@@ -51,7 +51,7 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
       },
       {
         id: 'wrist',
-        name: '腕关节',
+        name: 'Wrist',
         axis: 'z',
         minAngleDeg: -100,
         maxAngleDeg: 100,

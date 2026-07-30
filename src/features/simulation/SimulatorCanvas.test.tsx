@@ -27,7 +27,7 @@ describe('SimulatorCanvas', () => {
     render(<SimulatorCanvas engine={engine} showTarget />);
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '当前浏览器未提供 WebGL',
+      'This browser does not support WebGL',
     );
   });
 });

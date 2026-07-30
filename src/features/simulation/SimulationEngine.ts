@@ -102,12 +102,12 @@ export class SimulationEngine {
     );
     if (initialCollision) {
       throw new Error(
-        `Challenge 初始姿态与头部碰撞：${initialCollision.partLabel}。`,
+        `The challenge's initial pose collides with the head: ${initialCollision.partLabel}.`,
       );
     }
     this.executor = new ProgramExecutor(this.robotController);
     this.hairVoxels = new Set(challenge.initialHair.voxels);
-    this.addLog('system', `Challenge "${challenge.name}" 已加载。`);
+    this.addLog('system', `Challenge "${challenge.name}" loaded.`);
     this.snapshot = this.createSnapshot();
   }
 
@@ -121,7 +121,7 @@ export class SimulationEngine {
     }
     this.prepareProgram(compiled);
     this.status = 'running';
-    this.addLog('system', '程序开始连续执行。');
+    this.addLog('system', 'Program started running.');
     this.publish();
   }
 
@@ -130,7 +130,7 @@ export class SimulationEngine {
       return;
     }
     this.status = 'paused';
-    this.addLog('system', '程序已暂停。');
+    this.addLog('system', 'Program paused.');
     this.publish();
   }
 
@@ -140,7 +140,7 @@ export class SimulationEngine {
     }
     this.stepTargetCommandCount = undefined;
     this.status = 'running';
-    this.addLog('system', '程序继续执行。');
+    this.addLog('system', 'Program resumed.');
     this.publish();
   }
 
@@ -157,7 +157,7 @@ export class SimulationEngine {
     this.stepTargetCommandCount =
       this.executor.getCommandIndex() + 1;
     this.status = 'running';
-    this.addLog('system', '开始单步执行一条命令。');
+    this.addLog('system', 'Started single-step execution of one command.');
     this.publish();
   }
 
@@ -168,7 +168,7 @@ export class SimulationEngine {
     this.status = 'stopped';
     this.stepTargetCommandCount = undefined;
     this.scoreResult = undefined;
-    this.addLog('system', '程序已停止，当前现场已保留。');
+    this.addLog('system', 'Program stopped; current state preserved.');
     this.publish();
   }
 
@@ -177,7 +177,7 @@ export class SimulationEngine {
       return;
     }
     this.resetState();
-    this.addLog('system', '仿真已恢复到 Challenge 初始状态。');
+    this.addLog('system', "Simulation reset to the challenge's initial state.");
     this.publish();
   }
 
@@ -214,7 +214,7 @@ export class SimulationEngine {
           this.executor.getCurrentCommand()?.sourceBlockId;
         this.fail(
           new Error(
-            `${collision.partLabel}将接触头部；关节 ${collision.jointId} 已停在安全角度 ${collision.safeAngleDeg.toFixed(2)}°；源积木 ${sourceBlockId ?? '未知'}。`,
+            `${collision.partLabel} would contact the head; joint ${collision.jointId} stopped at safe angle ${collision.safeAngleDeg.toFixed(2)}°; source block ${sourceBlockId ?? 'unknown'}.`,
           ),
           sourceBlockId,
         );
@@ -233,7 +233,10 @@ export class SimulationEngine {
       ) {
         this.status = 'paused';
         this.stepTargetCommandCount = undefined;
-        this.addLog('system', '单步命令完成，程序保持暂停。');
+        this.addLog(
+          'system',
+          'Single-step command completed; program remains paused.',
+        );
         this.publish();
         return;
       }
@@ -284,7 +287,7 @@ export class SimulationEngine {
     };
     this.addLog(
       'system',
-      `编译完成：${compiled.runtimeCommands.length} 条原子命令。`,
+      `Compilation complete: ${compiled.runtimeCommands.length} atomic commands.`,
     );
   }
 
@@ -315,7 +318,7 @@ export class SimulationEngine {
   ): void {
     const message =
       command.type === 'wait'
-        ? `#${index + 1} 等待 ${command.durationMs}ms`
+        ? `#${index + 1} Wait ${command.durationMs}ms`
         : `#${index + 1} ${command.jointId} → ${command.angleDeg}°`;
     this.addLog('command', message, command.sourceBlockId);
   }
@@ -328,7 +331,7 @@ export class SimulationEngine {
     };
     this.addLog(
       'command',
-      '命令完成。',
+      'Command completed.',
       command.sourceBlockId,
     );
   }
@@ -348,13 +351,16 @@ export class SimulationEngine {
     const nextHair = new Set(this.hairVoxels);
     hits.forEach((key) => nextHair.delete(key));
     this.hairVoxels = nextHair;
-    this.addLog('collision', `剪除 ${hits.length} 个 Hair Voxel。`);
+    this.addLog(
+      'collision',
+      `Removed ${hits.length} hair voxel${hits.length === 1 ? '' : 's'}.`,
+    );
   }
 
   private completeProgram(): void {
     this.status = 'completed';
     this.stepTargetCommandCount = undefined;
-    this.addLog('system', '程序执行完成，正在计算成绩。');
+    this.addLog('system', 'Program completed; calculating score.');
     this.publish();
 
     const scoreGeneration = this.runGeneration;
@@ -372,7 +378,7 @@ export class SimulationEngine {
         this.scoreResult = result;
         this.addLog(
           'score',
-          `评分完成：${result.finalScore.toFixed(1)} 分。`,
+          `Score calculated: ${result.finalScore.toFixed(1)} points.`,
         );
         this.publish();
         return result;
@@ -387,7 +393,7 @@ export class SimulationEngine {
 
   private fail(error: unknown, blockId?: string): void {
     const message =
-      error instanceof Error ? error.message : '未知仿真错误。';
+      error instanceof Error ? error.message : 'Unknown simulation error.';
     this.status = 'error';
     this.errorMessage = message;
     this.addLog('error', message, blockId);

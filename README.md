@@ -1,20 +1,22 @@
 # HCR Simulator
 
-HCR Simulator 是一个纯前端 Web 3D 编程 Demo。用户使用 Blockly 编排舵机角度指令，驱动虚拟五关节机械臂；机械臂末端接触 Hair Voxel 时完成剪除，整套机械装置由确定性几何约束阻止进入头部，系统随后按目标发型完成度、程序效率和估算执行时间给出成绩。
+HCR Simulator is a fully client-side Web 3D programming demo. Users arrange servo-angle commands in Blockly to drive a virtual five-joint robot arm. The end effector removes Hair Voxels on contact, while deterministic geometric constraints prevent the entire mechanism from entering the head. The simulator then scores the result by target-hairstyle completion, program efficiency, and estimated execution time.
 
-> **当前状态：Phase 1–6 已完成，纯前端 Demo 主闭环可运行；Phase 7 的最终跨浏览器人工验收尚未执行。**
+> **Current status: Phases 1–6 are complete and the fully client-side demo loop is operational. Phase 7 cross-browser visual acceptance is still pending.**
 
-## 文档导航
+> **Documentation policy:** This README is the English public entry point. The canonical engineering, specification, implementation, and acceptance documents remain in Chinese under the repository policy.
 
-| 文档 | 用途 |
+## Documentation
+
+| Document | Purpose |
 |---|---|
-| `AGENTS.md` | Codex / AI 编程代理必须遵守的仓库规则 |
-| `docs/HCR_Simulator_SPEC_v0.3.md` | 当前生效、可独立阅读的产品与技术规格 |
-| `docs/IMPLEMENTATION_PLAN.md` | 后续编码阶段的实施顺序、模块交付和质量门 |
-| `docs/ACCEPTANCE.md` | 自动化与人工验收清单 |
-| `docs/HCR_Simulator_SPEC_v0.2.md` | 历史规格，仅用于追溯早期讨论 |
+| `AGENTS.md` | Repository rules that Codex and other AI coding agents must follow |
+| `docs/HCR_Simulator_SPEC_v0.3.md` | Current, self-contained product and technical specification |
+| `docs/IMPLEMENTATION_PLAN.md` | Phased implementation status, module deliverables, and quality gates |
+| `docs/ACCEPTANCE.md` | Automated and manual acceptance checklist |
+| `docs/HCR_Simulator_SPEC_v0.2.md` | Historical specification retained only for tracing earlier decisions |
 
-## 目标 Demo 闭环
+## Demo Loop
 
 ```text
 Local Challenge Provider
@@ -34,36 +36,36 @@ Local Score Provider
 Score Breakdown / Result
 ```
 
-目标版本包含：
+The target version includes:
 
-- React + TypeScript + Vite + React Three Fiber / Three.js + Blockly。
-- 一个“厚帽型 → 对称整齐短发”的本地 Challenge。
-- 程序化五关节机械臂、不可穿透头部与 Hair Voxel。
-- `baseYaw → shoulderRoll → shoulder → elbow → wrist` 三维旋转链。
-- 碰头时停在最后安全姿态、定位源积木并进入可恢复的错误状态。
-- Run、Pause、Resume、Step、Stop、Reset 和当前积木高亮。
-- Voxel IoU、程序效率、估算执行时间与加权总分。
-- 面向桌面 Chrome / Edge、最低约 1280×720 的 3D 主视图工作台。
+- React + TypeScript + Vite + React Three Fiber / Three.js + Blockly.
+- One local **Neat Short Haircut** Challenge: **Thick Cap Initial Hairstyle → Symmetric Neat Crop**.
+- A procedural five-joint robot arm, an impenetrable head, and Hair Voxels.
+- A `baseYaw → shoulderRoll → shoulder → elbow → wrist` 3D rotation chain, displayed as **Base Yaw**, **Shoulder Roll**, **Shoulder**, **Elbow**, and **Wrist**.
+- A deterministic collision response that stops at the last safe pose, identifies the source block, and enters a recoverable error state.
+- Run, Pause, Resume, Step, Stop, Reset, and current-block highlighting.
+- Voxel IoU, program efficiency, estimated execution time, and a weighted final score.
+- A 3D-first desktop workbench for Chrome and Edge at approximately 1280×720 or larger.
 
-## Demo 操作流程
+## Using the Demo
 
-1. 启动应用后等待本地 Challenge 与预置 Blockly 程序加载完成。
-2. 可直接运行含非零 `shoulderRoll` 的安全示例程序，也可在左侧调整关节绝对角度、Wait 与 Repeat 积木。
-3. 点击“运行”从 Challenge 初始状态执行；运行中可暂停、继续或停止。
-4. 在空闲或暂停状态点击“单步”，每次完整执行一条原子命令。
-5. 右侧查看关节、末端位置、voxel、命令数和评分；底部日志记录关键事件。
-6. “重置”恢复仿真现场并保留 Blockly 内容；目标发型预览可独立切换。
+1. Start the app and wait for the local Challenge and starter Blockly program to load.
+2. Run the safe starter program, which includes a nonzero **Shoulder Roll**, or edit the absolute joint-angle, Wait, and Repeat blocks in the left panel.
+3. Select **Run** to execute from the Challenge's initial state. While it is running, you can Pause, Resume, or Stop it.
+4. Select **Step** while idle or paused to complete exactly one atomic command.
+5. Use the right Inspector to view joint angles, end-effector position, voxel counts, command metrics, and scores. The bottom log records important events.
+6. Select **Reset** to restore the simulation while preserving the Blockly program. The **Target Hairstyle Preview** can be toggled independently.
 
-## 本地启动与质量命令
+## Local Setup and Quality Commands
 
-要求 Node.js 22 和 npm。首次使用先安装依赖：
+Node.js 22 and npm are required. Install dependencies and start the development server:
 
 ```bash
 npm install
 npm run dev
 ```
 
-工程提供以下质量命令：
+The project provides these quality commands:
 
 ```bash
 npm run dev
@@ -74,11 +76,11 @@ npm run build
 npm run test:e2e
 ```
 
-生产构建输出位于 `dist/`；该目录和测试报告不应提交到仓库。
+Production builds are written to `dist/`. Do not commit that directory or generated test reports.
 
-## 明确不做
+## Explicit Non-goals
 
-- 后端、账户、工作区持久化或网络运行前提。
-- 真实 ESP / 舵机、MQTT、WebSerial 或 WebBluetooth。
-- IK、完整物理引擎、机械臂自碰撞、真实发丝或剪刀开合。
-- 多人竞赛、移动端专项适配或生产部署。
+- A backend, accounts, workspace persistence, or a network runtime dependency.
+- Real ESP or servo integration, MQTT, WebSerial, or WebBluetooth.
+- Inverse kinematics, a full physics engine, robot self-collision, realistic hair strands, or scissor actuation.
+- Multiplayer competition, dedicated mobile support, or production deployment.

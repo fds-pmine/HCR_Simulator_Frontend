@@ -31,7 +31,7 @@ export function SimulationControls({
   const canRun = ['idle', 'completed', 'stopped', 'error'].includes(status);
 
   return (
-    <div className="control-dock" aria-label="仿真运行控制">
+    <div className="control-dock" aria-label="Simulation controls">
       <button
         className="control-button control-button--primary"
         type="button"
@@ -40,7 +40,7 @@ export function SimulationControls({
         data-testid="run-button"
       >
         <Play size={16} fill="currentColor" />
-        运行
+        Run
       </button>
       {paused ? (
         <button
@@ -50,7 +50,7 @@ export function SimulationControls({
           data-testid="resume-button"
         >
           <Play size={16} />
-          继续
+          Resume
         </button>
       ) : (
         <button
@@ -61,7 +61,7 @@ export function SimulationControls({
           data-testid="pause-button"
         >
           <Pause size={16} />
-          暂停
+          Pause
         </button>
       )}
       <button
@@ -72,7 +72,7 @@ export function SimulationControls({
         data-testid="step-button"
       >
         <SkipForward size={16} />
-        单步
+        Step
       </button>
       <button
         className="control-button"
@@ -82,7 +82,7 @@ export function SimulationControls({
         data-testid="stop-button"
       >
         <Square size={15} fill="currentColor" />
-        停止
+        Stop
       </button>
       <span className="control-dock__divider" />
       <button
@@ -93,7 +93,7 @@ export function SimulationControls({
         data-testid="reset-button"
       >
         <RotateCcw size={16} />
-        重置
+        Reset
       </button>
     </div>
   );

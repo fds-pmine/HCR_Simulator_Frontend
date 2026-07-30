@@ -75,6 +75,8 @@ describe('Blockly program compiler', () => {
     expect(JSON.stringify(toolbox)).toContain(BLOCK_TYPES.setJointAngle);
     expect(JSON.stringify(toolbox)).toContain(BLOCK_TYPES.wait);
     expect(JSON.stringify(toolbox)).not.toContain(BLOCK_TYPES.repeat);
+    expect(JSON.stringify(toolbox)).toContain('"name":"Servo"');
+    expect(JSON.stringify(toolbox)).toContain('"name":"Control"');
   });
 
   it('rejects empty and multiple top-level programs', () => {

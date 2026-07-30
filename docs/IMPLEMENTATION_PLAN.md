@@ -87,7 +87,7 @@ tests/
 
 - [x] 实现 v0.3 中的 domain types、VoxelKey 转换和配置校验。
 - [x] 实现确定性目标短发生成器和初始厚帽型生成器。
-- [x] 建立唯一 Challenge Definition、机械臂配置和示例 Workspace 数据。
+- [x] 建立唯一 Challenge Definition、机械臂配置和示例 Workspace 数据，并固定 `Neat Short Haircut`、`Thick Cap Initial Hairstyle`、`Symmetric Neat Crop` 英文显示名。
 - [x] 实现 ChallengeProvider / ScoreProvider 接口与 Local 实现。
 - [x] 实现 IoU、Program Cost、时间估算和加权评分。
 - [x] 覆盖集合不变量、Provider 与评分边界单测。
@@ -96,7 +96,7 @@ tests/
 
 ### Phase 3 — Blockly 与 Program IR
 
-- [x] 注册绝对关节、Wait 和 Repeat 积木。
+- [x] 注册使用英文标签与 tooltip 的绝对关节、Wait 和 Repeat 积木。
 - [x] 根据 Challenge 动态建立关节下拉框、角度验证和工具箱。
 - [x] 实现预置 Workspace 的反序列化。
 - [x] 实现单顶层栈校验和结构化 Program IR 编译。
@@ -138,13 +138,14 @@ tests/
 - [x] 实现当前 Block 高亮和相关编译错误定位。
 - [x] 展示关节、末端、voxel、程序指标和结果分解。
 - [x] 实现面板折叠、键盘焦点、按钮禁用和 1280×720 降级布局。
+- [x] 统一工作台、Blockly、日志、错误、降级界面与无障碍标签的英文文案，并使用 `Base Yaw`、`Shoulder Roll`、`Shoulder`、`Elbow`、`Wrist` 关节显示名。
 - [x] 校准含非零 `shoulderRoll` 的安全示例程序，使其自然结束且 Completion Score ≥80。
 
 阶段出口：人工可以完成从加载、运行、调试到评分和重置的完整流程。
 
 ### Phase 7 — 集成测试与交付
 
-- [x] 完成 Playwright 主闭环和错误流程。
+- [x] 完成 Playwright 主闭环、错误流程和英文运行时文案断言。
 - [ ] 在 Chrome / Edge 的目标视口人工验收。
 - [x] 运行全部质量门并修复失败。
 - [x] 按实际工程更新 README 启动说明和验收清单。
@@ -166,6 +167,7 @@ tests/
 - Workspace 由编辑器组件拥有，通过显式 API 提供 `compile`、`setReadOnly`、`highlightBlock` 和 `resetHighlight`。
 - 编译器只接收 Blockly Workspace 与 Challenge 配置，返回成功结果或结构化错误。
 - UI 不遍历 Block 来自行生成命令。
+- 积木字段、工具箱分类和 tooltip 使用英文；翻译不得改变 Blockly 类型、字段名或 Program IR。
 
 ### 接触
 

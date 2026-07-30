@@ -40,6 +40,6 @@ describe('App', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Provider offline',
     );
-    expect(screen.getByRole('button', { name: '重试' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
   });
 });

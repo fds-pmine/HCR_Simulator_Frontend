@@ -10,13 +10,13 @@ interface InspectorPanelProps {
 }
 
 const STATUS_LABELS: Record<SimulationSnapshot['status'], string> = {
-  loading: '加载中',
-  idle: '待机',
-  running: '运行中',
-  paused: '已暂停',
-  completed: '已完成',
-  stopped: '已停止',
-  error: '错误',
+  loading: 'Loading',
+  idle: 'Idle',
+  running: 'Running',
+  paused: 'Paused',
+  completed: 'Completed',
+  stopped: 'Stopped',
+  error: 'Error',
 };
 
 export function InspectorPanel({
@@ -48,7 +48,7 @@ export function InspectorPanel({
           aria-pressed={showTarget}
         >
           {showTarget ? <Eye size={15} /> : <EyeOff size={15} />}
-          目标发型预览
+          Target Hairstyle Preview
           <span>{showTarget ? 'ON' : 'OFF'}</span>
         </button>
       </section>
@@ -94,24 +94,24 @@ export function InspectorPanel({
         </div>
         <div className="metric-grid">
           <Metric
-            label="当前 Voxel"
+            label="Current Voxels"
             value={snapshot.hairVoxels.size}
             testId="current-voxel-count"
           />
-          <Metric label="目标 Voxel" value={snapshot.targetVoxelCount} />
+          <Metric label="Target Voxels" value={snapshot.targetVoxelCount} />
           <Metric
-            label="源积木"
+            label="Source Blocks"
             value={snapshot.metrics.sourceBlockCount}
             testId="source-block-count"
           />
           <Metric
-            label="已执行命令"
+            label="Executed Commands"
             value={snapshot.metrics.executedCommandCount}
             testId="executed-command-count"
           />
         </div>
         <div className="duration-row">
-          <span>估算执行时间</span>
+          <span>Estimated Duration</span>
           <strong>
             {(snapshot.metrics.estimatedDurationMs / 1_000).toFixed(2)}s
           </strong>
@@ -134,19 +134,22 @@ export function InspectorPanel({
             </div>
             <div className="score-bars">
               <ScoreBar
-                label="完成度"
+                label="Completion"
                 score={result.completionScore}
                 testId="completion-score"
               />
-              <ScoreBar label="程序效率" score={result.efficiencyScore} />
-              <ScoreBar label="时间" score={result.timeScore} />
+              <ScoreBar
+                label="Program Efficiency"
+                score={result.efficiencyScore}
+              />
+              <ScoreBar label="Time" score={result.timeScore} />
             </div>
           </>
         ) : (
           <div className="result-placeholder">
             {snapshot.status === 'stopped'
-              ? '已停止：当前指标为临时数据，不生成正式成绩。'
-              : '程序自然结束后将在此显示正式成绩。'}
+              ? 'Stopped: current metrics are provisional; no official score was generated.'
+              : 'Official scores will appear here after the program completes normally.'}
           </div>
         )}
       </section>

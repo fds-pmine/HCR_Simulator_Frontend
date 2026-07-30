@@ -44,13 +44,13 @@ export function compileWorkspace(
   if (topBlocks.length === 0) {
     throw new ProgramCompilationError(
       'EMPTY_PROGRAM',
-      '工作区中没有可执行程序。',
+      'The workspace does not contain an executable program.',
     );
   }
   if (topBlocks.length > 1) {
     throw new ProgramCompilationError(
       'MULTIPLE_TOP_LEVEL_STACKS',
-      '工作区只能包含一个顶层程序栈。',
+      'The workspace can contain only one top-level program stack.',
       topBlocks[1].id,
     );
   }
@@ -60,7 +60,7 @@ export function compileWorkspace(
   if (nodes.length === 0) {
     throw new ProgramCompilationError(
       'EMPTY_PROGRAM',
-      '工作区中没有可执行程序。',
+      'The workspace does not contain an executable program.',
     );
   }
 
@@ -98,7 +98,7 @@ export function expandProgram(
       if (commands.length > limit) {
         throw new ProgramCompilationError(
           'COMMAND_LIMIT_EXCEEDED',
-          `程序展开后超过 ${limit} 条原子命令。`,
+          `The expanded program exceeds ${limit} atomic commands.`,
           node.sourceBlockId,
         );
       }
@@ -136,7 +136,7 @@ function compileBlock(
   if (!semanticType || !allowed.has(semanticType)) {
     throw new ProgramCompilationError(
       'DISALLOWED_BLOCK',
-      `积木 "${block.type}" 不在当前 Challenge 的允许列表中。`,
+      `Block "${block.type}" is not allowed in the current challenge.`,
       block.id,
     );
   }
@@ -149,7 +149,7 @@ function compileBlock(
     if (!joint) {
       throw new ProgramCompilationError(
         'INVALID_JOINT',
-        `关节 "${jointId}" 不存在。`,
+        `Joint "${jointId}" does not exist.`,
         block.id,
       );
     }
@@ -161,7 +161,7 @@ function compileBlock(
     ) {
       throw new ProgramCompilationError(
         'INVALID_ANGLE',
-        `${joint.name} 角度必须在 ${joint.minAngleDeg}° 到 ${joint.maxAngleDeg}° 之间。`,
+        `${joint.name} angle must be between ${joint.minAngleDeg}° and ${joint.maxAngleDeg}°.`,
         block.id,
       );
     }
@@ -179,7 +179,7 @@ function compileBlock(
     if (durationMs < 0 || durationMs > 5_000) {
       throw new ProgramCompilationError(
         'INVALID_WAIT',
-        '等待时间必须在 0ms 到 5000ms 之间。',
+        'Wait duration must be between 0ms and 5000ms.',
         block.id,
       );
     }
@@ -194,7 +194,7 @@ function compileBlock(
   if (!Number.isInteger(count) || count < 1 || count > 20) {
     throw new ProgramCompilationError(
       'INVALID_REPEAT',
-      '重复次数必须是 1 到 20 之间的整数。',
+      'Repeat count must be an integer between 1 and 20.',
       block.id,
     );
   }
@@ -203,7 +203,7 @@ function compileBlock(
   if (!bodyBlock) {
     throw new ProgramCompilationError(
       'EMPTY_REPEAT',
-      'Repeat 内必须包含至少一条命令。',
+      'Repeat must contain at least one command.',
       block.id,
     );
   }
@@ -211,7 +211,7 @@ function compileBlock(
   if (body.length === 0) {
     throw new ProgramCompilationError(
       'EMPTY_REPEAT',
-      'Repeat 内必须包含至少一条启用的命令。',
+      'Repeat must contain at least one enabled command.',
       block.id,
     );
   }
@@ -233,7 +233,7 @@ function readNumberField(block: Blockly.Block, fieldName: string): number {
         : fieldName === BLOCK_FIELDS.count
           ? 'INVALID_REPEAT'
           : 'INVALID_ANGLE',
-      `字段 "${fieldName}" 必须是有限数值。`,
+      `Field "${fieldName}" must be a finite number.`,
       block.id,
     );
   }

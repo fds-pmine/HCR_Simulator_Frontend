@@ -16,6 +16,12 @@ describe('LocalChallengeProvider', () => {
     const second = await provider.getChallenge(summaries[0].id);
 
     expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      id: 'neat-short-cap',
+      name: 'Neat Short Haircut',
+    });
+    expect(first.initialHair.name).toBe('Thick Cap Initial Hairstyle');
+    expect(first.targetHair.name).toBe('Symmetric Neat Crop');
     expect(first.initialHair.voxels).toBeInstanceOf(Set);
     expect(first.targetHair.voxels.size).toBe(215);
     expect(first.robotConfig.joints).toHaveLength(5);
@@ -25,6 +31,13 @@ describe('LocalChallengeProvider', () => {
       'shoulder',
       'elbow',
       'wrist',
+    ]);
+    expect(first.robotConfig.joints.map((joint) => joint.name)).toEqual([
+      'Base Yaw',
+      'Shoulder Roll',
+      'Shoulder',
+      'Elbow',
+      'Wrist',
     ]);
     expect(first.robotConfig.joints[1]).toMatchObject({
       id: 'shoulderRoll',

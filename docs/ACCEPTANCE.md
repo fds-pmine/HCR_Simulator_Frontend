@@ -6,7 +6,7 @@
 
 - [x] v0.2 作为历史规格保留。
 - [x] v0.3 可独立描述目标、接口、执行语义和边界。
-- [x] README 明确当前状态并提供文档导航。
+- [x] README 作为英文公共入口明确当前状态、中文规范文档政策并提供文档导航。
 - [x] AGENTS.md 明确文档优先级、模块边界和当前阶段限制。
 - [x] 实施计划包含阶段依赖、出口条件、风险与完成定义。
 - [x] 本清单区分自动化、功能、错误和人工视觉验收。
@@ -18,6 +18,12 @@
 - [x] `npm test`
 - [x] `npm run build`
 - [x] `npm run test:e2e`
+
+## 英文运行时文案
+
+- [x] Challenge、Blockly、工作台、日志、错误/降级界面和无障碍标签的用户可见文案均为英文，并由自动化测试覆盖关键路径。
+- [x] Challenge 使用 `Neat Short Haircut`，初始发型使用 `Thick Cap Initial Hairstyle`，目标发型使用 `Symmetric Neat Crop`。
+- [x] 五个关节依次显示为 `Base Yaw`、`Shoulder Roll`、`Shoulder`、`Elbow`、`Wrist`，且内部 Joint ID、Blockly 字段和 Program IR 保持不变。
 
 ## P0 闭环
 

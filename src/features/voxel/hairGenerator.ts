@@ -16,12 +16,12 @@ export function generateDefaultHairstyles(): GeneratedHairstyles {
   return {
     initialHair: {
       id: 'thick-cap',
-      name: '厚帽型初始发型',
+      name: 'Thick Cap Initial Hairstyle',
       voxels: initial,
     },
     targetHair: {
       id: 'neat-short-cap',
-      name: '对称整齐短发',
+      name: 'Symmetric Neat Crop',
       voxels: target,
     },
   };
