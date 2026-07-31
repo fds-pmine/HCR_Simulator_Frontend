@@ -1,15 +1,9 @@
 import type { PropsWithChildren } from 'react';
-import { LocalChallengeProvider } from '../services/local/LocalChallengeProvider';
-import { LocalScoreProvider } from '../services/local/LocalScoreProvider';
+import { resolveServices } from './resolveServices';
 import {
   ServicesContext,
   type AppServices,
 } from './servicesContext';
-
-const localServices: AppServices = {
-  challengeProvider: new LocalChallengeProvider(),
-  scoreProvider: new LocalScoreProvider(),
-};
 
 interface AppProvidersProps extends PropsWithChildren {
   services?: AppServices;
@@ -17,10 +11,10 @@ interface AppProvidersProps extends PropsWithChildren {
 
 export function AppProviders({
   children,
-  services = localServices,
+  services,
 }: AppProvidersProps) {
   return (
-    <ServicesContext.Provider value={services}>
+    <ServicesContext.Provider value={services ?? resolveServices()}>
       {children}
     </ServicesContext.Provider>
   );
