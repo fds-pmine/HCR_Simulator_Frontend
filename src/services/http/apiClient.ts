@@ -16,6 +16,8 @@ export type HcrErrorCode =
   | 'ITEM_REF_INVALID'
   | 'SESSION_NOT_FOUND'
   | 'SESSION_TERMINATED'
+  /** The round has not reached the stage the request needs. Try again later. */
+  | 'MATCH_NOT_READY'
   | 'BANK_EXHAUSTED'
   | 'DEVICE_OFFLINE'
   | 'DEVICE_BUSY'
@@ -60,7 +62,7 @@ export class HcrApiError extends Error {
 }
 
 export interface ApiClientOptions {
-  /** Base URL, e.g. `https://example.com` or `http://localhost:8080`. */
+  /** Base URL, e.g. `https://example.com` or `http://localhost:18623`. */
   baseUrl: string;
   /** Bearer token, when the deployment requires authentication. */
   token?: string;
@@ -82,18 +84,23 @@ export class ApiClient {
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
-  get<T>(path: string): Promise<T> {
-    return this.request<T>('GET', path);
+  get<T>(path: string, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>('GET', path, undefined, headers);
   }
 
-  post<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('POST', path, body);
+  post<T>(
+    path: string,
+    body: unknown,
+    headers?: Record<string, string>,
+  ): Promise<T> {
+    return this.request<T>('POST', path, body, headers);
   }
 
   private async request<T>(
     method: 'GET' | 'POST',
     path: string,
     body?: unknown,
+    extraHeaders?: Record<string, string>,
   ): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(
@@ -114,6 +121,7 @@ export class ApiClient {
           ...(this.options.token
             ? { Authorization: `Bearer ${this.options.token}` }
             : {}),
+          ...extraHeaders,
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });

@@ -1,24 +1,32 @@
 import { LocalChallengeProvider } from '../services/local/LocalChallengeProvider';
+import { LocalMatchProvider } from '../services/local/LocalMatchProvider';
 import { LocalScoreProvider } from '../services/local/LocalScoreProvider';
 import { createHttpServices, readBackendConfig } from '../services/http/config';
 import type { AppServices } from './servicesContext';
 
-const localServices: AppServices = {
-  challengeProvider: new LocalChallengeProvider(),
-  scoreProvider: new LocalScoreProvider(),
-};
+function localServices(): AppServices {
+  const challengeProvider = new LocalChallengeProvider();
+  return {
+    challengeProvider,
+    scoreProvider: new LocalScoreProvider(),
+    // Offline rounds are practice against local bots — see LocalMatchProvider.
+    matchProvider: new LocalMatchProvider(challengeProvider),
+  };
+}
 
 /**
- * Pick the provider pair for this deployment.
+ * Pick the provider set for this deployment.
  *
  * Local unless `VITE_HCR_API_BASE_URL` is configured, so the simulator makes no
- * network requests by default. Both pairs satisfy the same interfaces, so
- * nothing downstream — workbench, engine, scoring — can tell which is in use.
+ * network requests by default. Both sets satisfy the same interfaces, so nothing
+ * downstream — workbench, engine, scoring, versus UI — can tell which is in use.
+ * The one place the difference is deliberately visible is `MatchProvider.kind`,
+ * which the UI reads to label a practice round as practice.
  *
  * Lives outside `providers.tsx` so that file exports only its component, which
  * is what React Fast Refresh needs.
  */
 export function resolveServices(): AppServices {
   const config = readBackendConfig();
-  return config ? createHttpServices(config) : localServices;
+  return config ? createHttpServices(config) : localServices();
 }

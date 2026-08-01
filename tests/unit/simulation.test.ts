@@ -287,7 +287,10 @@ describe('SimulationEngine', () => {
 
     expect(snapshot.status).toBe('error');
     expect(snapshot.errorMessage).toContain('baseYaw');
-    expect(snapshot.errorMessage).toContain('unsafe-base');
+    // Attribution is carried structurally — the editor highlights the block —
+    // rather than by printing its Blockly id, which is a string like
+    // `!p3lgyq#.d:{:YBt_H2n.` that a learner can do nothing with.
+    expect(snapshot.errorMessage).not.toContain('unsafe-base');
     expect(snapshot.currentBlockId).toBe('unsafe-base');
     expect(snapshot.metrics.executedCommandCount).toBe(3);
     expect(snapshot.scoreResult).toBeUndefined();

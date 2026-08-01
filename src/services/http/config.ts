@@ -1,5 +1,6 @@
 import { ApiClient } from './apiClient';
 import { HttpChallengeProvider } from './HttpChallengeProvider';
+import { HttpMatchProvider } from './HttpMatchProvider';
 import { HttpScoreProvider } from './HttpScoreProvider';
 import type { AppServices } from '../../app/servicesContext';
 
@@ -26,11 +27,12 @@ export function readBackendConfig(
   return token ? { baseUrl, token } : { baseUrl };
 }
 
-/** Build the remote provider pair. */
+/** Build the remote provider set. */
 export function createHttpServices(config: BackendConfig): AppServices {
   const client = new ApiClient(config);
   return {
     challengeProvider: new HttpChallengeProvider(client),
     scoreProvider: new HttpScoreProvider(client),
+    matchProvider: new HttpMatchProvider(client),
   };
 }

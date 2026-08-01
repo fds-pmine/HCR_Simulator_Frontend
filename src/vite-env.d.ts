@@ -2,7 +2,7 @@
 
 interface ImportMetaEnv {
   /**
-   * Base URL of the HCR backend, e.g. `http://localhost:8080`.
+   * Base URL of the HCR backend, e.g. `http://localhost:18623`.
    *
    * Unset by default, which keeps the simulator entirely offline.
    */

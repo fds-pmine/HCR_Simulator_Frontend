@@ -1,10 +1,10 @@
+import { GameShell } from './GameShell';
 import { AppProviders } from './providers';
-import { WorkbenchBootstrap } from './WorkbenchBootstrap';
 
 export function App() {
   return (
     <AppProviders>
-      <WorkbenchBootstrap />
+      <GameShell />
     </AppProviders>
   );
 }

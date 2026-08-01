@@ -34,12 +34,16 @@ describe('default hairstyle generator', () => {
     const second = generateDefaultHairstyles();
 
     expect(first).toEqual(second);
-    expect(first.targetHair.voxels).toHaveLength(215);
+    expect(first.targetHair.voxels).toHaveLength(229);
     expect(first.initialHair.voxels).toHaveLength(241);
     expect(hasDuplicateVoxels(first.targetHair.voxels)).toBe(false);
     expect(hasDuplicateVoxels(first.initialHair.voxels)).toBe(false);
-    expect(isSymmetricAcrossZ(first.targetHair.voxels)).toBe(true);
     expect(isSymmetricAcrossZ(first.initialHair.voxels)).toBe(true);
+    // The target deliberately is *not* mirror-symmetric. It is the hair left
+    // after a program the arm can actually run, and the arm reaches the crown
+    // from one side — a symmetric cut is not a thing it can perform. The old
+    // target was symmetric and unreachable, which is the worse trade.
+    expect(isSymmetricAcrossZ(first.targetHair.voxels)).toBe(false);
   });
 
   it('contains every target voxel in the thicker initial hairstyle', () => {

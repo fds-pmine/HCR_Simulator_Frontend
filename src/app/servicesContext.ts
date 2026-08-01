@@ -1,12 +1,14 @@
 import { createContext, useContext } from 'react';
 import type {
   ChallengeProvider,
+  MatchProvider,
   ScoreProvider,
 } from '../services/contracts';
 
 export interface AppServices {
   challengeProvider: ChallengeProvider;
   scoreProvider: ScoreProvider;
+  matchProvider: MatchProvider;
 }
 
 export const ServicesContext = createContext<AppServices | null>(null);

@@ -10,7 +10,15 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
   id: DEFAULT_CHALLENGE_ID,
   name: 'Neat Short Haircut',
   description:
-    'Use the five-joint robot arm to safely remove the thick cap hairstyle’s outer voxels, avoid contact between the mechanism and the head, and preserve as much of the symmetric neat crop target as possible.',
+    // Says what to do *and* how to start. The old wording promised a
+    // "symmetric neat crop", which the arm cannot cut, and offered no way in —
+    // so the honest reading of a low score was "this is broken", not "try
+    // something else".
+    'Twelve voxels on the crown have to come off, and nothing else. Lift the ' +
+    'tool clear of the head first — the arm cannot swing across at rest — then ' +
+    'sweep Base Yaw over the crown. One pass gets most of it; the last patch ' +
+    'sits at a different height. Finish the Lessons if you want this broken ' +
+    'down step by step.',
   robotConfig: {
     joints: [
       {

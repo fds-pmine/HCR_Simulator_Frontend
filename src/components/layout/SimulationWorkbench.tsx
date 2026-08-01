@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Braces,
   ChevronLeft,
   ChevronRight,
   Cpu,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -17,27 +18,79 @@ import {
 import {
   ProgramCompilationError,
 } from '../../features/blockly/programCompiler';
-import type { CompiledProgram } from '../../features/blockly/programTypes';
+import type { CompiledProgram, Program } from '../../features/blockly/programTypes';
 import { SimulatorCanvas } from '../../features/simulation/SimulatorCanvas';
 import type { SimulationEngine } from '../../features/simulation/SimulationEngine';
+import { runHeadless } from '../../features/simulation/headlessRun';
 import { useSimulationSnapshot } from '../../features/simulation/useSimulationSnapshot';
 import { useWorkbenchStore } from '../../features/simulation/simulationStore';
 import { SimulationControls } from '../controls/SimulationControls';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { LogDrawer } from './LogDrawer';
 
+/**
+ * Everything a competitive round adds to the workbench.
+ *
+ * Optional, and inert when absent — solo practice renders the identical
+ * workbench with no round attached, so there is one editor, one engine and one
+ * scoring path rather than a second, drifting copy for versus mode.
+ */
+export interface WorkbenchMatch {
+  /** Timer, roster and submission status, overlaid on the stage. */
+  hud: ReactNode;
+  /** Full-stage overlay — the start flash, then the scoreboard. */
+  overlay?: ReactNode;
+  /** Whether the round is currently accepting entries. */
+  canSubmit: boolean;
+  submitting: boolean;
+  onSubmit: (compiled: CompiledProgram) => void;
+}
+
+/**
+ * Everything the guided tutorial adds.
+ *
+ * Like {@link WorkbenchMatch}, optional and inert when absent — the tutorial
+ * runs over the real workbench rather than a mock-up of it, so what a learner
+ * practises on is the thing they will use.
+ */
+export interface WorkbenchTutorial {
+  /** The step card, overlaid on the stage. */
+  panel: ReactNode;
+  /**
+   * The workspace as it stands, on every edit — `undefined` while it does not
+   * compile, which is most of the time mid-drag.
+   *
+   * Reported live rather than on Run so a lesson can notice a block being
+   * placed. Compiling on each change is a small tree walk over a program capped
+   * at 500 commands.
+   */
+  onProgramChange: (program: Program | undefined, blockCount: number) => void;
+  /** Test was pressed. */
+  onTested: () => void;
+}
+
 interface SimulationWorkbenchProps {
   challenge: Challenge;
   engine: SimulationEngine;
+  /** Shown in the topbar instead of the offline badge. */
+  modeLabel?: string;
+  onExit?: () => void;
+  match?: WorkbenchMatch;
+  tutorial?: WorkbenchTutorial;
 }
 
 export function SimulationWorkbench({
   challenge,
   engine,
+  modeLabel,
+  onExit,
+  match,
+  tutorial,
 }: SimulationWorkbenchProps) {
   const editorRef = useRef<BlocklyEditorHandle>(null);
   const snapshot = useSimulationSnapshot(engine);
   const [compileError, setCompileError] = useState<string>();
+  const [testing, setTesting] = useState(false);
   const {
     leftPanelOpen,
     rightPanelOpen,
@@ -54,6 +107,35 @@ export function SimulationWorkbench({
   useEffect(() => {
     editorRef.current?.highlightBlock(snapshot.currentBlockId);
   }, [snapshot.currentBlockId]);
+
+  // Report the workspace to the tutorial on every edit. Subscribing here rather
+  // than inside the editor keeps the editor unaware that a tutorial exists.
+  const report = tutorial?.onProgramChange;
+  useEffect(() => {
+    if (!report) {
+      return;
+    }
+    const workspace = editorRef.current?.getWorkspace();
+    if (!workspace) {
+      return;
+    }
+    const publish = () => {
+      const blockCount = workspace
+        .getAllBlocks(false)
+        .filter((block) => block.isEnabled() && !block.isShadow()).length;
+      try {
+        report(editorRef.current?.compile().program, blockCount);
+      } catch {
+        // Half-built programs do not compile, which is the normal state while
+        // somebody is dragging blocks around. Report the block count anyway so
+        // a "place a block" step can still notice.
+        report(undefined, blockCount);
+      }
+    };
+    publish();
+    workspace.addChangeListener(publish);
+    return () => workspace.removeChangeListener(publish);
+  }, [report]);
 
   const compile = (): CompiledProgram | undefined => {
     try {
@@ -78,6 +160,27 @@ export function SimulationWorkbench({
     const compiled = compile();
     if (compiled) {
       engine.run(compiled);
+    }
+  };
+
+  const handleTest = async () => {
+    const compiled = compile();
+    if (!compiled) {
+      return;
+    }
+    setTesting(true);
+    try {
+      await runHeadless(engine, compiled);
+      tutorial?.onTested();
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    const compiled = compile();
+    if (compiled) {
+      match?.onSubmit(compiled);
     }
   };
 
@@ -120,10 +223,15 @@ export function SimulationWorkbench({
         </div>
 
         <div className="topbar-actions">
-          <span className="local-badge">
+          <span className={`local-badge ${match ? 'local-badge--live' : ''}`}>
             <i />
-            LOCAL
+            {modeLabel ?? 'LOCAL'}
           </span>
+          {onExit ? (
+            <button type="button" onClick={onExit} aria-label="Leave and return to the menu">
+              <LogOut size={16} />
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={toggleLeftPanel}
@@ -242,6 +350,9 @@ export function SimulationWorkbench({
           </button>
         ) : null}
 
+        {match?.hud}
+        {tutorial?.panel}
+
         {visibleError ? (
           <div className="error-banner" role="alert">
             <strong>PROGRAM ERROR</strong>
@@ -273,12 +384,25 @@ export function SimulationWorkbench({
           onStep={handleStep}
           onStop={() => engine.stop()}
           onReset={handleReset}
+          onTest={() => void handleTest()}
+          testing={testing}
+          {...(match
+            ? {
+                submit: {
+                  onSubmit: handleSubmit,
+                  disabled: !match.canSubmit,
+                  busy: match.submitting,
+                },
+              }
+            : {})}
         />
         <LogDrawer
           logs={snapshot.logs}
           open={logOpen}
           onToggle={toggleLog}
         />
+
+        {match?.overlay}
       </section>
     </main>
   );

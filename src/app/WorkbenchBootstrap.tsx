@@ -5,7 +5,12 @@ import { SimulationEngine } from '../features/simulation/SimulationEngine';
 import { SimulationWorkbench } from '../components/layout/SimulationWorkbench';
 import { useServices } from './servicesContext';
 
-export function WorkbenchBootstrap() {
+interface WorkbenchBootstrapProps {
+  /** Return to the menu. Absent when the workbench is the whole app. */
+  onExit?: () => void;
+}
+
+export function WorkbenchBootstrap({ onExit }: WorkbenchBootstrapProps = {}) {
   const { challengeProvider, scoreProvider } = useServices();
   const [challenge, setChallenge] = useState<Challenge>();
   const [error, setError] = useState<string>();
@@ -17,9 +22,13 @@ export function WorkbenchBootstrap() {
     void challengeProvider
       .listChallenges()
       .then((summaries) => {
+        // The listing's order is part of the contract, not an accident:
+        // hand-authored challenges lead, then generated ones
+        // (`hcr-backend/docs/01-CONTRACT.md` §3.2). So the head is the
+        // challenge to open on, rather than whichever id sorts first.
         const first = summaries[0];
         if (!first) {
-          throw new Error('The local challenge list is empty.');
+          throw new Error('The challenge list is empty.');
         }
         return challengeProvider.getChallenge(first.id);
       })
@@ -84,5 +93,12 @@ export function WorkbenchBootstrap() {
     );
   }
 
-  return <SimulationWorkbench challenge={challenge} engine={engine} />;
+  return (
+    <SimulationWorkbench
+      challenge={challenge}
+      engine={engine}
+      modeLabel="SOLO"
+      {...(onExit ? { onExit } : {})}
+    />
+  );
 }

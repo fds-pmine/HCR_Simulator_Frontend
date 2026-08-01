@@ -212,9 +212,13 @@ export class SimulationEngine {
         const collision = result.blockedCollision;
         const sourceBlockId =
           this.executor.getCurrentCommand()?.sourceBlockId;
+        // The offending block is highlighted in the editor, so naming its
+        // internal Blockly id here added nothing a learner could use and put a
+        // string like `!p3lgyq#.d:{:YBt_H2n.` in front of them. The id is still
+        // passed to `fail` for the highlight; it just is not read out.
         this.fail(
           new Error(
-            `${collision.partLabel} would contact the head; joint ${collision.jointId} stopped at safe angle ${collision.safeAngleDeg.toFixed(2)}°; source block ${sourceBlockId ?? 'unknown'}.`,
+            `${collision.partLabel} would contact the head. ${collision.jointId} stopped at ${collision.safeAngleDeg.toFixed(2)}° — the highlighted block asked for more.`,
           ),
           sourceBlockId,
         );

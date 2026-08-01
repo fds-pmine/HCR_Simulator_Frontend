@@ -9,9 +9,71 @@ export interface GeneratedHairstyles {
   targetHair: HairstyleDefinition;
 }
 
+/**
+ * The hair the challenge asks to be cut away.
+ *
+ * **Measured, not designed.** These are exactly the voxels the arm removes when
+ * driven by the reference solution in `REFERENCE_SOLUTION`, so the challenge is
+ * achievable at 100% by construction. `hairGenerator.test.ts` re-derives them
+ * from the engine and fails if the two ever disagree.
+ *
+ * # Why it is measured
+ *
+ * The previous target was a hand-drawn band across the front of the head, and
+ * the arm could not reach **any of it**: those voxels need `baseYaw` inside
+ * 25.4°, and the elbow contacts the head at 30.4°. Of the 26 voxels it asked
+ * for, 4 were reachable and no program could remove them without removing more
+ * hair that should have stayed. The best score was 89.21 — which is what you get
+ * by running nothing at all — and the shipped starter program scored 84.65,
+ * *below* doing nothing, because the 11 voxels it removed were all hair meant to
+ * stay and none of the hair meant to go.
+ *
+ * Across 5,880 programs the tool can ever touch only 50 of the 241 hair voxels,
+ * and no single program removes more than 12. Anything a challenge asks for
+ * outside that set is unwinnable, so the target is now derived from a program
+ * that demonstrably works rather than drawn by eye.
+ */
+const TRIM_KEYS: ReadonlySet<string> = new Set([
+  '-2,1,4',
+  '-2,4,-1',
+  '-2,4,-2',
+  '-2,4,0',
+  '-2,4,1',
+  '-2,4,2',
+  '-2,5,-1',
+  '-2,5,0',
+  '-2,5,1',
+  '-3,4,-1',
+  '-3,4,0',
+  '-3,4,1',
+]);
+
+/**
+ * The program the target was derived from — the challenge's existence proof.
+ *
+ * Kept beside the target so the two cannot drift apart silently, and so the
+ * "how do I solve this?" question has an answer in the source rather than in
+ * somebody's head.
+ */
+export const REFERENCE_SOLUTION: readonly {
+  jointId: string;
+  angleDeg: number;
+}[] = [
+  { jointId: 'shoulder', angleDeg: 90 },
+  { jointId: 'elbow', angleDeg: -40 },
+  { jointId: 'wrist', angleDeg: -20 },
+  { jointId: 'baseYaw', angleDeg: 55 },
+  { jointId: 'baseYaw', angleDeg: -55 },
+  { jointId: 'shoulder', angleDeg: 70 },
+  { jointId: 'elbow', angleDeg: 0 },
+  { jointId: 'baseYaw', angleDeg: 55 },
+];
+
 export function generateDefaultHairstyles(): GeneratedHairstyles {
   const initial = generateShell(TARGET_INNER_BOUND, INITIAL_OUTER_BOUND, -2);
-  const target = initial.filter((voxel) => !isTrimBandVoxel(voxel));
+  const target = initial.filter(
+    (voxel) => !TRIM_KEYS.has(coordToKey(voxel)),
+  );
 
   return {
     initialHair: {
@@ -21,36 +83,13 @@ export function generateDefaultHairstyles(): GeneratedHairstyles {
     },
     targetHair: {
       id: 'neat-short-cap',
-      name: 'Symmetric Neat Crop',
+      // Not "Symmetric" any more, and the name should not claim otherwise: the
+      // trim is what the arm can actually reach, and the arm sweeps from one
+      // side, so a mirror-symmetric cut is not something it can perform.
+      name: 'Neat Crown Trim',
       voxels: target,
     },
   };
-}
-
-function isTrimBandVoxel(voxel: VoxelCoord): boolean {
-  const absoluteZ = Math.abs(voxel.z);
-  if (voxel.x === 0 && (voxel.y === 1 || voxel.y === 2)) {
-    return absoluteZ === 4;
-  }
-  if (voxel.x === 1 && voxel.y === 1) {
-    return absoluteZ === 4;
-  }
-  if (voxel.x === 1 && voxel.y === 2) {
-    return absoluteZ === 3 || absoluteZ === 4;
-  }
-  if (voxel.x === 2 && voxel.y === 1) {
-    return absoluteZ === 3 || absoluteZ === 4;
-  }
-  if (voxel.x === 2 && voxel.y === 2) {
-    return absoluteZ === 3;
-  }
-  if (voxel.x === 3 && voxel.y === 1) {
-    return absoluteZ === 2 || absoluteZ === 3;
-  }
-  if (voxel.x === 3 && voxel.y === 2) {
-    return absoluteZ >= 1 && absoluteZ <= 3;
-  }
-  return false;
 }
 
 function generateShell(

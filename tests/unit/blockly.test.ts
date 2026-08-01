@@ -19,7 +19,9 @@ import {
   loadWorkspaceState,
   saveWorkspaceState,
 } from '../../src/features/blockly/workspaceFactory';
+import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
+import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
 import type { Challenge } from '../../src/types/domain';
 
 describe('Blockly program compiler', () => {
@@ -240,3 +242,204 @@ function expectCompilationError(
     expect((error as ProgramCompilationError).code).toBe(code);
   }
 }
+
+describe('workspace deserialization is independent of field order', () => {
+  let challenge: Challenge;
+  let workspace: Blockly.Workspace;
+
+  beforeEach(async () => {
+    challenge = await new LocalChallengeProvider().getChallenge(
+      DEFAULT_CHALLENGE_ID,
+    );
+    registerHcrBlocks(challenge.robotConfig.joints);
+    workspace = new Blockly.Workspace();
+  });
+
+  afterEach(() => {
+    workspace.dispose();
+  });
+
+  /** The shipped starter, with each block's fields emitted alphabetically. */
+  function angleFirstStarter(): Record<string, unknown> {
+    const reorder = (block: Record<string, unknown>): Record<string, unknown> => {
+      const fields = block.fields as Record<string, unknown> | undefined;
+      const next = block.next as { block: Record<string, unknown> } | undefined;
+      return {
+        ...block,
+        ...(fields
+          ? {
+              fields: Object.fromEntries(
+                Object.keys(fields)
+                  .sort()
+                  .map((key) => [key, fields[key]]),
+              ),
+            }
+          : {}),
+        ...(next ? { next: { block: reorder(next.block) } } : {}),
+      };
+    };
+    const state = structuredClone(challenge.starterWorkspace) as {
+      blocks: { blocks: Record<string, unknown>[] };
+    };
+    return {
+      ...state,
+      blocks: { ...state.blocks, blocks: state.blocks.blocks.map(reorder) },
+    };
+  }
+
+  it('loads the angles it was given, not the ones the default joint allows', () => {
+    // `serde_json::Value` is a BTreeMap, so the backend emits ANGLE before
+    // JOINT_ID. Blockly applies fields in key order and the angle validator
+    // reads the joint, so an angle arriving first was judged against whichever
+    // joint the dropdown defaulted to — silently replacing every value outside
+    // that joint's range with the field's fallback.
+    loadWorkspaceState(workspace, angleFirstStarter());
+
+    const angles = workspace
+      .getAllBlocks(true)
+      .filter((block) => block.type === BLOCK_TYPES.setJointAngle)
+      .map((block) => [
+        block.getFieldValue(BLOCK_FIELDS.jointId) as string,
+        Number(block.getFieldValue(BLOCK_FIELDS.angle)),
+      ]);
+
+    expect(angles).toEqual([
+      ['shoulderRoll', 15],
+      ['shoulder', 80],
+      ['elbow', 0],
+      ['wrist', -80],
+      ['baseYaw', 55],
+    ]);
+  });
+
+  it('compiles both field orders to the identical program', () => {
+    loadWorkspaceState(workspace, angleFirstStarter());
+    const fromAngleFirst = compileWorkspace(workspace, challenge);
+
+    loadWorkspaceState(workspace, challenge.starterWorkspace);
+    const fromJointFirst = compileWorkspace(workspace, challenge);
+
+    expect(fromAngleFirst.program).toEqual(fromJointFirst.program);
+  });
+});
+
+describe('repeat', () => {
+  let challenge: Challenge;
+  let workspace: Blockly.Workspace;
+
+  beforeEach(async () => {
+    challenge = await new LocalChallengeProvider().getChallenge(
+      DEFAULT_CHALLENGE_ID,
+    );
+    registerHcrBlocks(challenge.robotConfig.joints);
+    workspace = new Blockly.Workspace();
+  });
+
+  afterEach(() => {
+    workspace.dispose();
+  });
+
+  const setJoint = (
+    id: string,
+    jointId: string,
+    angleDeg: number,
+    next?: unknown,
+  ) => ({
+    type: BLOCK_TYPES.setJointAngle,
+    id,
+    fields: { [BLOCK_FIELDS.jointId]: jointId, [BLOCK_FIELDS.angle]: angleDeg },
+    ...(next ? { next: { block: next } } : {}),
+  });
+
+  const repeatOf = (count: number, body: unknown) => ({
+    blocks: {
+      languageVersion: 0,
+      blocks: [
+        {
+          type: BLOCK_TYPES.repeat,
+          id: 'rep',
+          fields: { [BLOCK_FIELDS.count]: count },
+          inputs: { [BLOCK_FIELDS.body]: { block: body } },
+        },
+      ],
+    },
+  });
+
+  it('nests the body in the IR and expands it once per iteration', () => {
+    loadWorkspaceState(
+      workspace,
+      // Both angles sit inside the head-safe yaw band, so the run is about
+      // repetition rather than about the collision constraint.
+      repeatOf(3, setJoint('a', 'baseYaw', -55, setJoint('b', 'baseYaw', -38))),
+    );
+
+    const compiled = compileWorkspace(workspace, challenge);
+
+    // The IR keeps `repeat` nested — the server expands it itself, which is
+    // what gives the command cap any force.
+    expect(compiled.program.nodes).toEqual([
+      {
+        type: 'repeat',
+        count: 3,
+        sourceBlockId: 'rep',
+        body: [
+          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: -55, sourceBlockId: 'a' },
+          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: -38, sourceBlockId: 'b' },
+        ],
+      },
+    ]);
+    expect(compiled.runtimeCommands).toHaveLength(6);
+  });
+
+  it('runs every iteration through the engine', async () => {
+    loadWorkspaceState(
+      workspace,
+      repeatOf(3, setJoint('a', 'baseYaw', -55, setJoint('b', 'baseYaw', -38))),
+    );
+    const compiled = compileWorkspace(workspace, challenge);
+
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    engine.run(compiled);
+    for (let tick = 0; tick < 20_000; tick += 1) {
+      if (engine.getSnapshot().status !== 'running') break;
+      engine.tick(16);
+    }
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.status).toBe('completed');
+    expect(snapshot.metrics.executedCommandCount).toBe(6);
+  });
+
+  it('repeating one absolute angle changes nothing after the first move', async () => {
+    // Not a defect — `set-joint-angle` is absolute, so iterations 2..n drive a
+    // joint to where it already is. It is recorded because it is exactly what
+    // "repeat doesn't work" looks like from the outside: five commands run, the
+    // arm moves once, and the extra commands only cost efficiency.
+    const run = async (state: Record<string, unknown>) => {
+      const compiled = compileWorkspace(
+        (workspace.clear(), loadWorkspaceState(workspace, state), workspace),
+        challenge,
+      );
+      const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+      engine.run(compiled);
+      for (let tick = 0; tick < 20_000; tick += 1) {
+        if (engine.getSnapshot().status !== 'running') break;
+        engine.tick(16);
+      }
+      return {
+        voxels: engine.getSnapshot().hairVoxels.size,
+        commands: engine.getSnapshot().metrics.executedCommandCount,
+      };
+    };
+
+    const repeated = await run(repeatOf(5, setJoint('a', 'baseYaw', -55)));
+    const once = await run({
+      blocks: { languageVersion: 0, blocks: [setJoint('a', 'baseYaw', -55)] },
+    });
+
+    expect(repeated.commands).toBe(5);
+    expect(once.commands).toBe(1);
+    // Five times the work, identical outcome.
+    expect(repeated.voxels).toBe(once.voxels);
+  });
+});

@@ -15,10 +15,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { ApiClient } from '../../src/services/http/apiClient';
 import { HttpChallengeProvider } from '../../src/services/http/HttpChallengeProvider';
+import { HttpMatchProvider } from '../../src/services/http/HttpMatchProvider';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
+import { matchConfig } from '../../src/types/match';
 import type { ScoreResult } from '../../src/types/domain';
 
-const BASE_URL = process.env.HCR_API_BASE_URL ?? 'http://localhost:8080';
+const BASE_URL = process.env.HCR_API_BASE_URL ?? 'http://localhost:18623';
 const SHIPPED = 'neat-short-cap';
 
 let reachable = false;
@@ -88,9 +90,11 @@ describe('live backend', () => {
     expect(result.status).toBe('completed');
     expect(result.terminal.reason).toBe('completed');
     expect(result.metrics.executedCommandCount).toBe(5);
-    // The values recorded from the TS engine in the conformance fixture.
-    expect(result.score.completionScore).toBeCloseTo(84.6473, 3);
-    expect(result.score.finalScore).toBeCloseTo(90.7884, 3);
+    // The values recorded from the TS engine in the conformance fixture. The
+    // starter removes 11 of the 12 voxels the target asks for, so it scores
+    // just short of the 100 the reference solution reaches.
+    expect(result.score.completionScore).toBeCloseTo(99.5652, 3);
+    expect(result.score.finalScore).toBeCloseTo(99.7391, 3);
   });
 
   it('reports a head collision with the block to highlight', async ({ skip }) => {
@@ -134,5 +138,126 @@ describe('live backend', () => {
         },
       }),
     ).rejects.toMatchObject({ code: 'PROGRAM_INVALID', field: 'noSuchJoint' });
+  });
+});
+
+/**
+ * A whole competitive round, driven by the class the versus UI actually uses.
+ *
+ * The unit tests stub `fetch`, so they prove `HttpMatchProvider` builds the
+ * requests it means to. Only this proves the server agrees — that the challenge
+ * really is withheld, that the acknowledgement really carries no score, and that
+ * the deadline really is judged on the server's clock.
+ */
+describe('live competitive round', () => {
+  const provider = (playerId: string, displayName: string) => {
+    const instance = new HttpMatchProvider(new ApiClient({ baseUrl: BASE_URL }));
+    instance.setPlayer({ playerId, displayName });
+    return instance;
+  };
+
+  it('runs lobby → round → results with the server as the only authority', async ({
+    skip,
+  }) => {
+    if (!reachable) skip();
+
+    const alice = provider('u-live-alice', 'Alice');
+    const bob = provider('u-live-bob', 'Bob');
+
+    // Built through `matchConfig` — the same overrides-onto-defaults path the
+    // versus UI uses. Hand-writing a complete config here would stop this test
+    // noticing if the UI ever sent a partial one, which it did once.
+    // A short round, so the test closes it by waiting rather than by asking.
+    const created = await alice.createMatch(
+      matchConfig({
+        durationMs: 3_000,
+        minSubmitIntervalMs: 0,
+        challengeRef: { challengeId: SHIPPED, version: 1 },
+      }),
+    );
+    expect(created.phase).toBe('lobby');
+
+    // Withheld during the lobby: revealing it early is a head start.
+    await expect(alice.getMatchChallenge(created.matchId)).rejects.toMatchObject({
+      code: 'MATCH_NOT_READY',
+    });
+
+    await alice.joinMatch(created.matchId);
+    const roster = await bob.joinMatch(created.matchId);
+    // The display name is cosmetic; the id is what the server acts on.
+    expect(roster.players.map((player) => player.displayName).sort()).toEqual([
+      'Alice',
+      'Bob',
+    ]);
+
+    const started = await alice.startMatch(created.matchId);
+    expect(started.phase).toBe('running');
+    expect((started.closesAt ?? 0) - (started.opensAt ?? 0)).toBe(3_000);
+
+    const revealed = await alice.getMatchChallenge(created.matchId);
+    expect(revealed.challenge.id).toBe(SHIPPED);
+    expect(revealed.version).toBe(1);
+
+    const ack = await alice.submit(created.matchId, {
+      submissionId: `live-round-${Date.now()}`,
+      challengeId: SHIPPED,
+      challengeVersion: 1,
+      program: STARTER_PROGRAM,
+      // Ignored by the online provider; the server replays and uses its own.
+      clientScore: {
+        completionScore: 100,
+        efficiencyScore: 100,
+        timeScore: 100,
+        finalScore: 100,
+        programCost: 0,
+      },
+    });
+    expect(ack.accepted).toBe(true);
+    // The rule made checkable: an acknowledgement carries no score at all.
+    expect(Object.keys(ack).sort()).toEqual([
+      'accepted',
+      'serverReceivedAt',
+      'submissionId',
+    ]);
+
+    // Standings stay sealed while the round is open.
+    await expect(alice.getResults(created.matchId)).rejects.toMatchObject({
+      code: 'MATCH_NOT_READY',
+      message: 'Results are published when the round closes.',
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 3_400));
+    await alice.getMatch(created.matchId); // settles the phase on the server clock
+
+    const results = await alice.getResults(created.matchId);
+    expect(results.rankBy).toBe('completion');
+    expect(results.rows[0]?.displayName).toBe('Alice');
+    // The server's own replay, not the 100 the client claimed.
+    expect(results.rows[0]?.completionScore).toBeCloseTo(99.5652, 3);
+    expect(results.rows[1]?.displayName).toBe('Bob');
+    expect(results.rows[1]?.submissionId).toBeUndefined();
+
+    const late = await bob.submit(created.matchId, {
+      submissionId: `live-late-${Date.now()}`,
+      challengeId: SHIPPED,
+      challengeVersion: 1,
+      program: STARTER_PROGRAM,
+    });
+    expect(late.accepted).toBe(false);
+    expect(late.rejectedReason).toBe('after-deadline');
+  }, 20_000);
+
+  it('estimates a clock offset small enough for a countdown to be honest', async ({
+    skip,
+  }) => {
+    if (!reachable) skip();
+
+    const sample = await provider('u-live-clock', 'Clock').syncClock();
+
+    // Against a server on this machine the offset is a rounding error. The
+    // assertion is loose because the point is that the estimator works at all —
+    // the countdown is advisory, and only server receive time decides anything.
+    expect(Math.abs(sample.offsetMs)).toBeLessThan(1_000);
+    expect(sample.rttMs).toBeLessThan(1_000);
   });
 });

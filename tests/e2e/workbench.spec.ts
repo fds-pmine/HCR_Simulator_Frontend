@@ -6,6 +6,8 @@ test.describe('HCR Simulator workbench', () => {
     await expect(
       page.getByRole('heading', { name: 'HCR Simulator' }),
     ).toBeVisible();
+    // The app opens on the mode menu; the workbench is behind Solo Practice.
+    await page.getByRole('button', { name: /Solo Practice/ }).click();
     await expect(
       page.getByRole('heading', { name: 'Neat Short Haircut' }),
     ).toBeVisible();
@@ -49,10 +51,10 @@ test.describe('HCR Simulator workbench', () => {
       { timeout: 15_000 },
     );
     await expect(page.getByRole('alert')).toContainText('baseYaw');
-    await expect(page.getByRole('alert')).toContainText('safe angle');
-    await expect(page.getByRole('alert')).toContainText(
-      'starter-base-sweep',
-    );
+    await expect(page.getByRole('alert')).toContainText('contact the head');
+    // The offending block is highlighted rather than named: its Blockly id is
+    // an internal string a learner cannot act on.
+    await expect(page.locator('.blocklyHighlighted')).toHaveCount(1);
     await expect(page.getByTestId('executed-command-count')).toHaveText(
       '4',
     );

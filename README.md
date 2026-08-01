@@ -3,6 +3,10 @@
 HCR Simulator is a fully client-side Web 3D programming demo. Users arrange servo-angle commands in Blockly to drive a virtual five-joint robot arm. The end effector removes Hair Voxels on contact, while deterministic geometric constraints prevent the entire mechanism from entering the head. The simulator then scores the result by target-hairstyle completion, program efficiency, and estimated execution time.
 
 > **Current status: Phases 1–6 are complete and the fully client-side demo loop is operational. Phase 7 cross-browser visual acceptance is still pending.**
+>
+> Since v0.3 the app also has a **menu, a solo mode and a competitive versus mode**, and can run against the
+> HCR backend in `../hcr-backend`. It still runs entirely offline with no backend configured — see
+> [Game modes](#game-modes).
 
 > **Documentation policy:** This README is the English public entry point. The canonical engineering, specification, implementation, and acceptance documents remain in Chinese under the repository policy.
 
@@ -56,6 +60,47 @@ The target version includes:
 5. Use the right Inspector to view joint angles, end-effector position, voxel counts, command metrics, and scores. The bottom log records important events.
 6. Select **Reset** to restore the simulation while preserving the Blockly program. The **Target Hairstyle Preview** can be toggled independently.
 
+## Game modes
+
+The app opens on a menu with two modes.
+
+**Solo Practice** is the workbench described above, untimed.
+
+**Versus Round** is a competitive round: everyone in the room gets the *same* challenge at the *same*
+moment and has a fixed wall-clock window to submit. Closest to the target wins. No score is visible to
+anyone — including yourself — until the round closes, and you may resubmit as often as you like because
+only your best attempt counts. The rules and the reasoning behind each are in
+[`../hcr-backend/docs/06-MULTIPLAYER.md`](../hcr-backend/docs/06-MULTIPLAYER.md).
+
+Both modes share a **Test** button next to Run. It evaluates the program headlessly — the same engine and
+the same result, in milliseconds instead of watching it animate — so how fast you can iterate does not
+depend on how fast your machine renders.
+
+### Offline versus is practice, not multiplayer
+
+With no backend configured there is no server to replay your program, so an offline round is scored by
+your own browser and the opponents are scripted local bots. The app says so on the menu, in the lobby and
+on the scoreboard. It exists so the mode is playable with `npm run dev` alone; nothing it reports is a
+result.
+
+### Playing a real round
+
+Point the app at a backend and the identical UI becomes real: programs are replayed server-side, the
+deadline is judged by the server's clock, and standings are the server's.
+
+```bash
+# terminal 1 — the backend
+cd ../hcr-backend
+cargo run -p hcr_service --features hotaru --example serve
+
+# terminal 2 — the app
+VITE_HCR_API_BASE_URL=http://localhost:18623 npm run dev
+```
+
+Open two browser profiles, host in one, and join with the room code in the other. `cargo run ... --example
+serve` is a **development** server: it has no authentication layer, so it trusts the player-identity header
+as sent and its item-signing key is a placeholder in the source.
+
 ## Local Setup and Quality Commands
 
 Node.js 22 and npm are required. Install dependencies and start the development server:
@@ -80,7 +125,14 @@ Production builds are written to `dist/`. Do not commit that directory or genera
 
 ## Explicit Non-goals
 
-- A backend, accounts, workspace persistence, or a network runtime dependency.
-- Real ESP or servo integration, MQTT, WebSerial, or WebBluetooth.
+Still out of scope:
+
+- Accounts and workspace persistence.
+- Real ESP or servo integration, WebSerial, or WebBluetooth.
 - Inverse kinematics, a full physics engine, robot self-collision, realistic hair strands, or scissor actuation.
-- Multiplayer competition, dedicated mobile support, or production deployment.
+- Dedicated mobile support, or production deployment.
+
+Two entries moved off this list and are now delivered by `../hcr-backend` rather than by this app: **a
+backend** (optional — the simulator still has no network dependency of its own, and makes no request unless
+`VITE_HCR_API_BASE_URL` is set) and **multiplayer competition**. MQTT is designed and specified but not yet
+wired here; the versus mode currently uses the HTTP binding.

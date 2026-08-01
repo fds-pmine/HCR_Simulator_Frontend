@@ -21,9 +21,9 @@ describe('LocalChallengeProvider', () => {
       name: 'Neat Short Haircut',
     });
     expect(first.initialHair.name).toBe('Thick Cap Initial Hairstyle');
-    expect(first.targetHair.name).toBe('Symmetric Neat Crop');
+    expect(first.targetHair.name).toBe('Neat Crown Trim');
     expect(first.initialHair.voxels).toBeInstanceOf(Set);
-    expect(first.targetHair.voxels.size).toBe(215);
+    expect(first.targetHair.voxels.size).toBe(229);
     expect(first.robotConfig.joints).toHaveLength(5);
     expect(first.robotConfig.joints.map((joint) => joint.id)).toEqual([
       'baseYaw',
