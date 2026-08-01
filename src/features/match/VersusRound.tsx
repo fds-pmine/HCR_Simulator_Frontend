@@ -49,7 +49,16 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
         kind={matchProvider.kind}
         busy={session.busy}
         {...(session.error ? { error: session.error } : {})}
-        onHost={(durationMs) => void actions.host({ durationMs })}
+        onHost={(durationMs, challengeId) =>
+          void actions.host({
+            durationMs,
+            // Version 1: the catalog serves the latest, and a round pins the
+            // version so recalibration cannot move a score mid-round.
+            ...(challengeId
+              ? { challengeRef: { challengeId, version: 1 } }
+              : {}),
+          })
+        }
         onJoin={(code) => void actions.join(code)}
         onBack={onExit}
         onDismissError={actions.dismissError}

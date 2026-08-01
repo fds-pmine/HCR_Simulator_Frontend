@@ -1,5 +1,6 @@
 import { LocalChallengeProvider } from '../services/local/LocalChallengeProvider';
 import { LocalMatchProvider } from '../services/local/LocalMatchProvider';
+import { LocalSessionProvider } from '../services/local/LocalSessionProvider';
 import { LocalScoreProvider } from '../services/local/LocalScoreProvider';
 import { createHttpServices, readBackendConfig } from '../services/http/config';
 import type { AppServices } from './servicesContext';
@@ -11,6 +12,9 @@ function localServices(): AppServices {
     scoreProvider: new LocalScoreProvider(),
     // Offline rounds are practice against local bots — see LocalMatchProvider.
     matchProvider: new LocalMatchProvider(challengeProvider),
+    // No CAT engine in the browser: the lessons in order, which is the same
+    // shape without claiming to be a measurement.
+    sessionProvider: new LocalSessionProvider(),
   };
 }
 

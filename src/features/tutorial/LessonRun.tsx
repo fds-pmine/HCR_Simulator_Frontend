@@ -12,10 +12,12 @@ import { LessonGoal } from './LessonGoal';
 interface LessonRunProps {
   lessonId: string;
   onSolved: (lessonId: string) => void;
+  /** Open the following lesson. Absent on the last one. */
+  onNext?: () => void;
   onExit: () => void;
 }
 
-export function LessonRun({ lessonId, onSolved, onExit }: LessonRunProps) {
+export function LessonRun({ lessonId, onSolved, onNext, onExit }: LessonRunProps) {
   const lesson = LESSONS.find((entry) => entry.id === lessonId);
 
   const built = useMemo(() => {
@@ -55,6 +57,7 @@ export function LessonRun({ lessonId, onSolved, onExit }: LessonRunProps) {
       challenge={built}
       engine={engine}
       onSolved={onSolved}
+      {...(onNext ? { onNext } : {})}
       onExit={onExit}
     />
   );
@@ -65,12 +68,14 @@ function LessonStage({
   challenge,
   engine,
   onSolved,
+  onNext,
   onExit,
 }: {
   lesson: (typeof LESSONS)[number];
   challenge: ReturnType<typeof normalizeChallenge>;
   engine: SimulationEngine;
   onSolved: (lessonId: string) => void;
+  onNext?: () => void;
   onExit: () => void;
 }) {
   const snapshot = useSimulationSnapshot(engine);
@@ -104,6 +109,7 @@ function LessonStage({
             solved={solved}
             revealed={revealed}
             onReveal={() => setRevealed(true)}
+            {...(onNext ? { onNext } : {})}
             onExit={onExit}
           />
         ),

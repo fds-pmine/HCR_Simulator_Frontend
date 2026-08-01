@@ -5,6 +5,7 @@ import type { AppServices } from '../../src/app/servicesContext';
 import { VersusRound } from '../../src/features/match/VersusRound';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import { LocalMatchProvider } from '../../src/services/local/LocalMatchProvider';
+import { LocalSessionProvider } from '../../src/services/local/LocalSessionProvider';
 import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
 
 const IDENTITY = { playerId: 'u-test', displayName: 'Tester' };
@@ -15,6 +16,7 @@ function renderVersus() {
     challengeProvider,
     scoreProvider: new LocalScoreProvider(),
     matchProvider: new LocalMatchProvider(challengeProvider),
+    sessionProvider: new LocalSessionProvider(),
   };
 
   return render(

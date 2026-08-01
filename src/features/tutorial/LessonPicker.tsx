@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, GraduationCap, Lock } from 'lucide-react';
+import { ArrowLeft, Check, GraduationCap } from 'lucide-react';
 import { LESSONS } from '../../data/challenges/lessons';
 
 interface LessonPickerProps {
@@ -33,10 +33,11 @@ export function LessonPicker({ completed, onPick, onBack }: LessonPickerProps) {
 
       <ol className="lesson-list">
         {LESSONS.map((lesson, index) => {
+          // Nothing is locked, and nothing may look locked either: the first
+          // version drew a padlock beside every unstarted lesson while leaving
+          // them all clickable, which promises a gate that is not there. A
+          // learner who wants to jump ahead and come back is still learning.
           const done = completed.has(lesson.id);
-          // Nothing is locked. A learner who wants to jump ahead and come back
-          // is learning; a gate would only stop them.
-          const previousDone = index === 0 || completed.has(LESSONS[index - 1].id);
           return (
             <li key={lesson.id}>
               <button
@@ -54,7 +55,6 @@ export function LessonPicker({ completed, onPick, onBack }: LessonPickerProps) {
                 <span className="lesson-row__meta">
                   {lesson.solution.length} block
                   {lesson.solution.length === 1 ? '' : 's'}
-                  {!done && !previousDone ? <Lock size={12} /> : null}
                 </span>
               </button>
             </li>

@@ -1203,8 +1203,8 @@ input:focus-visible {
 
 .home__modes {
   display: grid;
-  /* Wide enough for three cards abreast; auto-fit drops to 2 then 1. */
-  width: min(1060px, 100%);
+  /* Wide enough for four cards abreast; auto-fit drops to 2 then 1. */
+  width: min(1180px, 100%);
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 14px;
 }
@@ -2502,4 +2502,27 @@ input:focus-visible {
   background: rgba(0, 0, 0, 0.25);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: var(--font-micro);
+}
+
+.host-choice {
+  display: grid;
+  gap: 5px;
+}
+
+.host-choice span {
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-micro);
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+
+.host-choice select {
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  color: #dceaf1;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: var(--font-sm);
 }

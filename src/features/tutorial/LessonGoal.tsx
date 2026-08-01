@@ -1,4 +1,4 @@
-import { Check, Eye, GraduationCap, LogOut, Target } from 'lucide-react';
+import { ArrowRight, Check, Eye, GraduationCap, LogOut, Target } from 'lucide-react';
 import type { Lesson } from '../../data/challenges/lessons';
 
 interface LessonGoalProps {
@@ -8,6 +8,8 @@ interface LessonGoalProps {
   solved: boolean;
   revealed: boolean;
   onReveal: () => void;
+  /** Advance to the next lesson. Absent on the last one. */
+  onNext?: () => void;
   onExit: () => void;
 }
 
@@ -25,6 +27,7 @@ export function LessonGoal({
   solved,
   revealed,
   onReveal,
+  onNext,
   onExit,
 }: LessonGoalProps) {
   return (
@@ -65,7 +68,22 @@ export function LessonGoal({
               : 'Close — check the target outline'}
         </span>
 
-        {revealed ? (
+        {/*
+          Once it is solved, the only thing worth offering is the next lesson.
+          Leaving somebody on a finished screen with nothing but "Leave" is how
+          a curriculum stops being one.
+        */}
+        {solved ? (
+          <button
+            className="big-button big-button--primary tutorial__next"
+            type="button"
+            onClick={onNext ?? onExit}
+            data-testid="next-lesson"
+          >
+            {onNext ? 'Next lesson' : 'Back to lessons'}
+            <ArrowRight size={15} />
+          </button>
+        ) : revealed ? (
           <code className="lesson-answer">
             {lesson.solution
               .map((step) => `${step.jointId} ${step.angleDeg}°`)

@@ -1,4 +1,4 @@
-import type { MatchProvider } from '../services/contracts';
+import type { MatchProvider, SessionProvider } from '../services/contracts';
 
 /**
  * A match provider that fails every call.
@@ -24,5 +24,19 @@ export function unusedMatchProvider(
     getResults: refuse,
     submit: refuse,
     syncClock: refuse,
+  };
+}
+
+/** A session provider that fails every call, for screens that must not practise. */
+export function unusedSessionProvider(): SessionProvider {
+  const refuse = () => {
+    throw new Error('The session provider was not expected to be used here.');
+  };
+  return {
+    kind: 'fixed',
+    start: refuse,
+    next: refuse,
+    respond: refuse,
+    finalize: refuse,
   };
 }

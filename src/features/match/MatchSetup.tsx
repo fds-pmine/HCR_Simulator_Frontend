@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Bot, LoaderCircle, Radio, Swords, Wifi, WifiOff } from 'lucide-react';
 import type { MatchProvider } from '../../services/contracts';
+import type { ChallengeSummary } from '../../types/domain';
+import { useServices } from '../../app/servicesContext';
 
 interface MatchSetupProps {
   kind: MatchProvider['kind'];
   busy: boolean;
   error?: string;
-  onHost: (durationMs: number) => void;
+  onHost: (durationMs: number, challengeId?: string) => void;
   onJoin: (code: string) => void;
   onBack: () => void;
   onDismissError: () => void;
@@ -30,7 +32,28 @@ export function MatchSetup({
 }: MatchSetupProps) {
   const [durationMs, setDurationMs] = useState(DURATIONS[1].ms);
   const [code, setCode] = useState('');
+  const [challengeId, setChallengeId] = useState('');
+  const [catalog, setCatalog] = useState<ChallengeSummary[]>([]);
   const practice = kind === 'practice';
+  const { challengeProvider } = useServices();
+
+  // Offered so a host can pick the item. Without this every unpinned round ran
+  // on whatever the server chose, which is the same challenge every time.
+  useEffect(() => {
+    let active = true;
+    void challengeProvider
+      .listChallenges()
+      .then((listed) => {
+        if (active) setCatalog(listed);
+      })
+      .catch(() => {
+        // A catalog we cannot read just means no choice is offered; the server
+        // still picks one, so hosting must not be blocked by it.
+      });
+    return () => {
+      active = false;
+    };
+  }, [challengeProvider]);
 
   return (
     <main className="menu-screen">
@@ -87,11 +110,29 @@ export function MatchSetup({
             ))}
           </div>
 
+          {catalog.length > 1 ? (
+            <label className="host-choice">
+              <span>CHALLENGE</span>
+              <select
+                value={challengeId}
+                onChange={(event) => setChallengeId(event.target.value)}
+                aria-label="Challenge for this round"
+              >
+                <option value="">Let the server choose</option>
+                {catalog.map((summary) => (
+                  <option key={summary.id} value={summary.id}>
+                    {summary.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
           <button
             className="big-button big-button--primary"
             type="button"
             disabled={busy}
-            onClick={() => onHost(durationMs)}
+            onClick={() => onHost(durationMs, challengeId || undefined)}
           >
             {busy ? <LoaderCircle className="spin" size={17} /> : <Radio size={17} />}
             Open Room

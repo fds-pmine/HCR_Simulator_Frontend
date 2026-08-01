@@ -6,7 +6,10 @@ test.describe('HCR Simulator workbench', () => {
     await expect(
       page.getByRole('heading', { name: 'HCR Simulator' }),
     ).toBeVisible();
-    // The app opens on the mode menu; the workbench is behind Solo Practice.
+    // The app opens on the mode menu. Solo Practice runs a session that always
+    // opens on the authored challenge: with no responses there is nothing to
+    // adapt to, so everybody starts on the same fixed item and its score seeds
+    // the estimate.
     await page.getByRole('button', { name: /Solo Practice/ }).click();
     await expect(
       page.getByRole('heading', { name: 'Neat Short Haircut' }),

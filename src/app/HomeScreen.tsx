@@ -82,8 +82,8 @@ export function HomeScreen({
           </span>
           <strong>Solo Practice</strong>
           <span className="mode-card__body">
-            One challenge, no clock. Build a program, test it instantly, and
-            watch the score break down.
+            No clock. Finish one and the next arrives — harder or easier, chosen
+            from how you are doing.
           </span>
           <span className="mode-card__go">Start →</span>
         </button>

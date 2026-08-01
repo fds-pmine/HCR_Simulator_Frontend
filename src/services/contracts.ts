@@ -12,6 +12,12 @@ import type {
   MatchState,
   MatchSubmissionAck,
 } from '../types/match';
+import type {
+  NextItem,
+  ResponseOutcome,
+  SessionResult,
+  SessionSnapshot,
+} from '../types/session';
 
 export interface ChallengeProvider {
   listChallenges(): Promise<ChallengeSummary[]>;
@@ -89,4 +95,44 @@ export interface MatchProvider {
   ): Promise<MatchSubmissionAck>;
   /** Estimate the local-to-server clock offset so the countdown agrees. */
   syncClock(): Promise<ClockSample>;
+}
+
+/**
+ * Adaptive practice: the server picks each challenge from the learner's ability.
+ *
+ * This is what makes Solo a progression rather than a menu. After each attempt
+ * the CAT engine (`arona`) refits the ability estimate and selects the item with
+ * the most information at it — so finishing an easy challenge produces a harder
+ * one, and struggling produces an easier one. Rules and reasoning:
+ * `hcr-backend/docs/03-DYNAMIC-QBANK.md`.
+ */
+export interface SessionProvider {
+  /** Whether items are chosen adaptively, or served from a fixed order. */
+  readonly kind: 'adaptive' | 'fixed';
+
+  /**
+   * Open a session, optionally seeded with an ability estimate.
+   *
+   * Passed after the intro challenge has been scored: with no responses θ
+   * carries no information, so the first "adaptive" choice would come from a
+   * prior rather than from the learner. Seeding means the second challenge is
+   * already tailored.
+   */
+  start(initialTheta?: number): Promise<SessionSnapshot>;
+  /** The next challenge to attempt. */
+  next(sessionId: string): Promise<NextItem>;
+  /**
+   * Record an attempt, moving the ability estimate.
+   *
+   * The score is **not** passed: the server looks up the submission it already
+   * replayed. A client that could supply its own score would make the whole
+   * adaptive estimate a fiction.
+   */
+  respond(
+    sessionId: string,
+    itemRef: string,
+    submissionId: string,
+  ): Promise<ResponseOutcome>;
+  /** Close the session and collect its history. */
+  finalize(sessionId: string): Promise<SessionResult>;
 }

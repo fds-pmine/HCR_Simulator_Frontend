@@ -6,11 +6,16 @@ import { SimulationWorkbench } from '../components/layout/SimulationWorkbench';
 import { useServices } from './servicesContext';
 
 interface WorkbenchBootstrapProps {
+  /** Which challenge to open. Falls back to the head of the listing. */
+  challengeId?: string;
   /** Return to the menu. Absent when the workbench is the whole app. */
   onExit?: () => void;
 }
 
-export function WorkbenchBootstrap({ onExit }: WorkbenchBootstrapProps = {}) {
+export function WorkbenchBootstrap({
+  challengeId,
+  onExit,
+}: WorkbenchBootstrapProps = {}) {
   const { challengeProvider, scoreProvider } = useServices();
   const [challenge, setChallenge] = useState<Challenge>();
   const [error, setError] = useState<string>();
@@ -22,15 +27,14 @@ export function WorkbenchBootstrap({ onExit }: WorkbenchBootstrapProps = {}) {
     void challengeProvider
       .listChallenges()
       .then((summaries) => {
-        // The listing's order is part of the contract, not an accident:
-        // hand-authored challenges lead, then generated ones
-        // (`hcr-backend/docs/01-CONTRACT.md` §3.2). So the head is the
-        // challenge to open on, rather than whichever id sorts first.
-        const first = summaries[0];
-        if (!first) {
+        // A caller that named one wins. Otherwise fall back to the head of the
+        // listing, whose order is contractual — authored first, then generated
+        // (`hcr-backend/docs/01-CONTRACT.md` §3.2).
+        const chosen = challengeId ?? summaries[0]?.id;
+        if (!chosen) {
           throw new Error('The challenge list is empty.');
         }
-        return challengeProvider.getChallenge(first.id);
+        return challengeProvider.getChallenge(chosen);
       })
       .then((loadedChallenge) => {
         if (active) {
@@ -50,7 +54,7 @@ export function WorkbenchBootstrap({ onExit }: WorkbenchBootstrapProps = {}) {
     return () => {
       active = false;
     };
-  }, [challengeProvider, retryToken]);
+  }, [challengeProvider, challengeId, retryToken]);
 
   const engine = useMemo(
     () =>

@@ -16,6 +16,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { ApiClient } from '../../src/services/http/apiClient';
 import { HttpChallengeProvider } from '../../src/services/http/HttpChallengeProvider';
 import { HttpMatchProvider } from '../../src/services/http/HttpMatchProvider';
+import { HttpSessionProvider } from '../../src/services/http/HttpSessionProvider';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import { matchConfig } from '../../src/types/match';
 import type { ScoreResult } from '../../src/types/domain';
@@ -259,5 +260,80 @@ describe('live competitive round', () => {
     // the countdown is advisory, and only server receive time decides anything.
     expect(Math.abs(sample.offsetMs)).toBeLessThan(1_000);
     expect(sample.rttMs).toBeLessThan(1_000);
+  });
+});
+
+/**
+ * Adaptive practice against the real CAT engine.
+ *
+ * Solo is a session now, not a menu: the server picks each challenge from the
+ * learner's ability estimate. Only a live run proves the loop closes — that a
+ * response moves theta and that the next item arrives.
+ */
+describe('live adaptive practice', () => {
+  it('serves items and moves the ability estimate', async ({ skip }) => {
+    if (!reachable) skip();
+
+    const client = new ApiClient({ baseUrl: BASE_URL });
+    const sessions = new HttpSessionProvider(client);
+
+    const opened = await sessions.start();
+    expect(opened.sessionId).toBeTruthy();
+    expect(opened.responseCount).toBe(0);
+
+    const seen: string[] = [];
+    let theta = opened.theta;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      let item;
+      try {
+        item = await sessions.next(opened.sessionId);
+      } catch {
+        break; // The bank ran dry, which is a legitimate finish.
+      }
+      seen.push(item.challengeId);
+
+      const submissionId = `live-cat-${Date.now()}-${attempt}`;
+      await client.post('/api/v1/submissions', {
+        submissionId,
+        challengeId: item.challengeId,
+        challengeVersion: item.challengeVersion,
+        sessionId: opened.sessionId,
+        program: STARTER_PROGRAM,
+      });
+
+      const outcome = await sessions.respond(
+        opened.sessionId,
+        item.itemRef,
+        submissionId,
+      );
+      expect(Number.isFinite(outcome.theta)).toBe(true);
+      theta = outcome.theta;
+      if (outcome.terminated) break;
+    }
+
+    expect(seen.length).toBeGreaterThan(0);
+    // The estimate has to actually respond to evidence; a theta pinned at its
+    // starting value would mean the loop is not closing.
+    expect(theta).not.toBe(opened.theta);
+
+    // `finalize` returns the session's *history*, not a snapshot — one item
+    // record per attempt, with the ability before and after each.
+    const closed = await sessions.finalize(opened.sessionId);
+    expect(closed.totalItems).toBe(seen.length);
+    expect(closed.items).toHaveLength(seen.length);
+    expect(closed.items[0].thetaBefore).not.toBe(closed.items[0].thetaAfter);
+    expect(closed.terminationReason).toBeTruthy();
+  }, 30_000);
+
+  it('refuses a forged item reference', async ({ skip }) => {
+    if (!reachable) skip();
+
+    const sessions = new HttpSessionProvider(new ApiClient({ baseUrl: BASE_URL }));
+    const opened = await sessions.start();
+
+    await expect(
+      sessions.respond(opened.sessionId, 'forged.token', 'nope'),
+    ).rejects.toMatchObject({ code: 'ITEM_REF_INVALID' });
   });
 });
