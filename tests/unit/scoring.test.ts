@@ -4,7 +4,7 @@ import {
   estimateProgramDuration,
   validateScoringConfig,
 } from '../../src/features/scoring/scoring';
-import { calculateVoxelIoU } from '../../src/features/voxel/similarity';
+import { calculateTrimScore } from '../../src/features/voxel/similarity';
 import type {
   JointConfig,
   ScoringConfig,
@@ -18,29 +18,53 @@ const scoring: ScoringConfig = {
   commandWeight: 0.25,
 };
 
-describe('voxel IoU', () => {
-  it('covers empty, disjoint and overlapping sets', () => {
-    expect(calculateVoxelIoU(new Set(), new Set())).toBe(100);
+describe('trim score', () => {
+  const hair = (...keys: string[]) => new Set(keys as VoxelKey[]);
+  // Four voxels of hair; the challenge asks for the first two off.
+  const initial = hair('0,0,0', '1,0,0', '2,0,0', '3,0,0');
+  const target = hair('2,0,0', '3,0,0');
+
+  it('scores an untouched head zero, not the size of the hairstyle', () => {
+    // The regression this metric exists for. Comparing what was left standing
+    // scored this 50 here and 95.02 on the shipped challenge, because most hair
+    // is never meant to be cut.
+    expect(calculateTrimScore(initial, target, initial)).toBe(0);
+  });
+
+  it('scores the asked cut exactly 100', () => {
+    expect(calculateTrimScore(initial, target, target)).toBe(100);
+  });
+
+  it('scales with how much of the asked cut was made', () => {
+    // One of the two asked voxels removed.
     expect(
-      calculateVoxelIoU(
-        new Set<VoxelKey>(['0,0,0']),
-        new Set<VoxelKey>(),
-      ),
+      calculateTrimScore(initial, target, hair('1,0,0', '2,0,0', '3,0,0')),
+    ).toBe(50);
+  });
+
+  it('charges hair that should have stayed', () => {
+    // Both asked voxels off, but two that should have stayed went too:
+    // intersection 2, union 4.
+    expect(calculateTrimScore(initial, target, hair())).toBe(50);
+    // Cut only hair nobody asked for.
+    expect(
+      calculateTrimScore(initial, target, hair('0,0,0', '1,0,0')),
     ).toBe(0);
-    expect(
-      calculateVoxelIoU(
-        new Set<VoxelKey>(['0,0,0', '1,0,0']),
-        new Set<VoxelKey>(['1,0,0', '2,0,0']),
-      ),
-    ).toBeCloseTo(100 / 3);
+  });
+
+  it('treats a challenge that asks for nothing as satisfied by nothing', () => {
+    expect(calculateTrimScore(initial, initial, initial)).toBe(100);
+    expect(calculateTrimScore(hair(), hair(), hair())).toBe(100);
   });
 });
 
 describe('score calculation', () => {
   it('returns a weighted and clamped breakdown', () => {
     const result = calculateScore({
-      targetVoxels: new Set<VoxelKey>(['0,0,0', '1,0,0']),
-      resultVoxels: new Set<VoxelKey>(['0,0,0']),
+      // Asked for two voxels off, one of them came off: completion 50.
+      initialVoxels: new Set<VoxelKey>(['0,0,0', '1,0,0', '2,0,0']),
+      targetVoxels: new Set<VoxelKey>(['2,0,0']),
+      resultVoxels: new Set<VoxelKey>(['1,0,0', '2,0,0']),
       programMetrics: {
         sourceBlockCount: 10,
         executedCommandCount: 8,
@@ -58,6 +82,7 @@ describe('score calculation', () => {
 
   it('treats zero cost and zero duration as full scores', () => {
     const result = calculateScore({
+      initialVoxels: new Set(),
       targetVoxels: new Set(),
       resultVoxels: new Set(),
       programMetrics: {

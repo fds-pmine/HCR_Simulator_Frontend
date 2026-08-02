@@ -11,6 +11,7 @@ import { MatchLobby } from './MatchLobby';
 import { MatchScoreboard } from './MatchScoreboard';
 import { MatchSetup } from './MatchSetup';
 import { useMatch } from './useMatch';
+import { withBlankCanvas } from '../blockly/blankCanvas';
 
 interface VersusRoundProps {
   identity: PlayerIdentity;
@@ -40,6 +41,16 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
       return undefined;
     }
   }, [session.challenge, scoreProvider]);
+
+  // Everyone starts from the same empty canvas, so the round measures who can
+  // write the program rather than who inherits the better head start.
+  const challenge = useMemo(
+    () =>
+      session.challenge
+        ? withBlankCanvas(session.challenge.challenge)
+        : undefined,
+    [session.challenge],
+  );
 
   const phase = session.state?.phase;
 
@@ -94,7 +105,7 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
     );
   }
 
-  if (!session.challenge || !engine) {
+  if (!challenge || !engine) {
     return (
       <main className="bootstrap-screen">
         <LoaderCircle className="spin" size={30} />
@@ -115,7 +126,7 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
 
   return (
     <SimulationWorkbench
-      challenge={session.challenge.challenge}
+      challenge={challenge}
       engine={engine}
       modeLabel={matchProvider.kind === 'online' ? 'VERSUS' : 'PRACTICE'}
       onExit={() => {

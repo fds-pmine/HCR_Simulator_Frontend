@@ -20,6 +20,7 @@ export class HttpScoreProvider implements ScoreProvider {
   async score(input: ScoreInput): Promise<ScoreResult> {
     return this.client.post<ScoreResult>('/api/v1/score', {
       // Sets have no JSON form; the wire carries the v1 `VoxelKey` strings.
+      initialVoxels: [...input.initialVoxels],
       targetVoxels: [...input.targetVoxels],
       resultVoxels: [...input.resultVoxels],
       programMetrics: input.programMetrics,

@@ -210,6 +210,7 @@ describe('HttpScoreProvider', () => {
     });
 
     const input: ScoreInput = {
+      initialVoxels: new Set(['0,0,0', '1,0,0'] as const),
       targetVoxels: new Set(['0,0,0', '1,0,0'] as const),
       resultVoxels: new Set(['0,0,0'] as const),
       programMetrics: {
@@ -225,6 +226,9 @@ describe('HttpScoreProvider', () => {
 
     const body = JSON.parse(initOf(fetchImpl).body as string);
     // Sets have no JSON form; the wire carries the v1 VoxelKey strings.
+    // `initialVoxels` is part of the request because completion is scored on
+    // the cut, which the server cannot reconstruct from target and result.
+    expect(body.initialVoxels).toEqual(['0,0,0', '1,0,0']);
     expect(body.targetVoxels).toEqual(['0,0,0', '1,0,0']);
     expect(body.resultVoxels).toEqual(['0,0,0']);
   });

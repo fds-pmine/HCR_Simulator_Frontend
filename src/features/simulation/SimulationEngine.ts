@@ -370,6 +370,7 @@ export class SimulationEngine {
     const scoreGeneration = this.runGeneration;
     this.scorePromise = this.scoreProvider
       .score({
+        initialVoxels: this.challenge.initialHair.voxels,
         targetVoxels: this.challenge.targetHair.voxels,
         resultVoxels: this.hairVoxels,
         programMetrics: this.metrics,

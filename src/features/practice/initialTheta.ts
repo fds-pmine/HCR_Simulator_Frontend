@@ -20,20 +20,12 @@
  *
  *   θ = b + ln(p / (1 - p))
  *
- * # Why the raw completion score is not `p`
- *
- * `completionScore` is an IoU between the target hairstyle and what the learner
- * left behind — so it measures *hair still in the right state*, most of which
- * was never meant to be touched. Its floor is therefore not 0 but
- * `|target| / |initial|`: on the shipped opener the target keeps 229 of 241
- * voxels, so submitting an empty program already scores 95.02.
- *
- * Feeding that straight into the logit was degenerate. The entire achievable
- * range mapped to θ ∈ [2.949, 3.000] — doing nothing and a perfect run both
- * clamped to the ceiling, so every learner was seeded at maximum ability and the
- * selector answered with the hardest items in the bank. The seed has to be
- * rescaled against the score doing nothing earns, which is what `baselineScore`
- * is for.
+ * `completionScore / 100` stands in for `p`. That reading is only honest because
+ * completion measures the *cut* — see `calculateTrimScore`. It used to compare
+ * the hair left standing, whose floor was `|target| / |initial|` rather than
+ * zero, and this function carried a `baselineScore` parameter to subtract that
+ * floor back out. Fixing the metric removed the need: an empty program now
+ * scores 0, which is what a proportion of 0 should mean.
  *
  * # Why the result is shrunk
  *
@@ -62,31 +54,12 @@ const CERTAINTY_MARGIN = 0.02;
  */
 const SEED_WEIGHT = 0.5;
 
-export interface SeedOptions {
-  /**
-   * The completion score an empty program earns on this challenge.
-   *
-   * The zero point of the scale. Without it the seed measures how much hair the
-   * challenge happens to leave alone, not how the learner did.
-   */
-  baselineScore: number;
-  /** Difficulty of the opener on the bank's scale. */
-  difficulty?: number;
-}
-
 export function initialThetaFrom(
   completionScore: number,
-  { baselineScore, difficulty = 0 }: SeedOptions,
+  difficulty = 0,
 ): number {
-  const headroom = 100 - baselineScore;
-  // A challenge that asks for nothing has no scale to measure on; the opener
-  // tells us nothing about the learner, so stay at the prior.
-  if (!(headroom > 0)) {
-    return clampTheta(difficulty);
-  }
-
   const proportion = clamp(
-    (completionScore - baselineScore) / headroom,
+    completionScore / 100,
     CERTAINTY_MARGIN,
     1 - CERTAINTY_MARGIN,
   );

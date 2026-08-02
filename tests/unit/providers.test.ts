@@ -110,6 +110,8 @@ describe('LocalScoreProvider', () => {
   it('delegates to the deterministic score calculation', async () => {
     const provider = new LocalScoreProvider();
     const result = await provider.score({
+      // Nothing was asked for and nothing came off.
+      initialVoxels: new Set<VoxelKey>(['0,0,0']),
       targetVoxels: new Set<VoxelKey>(['0,0,0']),
       resultVoxels: new Set<VoxelKey>(['0,0,0']),
       programMetrics: {

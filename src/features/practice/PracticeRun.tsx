@@ -7,7 +7,7 @@ import type { NextItem, SessionSnapshot } from '../../types/session';
 import type { CompiledProgram } from '../blockly/programTypes';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { runHeadless } from '../simulation/headlessRun';
-import { calculateVoxelIoU } from '../voxel/similarity';
+import { withBlankCanvas } from '../blockly/blankCanvas';
 import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import { initialThetaFrom } from './initialTheta';
 import { PracticePanel } from './PracticePanel';
@@ -60,7 +60,9 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
       try {
         const next = await sessionProvider.next(sessionId);
         setItem(next);
-        setChallenge(await challengeProvider.getChallenge(next.challengeId));
+        setChallenge(
+          withBlankCanvas(await challengeProvider.getChallenge(next.challengeId)),
+        );
       } catch (reason) {
         // A bank with nothing left to serve is a finish, not a fault.
         setFinished(
@@ -82,7 +84,7 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     started.current = true;
     void challengeProvider
       .getChallenge(DEFAULT_CHALLENGE_ID)
-      .then(setChallenge)
+      .then((opener) => setChallenge(withBlankCanvas(opener)))
       .catch((reason: unknown) =>
         setError(
           reason instanceof Error ? reason.message : 'Could not start practice.',
@@ -113,16 +115,7 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
         if (!introDone) {
           const score = await runHeadless(engine, compiled);
           const opened = await sessionProvider.start(
-            score
-              ? initialThetaFrom(score.completionScore, {
-                  // Scored against what an empty program earns here, not
-                  // against zero — see `initialThetaFrom`.
-                  baselineScore: calculateVoxelIoU(
-                    challenge.targetHair.voxels,
-                    challenge.initialHair.voxels,
-                  ),
-                })
-              : undefined,
+            score ? initialThetaFrom(score.completionScore) : undefined,
           );
           setSession(opened);
           setAttempted(1);

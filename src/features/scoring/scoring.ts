@@ -6,7 +6,7 @@ import type {
   ScoringConfig,
   TimingCommand,
 } from '../../types/domain';
-import { calculateVoxelIoU } from '../voxel/similarity';
+import { calculateTrimScore } from '../voxel/similarity';
 
 const SCORE_MAX = 100;
 const WEIGHT_TOLERANCE = 1e-6;
@@ -15,7 +15,11 @@ export function calculateScore(input: ScoreInput): ScoreResult {
   validateScoringConfig(input.scoring);
 
   const completionScore = clampScore(
-    calculateVoxelIoU(input.targetVoxels, input.resultVoxels),
+    calculateTrimScore(
+      input.initialVoxels,
+      input.targetVoxels,
+      input.resultVoxels,
+    ),
   );
   const programCost =
     input.programMetrics.sourceBlockCount +

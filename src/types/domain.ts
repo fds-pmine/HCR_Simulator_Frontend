@@ -109,6 +109,13 @@ export interface ChallengeSummary {
 }
 
 export interface ScoreInput {
+  /**
+   * The hairstyle before the program ran.
+   *
+   * Completion is scored on the *cut* — which hair came off against which hair
+   * should have — so the starting point is part of the question, not context.
+   */
+  initialVoxels: ReadonlySet<VoxelKey>;
   targetVoxels: ReadonlySet<VoxelKey>;
   resultVoxels: ReadonlySet<VoxelKey>;
   programMetrics: ProgramMetrics;

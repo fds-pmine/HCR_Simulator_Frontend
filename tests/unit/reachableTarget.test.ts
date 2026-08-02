@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultChallengeDefinition } from '../../src/data/challenges/defaultChallenge';
 import { REFERENCE_SOLUTION } from '../../src/features/voxel/hairGenerator';
 import { normalizeChallenge } from '../../src/services/normalizeChallenge';
+import { calculateTrimScore } from '../../src/features/voxel/similarity';
 import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
 import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
 import type { CompiledProgram, RobotCommand } from '../../src/features/blockly/programTypes';
@@ -64,14 +65,19 @@ describe('the shipped challenge is achievable', () => {
     expect(asked.length).toBeGreaterThan(0);
   });
 
-  it('beats the score for doing nothing', async () => {
-    // 89.21 is |target| / |initial| — the IoU of untouched hair. A challenge
-    // whose best program cannot beat it is one nobody can play.
-    const { challenge, engine } = runReference();
-    const doingNothing =
-      (100 * challenge.targetHair.voxels.size) / challenge.initialHair.voxels.size;
+  it('scores an untouched head zero', async () => {
+    // Comparing the hair left standing put this at 89.21 — the ratio
+    // |target| / |initial| — so the reference only had to clear a floor that
+    // measured the hairstyle. Scoring the cut makes doing nothing worth
+    // nothing, which is the only reading that leaves the whole scale for the
+    // learner.
+    const { challenge } = runReference();
+    const untouched = calculateTrimScore(
+      challenge.initialHair.voxels,
+      challenge.targetHair.voxels,
+      challenge.initialHair.voxels,
+    );
 
-    const score = await engine.waitForScore();
-    expect(score?.completionScore ?? 0).toBeGreaterThan(doingNothing);
+    expect(untouched).toBe(0);
   });
 });

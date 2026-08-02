@@ -10,6 +10,7 @@ import { SimulationEngine } from '../simulation/SimulationEngine';
 import { useSimulationSnapshot } from '../simulation/useSimulationSnapshot';
 import { LESSONS } from './lessons';
 import { TutorialPanel } from './TutorialPanel';
+import { withBlankCanvas } from '../blockly/blankCanvas';
 
 interface TutorialRunProps {
   onExit: () => void;
@@ -64,7 +65,7 @@ export function TutorialRun({ onExit }: TutorialRunProps) {
    * challenge's, so what is learned here transfers directly to Solo.
    */
   const blankChallenge = useMemo(
-    () => (challenge ? { ...challenge, starterWorkspace: {} } : undefined),
+    () => (challenge ? withBlankCanvas(challenge) : undefined),
     [challenge],
   );
 
