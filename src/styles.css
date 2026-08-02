@@ -421,13 +421,26 @@ input:focus-visible {
   inset: 0;
 }
 
+/*
+  `z-index: 100`, above Blockly's own chrome. The toolbox sits at 70, so at 4
+  this overlay was painted *under* it: the toolbox covered the first 24px of the
+  notice, which rendered as "ing is locked while the program is running", and —
+  worse — left the category list clickable while the program was running.
+
+  Flex column rather than `grid` + `place-content: center` so the message is
+  bounded by the panel and wraps, instead of a grid track sizing to its
+  max-content width and overflowing both edges.
+*/
 .blockly-editor__lock {
   position: absolute;
-  z-index: 4;
+  z-index: 100;
   inset: 0;
-  display: grid;
-  place-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 4px;
+  padding: 0 16px;
   color: #a9bac7;
   background: rgba(5, 13, 20, 0.28);
   font-size: var(--font-sm);

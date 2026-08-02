@@ -97,6 +97,17 @@ export interface MatchProvider {
   syncClock(): Promise<ClockSample>;
 }
 
+/** A program entered against the item a session is currently serving. */
+export interface SessionSubmission {
+  /** Client-generated idempotency key. Resubmitting returns the first result. */
+  submissionId: string;
+  challengeId: string;
+  /** Must match the version the item was served at, or the response is refused. */
+  challengeVersion: number;
+  /** Program IR, so the server's own `repeat` expansion is what the cap applies to. */
+  program: Program;
+}
+
 /**
  * Adaptive practice: the server picks each challenge from the learner's ability.
  *
@@ -121,6 +132,17 @@ export interface SessionProvider {
   start(initialTheta?: number): Promise<SessionSnapshot>;
   /** The next challenge to attempt. */
   next(sessionId: string): Promise<NextItem>;
+  /**
+   * Enter a program for the server to replay and score.
+   *
+   * Must happen before {@link respond}, which reads the score this produces.
+   * Skipping it is not a shortcut that costs telemetry — `respond` refuses a
+   * submission id it has never scored, so practice simply stops.
+   */
+  submit(
+    sessionId: string,
+    submission: SessionSubmission,
+  ): Promise<void>;
   /**
    * Record an attempt, moving the ability estimate.
    *

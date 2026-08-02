@@ -7,6 +7,7 @@ import type { NextItem, SessionSnapshot } from '../../types/session';
 import type { CompiledProgram } from '../blockly/programTypes';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { runHeadless } from '../simulation/headlessRun';
+import { calculateVoxelIoU } from '../voxel/similarity';
 import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import { initialThetaFrom } from './initialTheta';
 import { PracticePanel } from './PracticePanel';
@@ -102,7 +103,7 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
 
   const submit = useCallback(
     async (compiled: CompiledProgram) => {
-      if (!engine) {
+      if (!engine || !challenge) {
         return;
       }
       setBusy(true);
@@ -112,7 +113,16 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
         if (!introDone) {
           const score = await runHeadless(engine, compiled);
           const opened = await sessionProvider.start(
-            score ? initialThetaFrom(score.completionScore) : undefined,
+            score
+              ? initialThetaFrom(score.completionScore, {
+                  // Scored against what an empty program earns here, not
+                  // against zero — see `initialThetaFrom`.
+                  baselineScore: calculateVoxelIoU(
+                    challenge.targetHair.voxels,
+                    challenge.initialHair.voxels,
+                  ),
+                })
+              : undefined,
           );
           setSession(opened);
           setAttempted(1);
@@ -128,10 +138,22 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
         // ability estimate is the server's own replay of this same IR — the
         // client never reports one.
         await runHeadless(engine, compiled);
+
+        // Hand the program over *before* recording the attempt. `respond` reads
+        // the score from a submission the server has already replayed, so
+        // without this it has nothing to look up and practice stops on
+        // "the referenced submission has not been scored".
+        const submissionId = `practice-${session.sessionId}-${attempted}`;
+        await sessionProvider.submit(session.sessionId, {
+          submissionId,
+          challengeId: item.challengeId,
+          challengeVersion: item.challengeVersion,
+          program: compiled.program,
+        });
         const outcome = await sessionProvider.respond(
           session.sessionId,
           item.itemRef,
-          `practice-${session.sessionId}-${attempted}`,
+          submissionId,
         );
         setAttempted((count) => count + 1);
         setSession((current) =>
@@ -158,7 +180,16 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
         setBusy(false);
       }
     },
-    [advance, attempted, engine, introDone, item, session, sessionProvider],
+    [
+      advance,
+      attempted,
+      challenge,
+      engine,
+      introDone,
+      item,
+      session,
+      sessionProvider,
+    ],
   );
 
   if (error) {

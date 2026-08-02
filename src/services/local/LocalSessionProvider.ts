@@ -67,6 +67,12 @@ export class LocalSessionProvider implements SessionProvider {
     };
   }
 
+  async submit(): Promise<void> {
+    // Nothing to submit to. Offline the workbench has already scored the run
+    // with the same engine, and `respond` below advances the sequence without
+    // consulting a score at all.
+  }
+
   async respond(
     sessionId: string,
     itemRef: string,

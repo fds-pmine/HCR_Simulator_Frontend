@@ -1,4 +1,4 @@
-import type { SessionProvider } from '../contracts';
+import type { SessionProvider, SessionSubmission } from '../contracts';
 import type {
   NextItem,
   ResponseOutcome,
@@ -29,6 +29,19 @@ export class HttpSessionProvider implements SessionProvider {
 
   async next(sessionId: string): Promise<NextItem> {
     return this.client.post<NextItem>(`${this.base(sessionId)}/next`, {});
+  }
+
+  async submit(
+    sessionId: string,
+    submission: SessionSubmission,
+  ): Promise<void> {
+    // `sessionId` in the body is what binds the scored submission to this
+    // session; without it the server scores the program but `respond` cannot
+    // find it.
+    await this.client.post('/api/v1/submissions', {
+      ...submission,
+      sessionId,
+    });
   }
 
   async respond(

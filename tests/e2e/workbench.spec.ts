@@ -95,6 +95,31 @@ test.describe('HCR Simulator workbench', () => {
     await expect(
       page.getByText('Editing is locked while the program is running'),
     ).toBeVisible();
+    // `toBeVisible` reports the notice as visible even when Blockly's toolbox
+    // (z-index 70) paints over its first 24px, which rendered it as "ing is
+    // locked while the program is running". Probe what is actually on top at
+    // each end of the line, and check the overlay does not overflow its panel.
+    const lockPaint = await page
+      .locator('.blockly-editor__lock')
+      .evaluate((element) => {
+        const line = [...element.childNodes].find(
+          (node) => node.nodeType === Node.TEXT_NODE,
+        )!;
+        const range = document.createRange();
+        range.selectNode(line);
+        const box = range.getBoundingClientRect();
+        const midY = box.y + box.height / 2;
+        const topAt = (x: number) =>
+          element.contains(document.elementFromPoint(x, midY));
+        return {
+          coversStart: topAt(box.x + 2),
+          coversEnd: topAt(box.right - 2),
+          overflows: element.scrollWidth > element.clientWidth,
+        };
+      });
+    expect(lockPaint.coversStart).toBe(true);
+    expect(lockPaint.coversEnd).toBe(true);
+    expect(lockPaint.overflows).toBe(false);
     await expect(page.locator('.blocklyHighlighted')).toHaveCount(1);
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Completed',

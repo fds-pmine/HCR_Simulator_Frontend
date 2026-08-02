@@ -36,6 +36,7 @@ export function unusedSessionProvider(): SessionProvider {
     kind: 'fixed',
     start: refuse,
     next: refuse,
+    submit: refuse,
     respond: refuse,
     finalize: refuse,
   };
