@@ -1,4 +1,22 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { starterWorkspaceState } from '../../src/data/challenges/starterWorkspace';
+
+/** `#rrggbb` as the `rgb(r, g, b)` string `toHaveCSS` compares against. */
+function rgb(hex: string): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `rgb(${value >> 16}, ${(value >> 8) & 0xff}, ${value & 0xff})`;
+}
+
+/**
+ * The clear colour `SimulatorCanvas` sets on the renderer.
+ *
+ * Duplicated from the component rather than imported: this spec briefly did
+ * import it, and when the scene was retuned to a light palette and back the
+ * export went away with it, which broke module resolution and took the whole
+ * file down — zero tests ran, not one failure. A stale literal here fails one
+ * assertion with a readable diff instead.
+ */
+const SCENE_BACKGROUND = '#0a141d';
 
 test.describe('HCR Simulator workbench', () => {
   test.beforeEach(async ({ page }) => {
@@ -36,27 +54,46 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
   });
 
-    /*
-   * These four drive a program, which no mode ships any more.
+  /*
+   * The four tests below drive a running program.
    *
-   * Solo and Versus used to open on a starter workspace and these tests edited
-   * its fields. Removing it (a prefilled workspace is a partial answer, and on
-   * generated items it is literally the reference solution minus its cutting
-   * moves) left them with an empty canvas and nothing to run.
+   * No mode ships a starter workspace any more (`withBlankCanvas`), so they
+   * seed one through the dev-only `__hcrSeedWorkspace` hook rather than
+   * dragging blocks out of the flyout. What each asserts — the head-collision
+   * stop, a reproducible score, pause/step/resume, stop-and-reset — is about
+   * what happens *when a program runs*; how the blocks got onto the canvas is
+   * incidental to all four.
    *
-   * The replacement is to build each program from the toolbox the way a learner
-   * now must — which is also the only coverage of that path. It is not written
-   * yet: dragging out of the flyout works, but `.blocklyBlockCanvas` matches the
-   * flyout's own canvas as well as the workspace's, so block counts and
-   * connection checks need a selector that distinguishes them, and the compiler
-   * accepts exactly one top-level stack so every block has to land connected.
-   *
-   * Marked rather than deleted: this is a real coverage gap, not a decision that
-   * these behaviours stopped mattering.
+   * Authoring from the toolbox is therefore still uncovered, and it is now the
+   * only way a learner builds anything. That gap is real and separate; seeding
+   * here does not close it and is not meant to.
    */
-  test.fixme('blocks a head collision at the last safe pose without scoring', async ({
+  async function seedStarterProgram(page: Page): Promise<void> {
+    await page.evaluate(
+      (state) => {
+        const seed = (
+          window as unknown as {
+            __hcrSeedWorkspace?: (s: Record<string, unknown>) => void;
+          }
+        ).__hcrSeedWorkspace;
+        if (!seed) {
+          throw new Error(
+            '__hcrSeedWorkspace is missing — the editor must be mounted and the app served by `npm run dev`.',
+          );
+        }
+        seed(state);
+      },
+      starterWorkspaceState,
+    );
+    await expect(
+      page.locator('.blocklyBlockCanvas .blocklyDraggable'),
+    ).toHaveCount(5);
+  }
+
+  test('blocks a head collision at the last safe pose without scoring', async ({
     page,
   }) => {
+    await seedStarterProgram(page);
     await setBlocklyNumberField(page, 'starter-shoulder-roll', 0);
     await setBlocklyNumberField(page, 'starter-shoulder', 50);
     await setBlocklyNumberField(page, 'starter-elbow', -15);
@@ -86,27 +123,10 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 
-    /*
-   * These four drive a program, which no mode ships any more.
-   *
-   * Solo and Versus used to open on a starter workspace and these tests edited
-   * its fields. Removing it (a prefilled workspace is a partial answer, and on
-   * generated items it is literally the reference solution minus its cutting
-   * moves) left them with an empty canvas and nothing to run.
-   *
-   * The replacement is to build each program from the toolbox the way a learner
-   * now must — which is also the only coverage of that path. It is not written
-   * yet: dragging out of the flyout works, but `.blocklyBlockCanvas` matches the
-   * flyout's own canvas as well as the workspace's, so block counts and
-   * connection checks need a selector that distinguishes them, and the compiler
-   * accepts exactly one top-level stack so every block has to land connected.
-   *
-   * Marked rather than deleted: this is a real coverage gap, not a decision that
-   * these behaviours stopped mattering.
-   */
-  test.fixme('runs the starter program to a reproducible scored result', async ({
+  test('runs the starter program to a reproducible scored result', async ({
     page,
   }) => {
+    await seedStarterProgram(page);
     const pageErrors: Error[] = [];
     page.on('pageerror', (error) => pageErrors.push(error));
     const blockCountBefore = await page
@@ -125,7 +145,7 @@ test.describe('HCR Simulator workbench', () => {
       page
         .getByTestId('simulator-canvas')
         .locator('canvas'),
-    ).toHaveCSS('background-color', 'rgb(10, 20, 29)');
+    ).toHaveCSS('background-color', rgb(SCENE_BACKGROUND));
     await expect(
       page.getByText('Editing is locked while the program is running'),
     ).toBeVisible();
@@ -188,27 +208,10 @@ test.describe('HCR Simulator workbench', () => {
     expect(pageErrors).toEqual([]);
   });
 
-    /*
-   * These four drive a program, which no mode ships any more.
-   *
-   * Solo and Versus used to open on a starter workspace and these tests edited
-   * its fields. Removing it (a prefilled workspace is a partial answer, and on
-   * generated items it is literally the reference solution minus its cutting
-   * moves) left them with an empty canvas and nothing to run.
-   *
-   * The replacement is to build each program from the toolbox the way a learner
-   * now must — which is also the only coverage of that path. It is not written
-   * yet: dragging out of the flyout works, but `.blocklyBlockCanvas` matches the
-   * flyout's own canvas as well as the workspace's, so block counts and
-   * connection checks need a selector that distinguishes them, and the compiler
-   * accepts exactly one top-level stack so every block has to land connected.
-   *
-   * Marked rather than deleted: this is a real coverage gap, not a decision that
-   * these behaviours stopped mattering.
-   */
-  test.fixme('pauses, advances one command, resumes and records events', async ({
+  test('pauses, advances one command, resumes and records events', async ({
     page,
   }) => {
+    await seedStarterProgram(page);
     await page.getByTestId('run-button').click();
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Running',
@@ -252,27 +255,10 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.getByTestId('event-log')).toContainText('Removed');
   });
 
-    /*
-   * These four drive a program, which no mode ships any more.
-   *
-   * Solo and Versus used to open on a starter workspace and these tests edited
-   * its fields. Removing it (a prefilled workspace is a partial answer, and on
-   * generated items it is literally the reference solution minus its cutting
-   * moves) left them with an empty canvas and nothing to run.
-   *
-   * The replacement is to build each program from the toolbox the way a learner
-   * now must — which is also the only coverage of that path. It is not written
-   * yet: dragging out of the flyout works, but `.blocklyBlockCanvas` matches the
-   * flyout's own canvas as well as the workspace's, so block counts and
-   * connection checks need a selector that distinguishes them, and the compiler
-   * accepts exactly one top-level stack so every block has to land connected.
-   *
-   * Marked rather than deleted: this is a real coverage gap, not a decision that
-   * these behaviours stopped mattering.
-   */
-  test.fixme('stops without a formal score and preserves reset behavior', async ({
+  test('stops without a formal score and preserves reset behavior', async ({
     page,
   }) => {
+    await seedStarterProgram(page);
     await page.getByTestId('run-button').click();
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Running',

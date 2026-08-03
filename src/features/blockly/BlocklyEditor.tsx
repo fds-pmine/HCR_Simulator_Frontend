@@ -75,6 +75,28 @@ export const BlocklyEditor = forwardRef<
     loadWorkspaceState(workspace, challenge.starterWorkspace);
     Blockly.svgResize(workspace);
 
+    // A seam for the end-to-end tests, and only for them.
+    //
+    // Every mode opens blank now (`withBlankCanvas`), so a browser test has no
+    // program to drive unless it makes one. Four tests cover what happens *when
+    // a program runs* — head collision, scoring, pause/step/resume, stop — and
+    // authoring is incidental to all four, so they seed the workspace through
+    // here rather than dragging blocks out of the flyout.
+    //
+    // That drag path is genuinely untested, and it is the only way a learner
+    // now builds anything. This hook does not cover it and is not meant to.
+    //
+    // Dev-only: `import.meta.env.DEV` is statically replaced, so the whole
+    // block is dropped from a production bundle rather than shipping a way to
+    // rewrite a competitor's workspace mid-round.
+    if (import.meta.env.DEV) {
+      Object.assign(window, {
+        __hcrSeedWorkspace: (state: Record<string, unknown>) => {
+          loadWorkspaceState(workspace, state);
+        },
+      });
+    }
+
     const resizeObserver = new ResizeObserver(() => {
       Blockly.svgResize(workspace);
     });
@@ -82,6 +104,9 @@ export const BlocklyEditor = forwardRef<
 
     return () => {
       resizeObserver.disconnect();
+      if (import.meta.env.DEV) {
+        delete (window as { __hcrSeedWorkspace?: unknown }).__hcrSeedWorkspace;
+      }
       workspace.dispose();
       workspaceRef.current = undefined;
     };
