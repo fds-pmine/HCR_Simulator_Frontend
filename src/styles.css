@@ -194,6 +194,36 @@ input:focus-visible {
   gap: 7px;
 }
 
+.programming-mode-switch {
+  flex: 0 0 auto;
+  width: 202px;
+}
+
+.topbar-actions .programming-mode-switch button {
+  display: block;
+  width: auto;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted-strong);
+  background: transparent;
+  font-size: 0.67rem;
+  line-height: 26px;
+  white-space: nowrap;
+}
+
+.topbar-actions .programming-mode-switch button.is-active {
+  color: #071417;
+  background: var(--cyan);
+  font-weight: 700;
+}
+
+.topbar-actions .programming-mode-switch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .topbar-actions button,
 .panel-header button {
   display: grid;

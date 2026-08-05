@@ -49,11 +49,6 @@ export function compileScalpWorkspace(
   workspace: Blockly.Workspace,
   challenge: Challenge,
 ): CompiledScalpProgram {
-  const resolution = resolveScalpMotionProfile(challenge);
-  if (!resolution.profile) {
-    throw scalpError('SCALP_UNSUPPORTED_PROFILE', resolution.error ?? 'No calibrated scalp profile is available.');
-  }
-
   const topBlocks = workspace
     .getTopBlocks(true)
     .filter((block) => block.isEnabled() && !block.isShadow());
@@ -78,6 +73,32 @@ export function compileScalpWorkspace(
       .getAllBlocks(false)
       .filter((block) => block.isEnabled() && !block.isShadow()).length,
   };
+
+  return compileScalpProgram(scalpProgram, challenge);
+}
+
+/**
+ * Compiles a structured turtle program through the same safety graph and
+ * compatibility verifier as Blockly. Static curriculum fixtures use this
+ * entry point so their targets are proven by the player-facing language,
+ * without manufacturing legacy servo commands.
+ */
+export function compileScalpProgram(
+  scalpProgram: ScalpProgram,
+  challenge: Challenge,
+): CompiledScalpProgram {
+  if (scalpProgram.nodes.length === 0 || scalpProgram.sourceBlockCount < 1) {
+    throw new ProgramCompilationError('EMPTY_PROGRAM', 'The workspace does not contain an executable program.');
+  }
+  if (!Number.isInteger(scalpProgram.sourceBlockCount)) {
+    throw new ProgramCompilationError('EMPTY_PROGRAM', 'The program source block count must be an integer.');
+  }
+
+  const resolution = resolveScalpMotionProfile(challenge);
+  if (!resolution.profile) {
+    throw scalpError('SCALP_UNSUPPORTED_PROFILE', resolution.error ?? 'No calibrated scalp profile is available.');
+  }
+
   const actions = expandScalpProgram(scalpProgram);
   const trajectoryPlan = planTrajectory(actions, resolution.profile);
   const runtimeCommands = emitCompatibilityCommands(

@@ -3,7 +3,7 @@ import {
   DEFAULT_CHALLENGE_ID,
   defaultChallengeDefinition,
 } from '../../src/data/challenges/defaultChallenge';
-import { LESSONS } from '../../src/data/challenges/lessons';
+import { ALL_LESSONS } from '../../src/services/local/lessonChallenges';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
 import {
@@ -19,10 +19,10 @@ describe('LocalChallengeProvider', () => {
     const first = await provider.getChallenge(summaries[0].id);
     const second = await provider.getChallenge(summaries[0].id);
 
-    // The authored challenge plus the eight lessons. Solo runs an adaptive
+    // The authored challenge plus both lesson tracks. Solo runs an adaptive
     // session offline, and the session serves lesson ids — so the provider has
     // to be able to resolve them, or practice fails on its first item.
-    expect(summaries).toHaveLength(1 + LESSONS.length);
+    expect(summaries).toHaveLength(1 + ALL_LESSONS.length);
     expect(summaries[0].id).toBe(DEFAULT_CHALLENGE_ID);
     expect(summaries[0]).toMatchObject({
       id: 'neat-short-cap',

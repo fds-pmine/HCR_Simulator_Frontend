@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { scalpReferenceWorkspaceState } from '../../src/data/challenges/scalpReferenceWorkspace';
+import { starterWorkspaceState } from '../../src/data/challenges/starterWorkspace';
 
 /** `#rrggbb` as the `rgb(r, g, b)` string `toHaveCSS` compares against. */
 function rgb(hex: string): string {
@@ -72,8 +73,13 @@ test.describe('HCR Simulator workbench', () => {
     // Every mode now opens blank — a prefilled workspace is a partial answer.
     // So each test builds the program it needs, the same way a learner does.
     await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
-    await expect(page.getByText('Servo', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Joint Angle', { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('programming-mode-servo')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.getByText('Servo', { exact: true })).toHaveCount(1);
+    await expect(page.getByText('Path', { exact: true })).toHaveCount(0);
+    await switchToScalpPath(page);
   });
 
   /*
@@ -111,6 +117,32 @@ test.describe('HCR Simulator workbench', () => {
       page.locator('.blocklyBlockCanvas .blocklyDraggable'),
     ).toHaveCount(15);
   }
+
+  test('keeps the legacy Servo language and workspace when Scalp Path is selected', async ({
+    page,
+  }) => {
+    await page.getByTestId('programming-mode-servo').click();
+    await expect(page.getByTestId('blockly-editor')).toHaveAttribute(
+      'data-programming-mode',
+      'servo',
+    );
+    await expect(page.getByText('Servo', { exact: true })).toHaveCount(1);
+
+    await seedWorkspace(page, starterWorkspaceState);
+    await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(5);
+
+    await switchToScalpPath(page);
+    await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
+    await expect(page.getByText('Servo', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Path', { exact: true })).toHaveCount(1);
+
+    await page.getByTestId('programming-mode-servo').click();
+    await expect(page.getByTestId('blockly-editor')).toHaveAttribute(
+      'data-programming-mode',
+      'servo',
+    );
+    await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(5);
+  });
 
   test('authors a turtle path by dragging from the Path toolbox', async ({
     page,
@@ -191,6 +223,8 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Running',
     );
+    await expect(page.getByTestId('programming-mode-servo')).toBeDisabled();
+    await expect(page.getByTestId('programming-mode-scalp-path')).toBeDisabled();
     await expect(page.getByTestId('simulator-canvas')).toHaveAttribute(
       'data-render-state',
       'ready',
@@ -387,6 +421,35 @@ test.describe('HCR Simulator workbench', () => {
     await expectReadableFontSizes(page);
   });
 });
+
+async function switchToScalpPath(page: Page): Promise<void> {
+  await page.getByTestId('programming-mode-scalp-path').click();
+  await expect(page.getByTestId('blockly-editor')).toHaveAttribute(
+    'data-programming-mode',
+    'scalp-path',
+  );
+  await expect(page.getByTestId('programming-mode-scalp-path')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+}
+
+async function seedWorkspace(
+  page: Page,
+  state: Record<string, unknown>,
+): Promise<void> {
+  await page.evaluate((nextState) => {
+    const seed = (
+      window as unknown as {
+        __hcrSeedWorkspace?: (value: Record<string, unknown>) => void;
+      }
+    ).__hcrSeedWorkspace;
+    if (!seed) {
+      throw new Error('The Blockly seed hook is missing.');
+    }
+    seed(nextState);
+  }, state);
+}
 
 async function expectReadableFontSizes(
   page: import('@playwright/test').Page,

@@ -16,6 +16,10 @@ import {
   type BlocklyEditorHandle,
 } from '../../features/blockly/BlocklyEditor';
 import {
+  PROGRAMMING_MODE_LABEL,
+  type ProgrammingMode,
+} from '../../features/blockly/programmingMode';
+import {
   ProgramCompilationError,
 } from '../../features/blockly/programCompiler';
 import {
@@ -78,6 +82,8 @@ export interface WorkbenchTutorial {
 interface SimulationWorkbenchProps {
   challenge: Challenge;
   engine: SimulationEngine;
+  /** Tutorials can open directly in the optional path language. */
+  initialProgrammingMode?: ProgrammingMode;
   /** Shown in the topbar instead of the offline badge. */
   modeLabel?: string;
   onExit?: () => void;
@@ -88,6 +94,7 @@ interface SimulationWorkbenchProps {
 export function SimulationWorkbench({
   challenge,
   engine,
+  initialProgrammingMode = 'servo',
   modeLabel,
   onExit,
   match,
@@ -95,6 +102,9 @@ export function SimulationWorkbench({
 }: SimulationWorkbenchProps) {
   const editorRef = useRef<BlocklyEditorHandle>(null);
   const snapshot = useSimulationSnapshot(engine);
+  const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>(
+    initialProgrammingMode,
+  );
   const [compileError, setCompileError] = useState<string>();
   const [testing, setTesting] = useState(false);
   const {
@@ -109,6 +119,16 @@ export function SimulationWorkbench({
   } = useWorkbenchStore();
   const editorLocked =
     snapshot.status === 'running' || snapshot.status === 'paused';
+
+  const changeProgrammingMode = (nextMode: ProgrammingMode) => {
+    if (nextMode === programmingMode || editorLocked) {
+      return;
+    }
+    setCompileError(undefined);
+    editorRef.current?.highlightBlock();
+    engine.reset();
+    setProgrammingMode(nextMode);
+  };
 
   useEffect(() => {
     editorRef.current?.highlightBlock(snapshot.currentBlockId);
@@ -235,6 +255,26 @@ export function SimulationWorkbench({
         </div>
 
         <div className="topbar-actions">
+          <div
+            className="programming-mode-switch segmented"
+            role="radiogroup"
+            aria-label="Programming mode"
+          >
+            {(['servo', 'scalp-path'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={programmingMode === mode}
+                className={programmingMode === mode ? 'is-active' : ''}
+                disabled={editorLocked}
+                onClick={() => changeProgrammingMode(mode)}
+                data-testid={`programming-mode-${mode}`}
+              >
+                {PROGRAMMING_MODE_LABEL[mode]}
+              </button>
+            ))}
+          </div>
           <span className={`local-badge ${match ? 'local-badge--live' : ''}`}>
             <i />
             {modeLabel ?? 'LOCAL'}
@@ -302,6 +342,7 @@ export function SimulationWorkbench({
           <BlocklyEditor
             ref={editorRef}
             challenge={challenge}
+            programmingMode={programmingMode}
             locked={editorLocked}
             visible={leftPanelOpen}
           />

@@ -174,6 +174,7 @@ function TutorialStage({
     <SimulationWorkbench
       challenge={challenge}
       engine={engine}
+      initialProgrammingMode="scalp-path"
       modeLabel="TUTORIAL"
       onExit={onExit}
       tutorial={{

@@ -6,7 +6,7 @@ import {
 } from '../features/match/identity';
 import { VersusRound } from '../features/match/VersusRound';
 import { TutorialRun } from '../features/tutorial/TutorialRun';
-import { LESSONS } from '../data/challenges/lessons';
+import { ALL_LESSONS } from '../services/local/lessonChallenges';
 import { PracticeRun } from '../features/practice/PracticeRun';
 import { LessonPicker } from '../features/tutorial/LessonPicker';
 import { LessonRun } from '../features/tutorial/LessonRun';
@@ -51,8 +51,8 @@ export function GameShell() {
   }
 
   if (screen === 'lessons') {
-    const index = LESSONS.findIndex((lesson) => lesson.id === lessonId);
-    const next = index >= 0 ? LESSONS[index + 1] : undefined;
+    const index = ALL_LESSONS.findIndex((lesson) => lesson.id === lessonId);
+    const next = index >= 0 ? ALL_LESSONS[index + 1] : undefined;
     return lessonId ? (
       <LessonRun
         lessonId={lessonId}

@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../fixtures/reachability.json';
 import { defaultChallengeDefinition } from '../../src/data/challenges/defaultChallenge';
-import { LESSONS } from '../../src/data/challenges/lessons';
-import { buildLessonChallenge } from '../../src/services/local/lessonChallenges';
+import { ALL_LESSONS, buildLessonChallenge } from '../../src/services/local/lessonChallenges';
 import { normalizeChallenge } from '../../src/services/normalizeChallenge';
 import {
   askedVoxels,
@@ -22,7 +21,7 @@ const CACHE = (fixture as { challenges: Record<string, Entry> }).challenges;
 
 const authored = (): Challenge[] => [
   normalizeChallenge(defaultChallengeDefinition),
-  ...LESSONS.map((lesson) => normalizeChallenge(buildLessonChallenge(lesson))),
+  ...ALL_LESSONS.map((lesson) => normalizeChallenge(buildLessonChallenge(lesson))),
 ];
 
 /**

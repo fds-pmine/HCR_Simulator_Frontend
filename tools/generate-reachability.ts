@@ -21,8 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { it } from 'vitest';
 
 import { defaultChallengeDefinition } from '../src/data/challenges/defaultChallenge';
-import { LESSONS } from '../src/data/challenges/lessons';
-import { buildLessonChallenge } from '../src/services/local/lessonChallenges';
+import { ALL_LESSONS, buildLessonChallenge } from '../src/services/local/lessonChallenges';
 import { normalizeChallenge } from '../src/services/normalizeChallenge';
 import {
   computeReachableVoxels,
@@ -39,7 +38,7 @@ const OUT = resolve(HERE, '../tests/fixtures/reachability.json');
 it('records what the arm can reach for every authored challenge', () => {
   const challenges: Challenge[] = [
     normalizeChallenge(defaultChallengeDefinition),
-    ...LESSONS.map((lesson) => normalizeChallenge(buildLessonChallenge(lesson))),
+    ...ALL_LESSONS.map((lesson) => normalizeChallenge(buildLessonChallenge(lesson))),
   ];
 
   // Keyed by signature: the lessons share the shipped head and arm and differ

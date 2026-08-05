@@ -67,6 +67,10 @@ tests/
 
 ### Phase 8 — Scalp Turtle 路径编程
 
+> 2026-08-06 产品决策更新：Scalp Path 为可选操作模式，不覆盖既有 Servo Angles。工作台默认保留 Servo 工具箱和绝对角度编译器；玩家显式切换后才进入 Scalp Path。两种工作区在同一会话中分别保留，运行中禁止切换。
+
+> 课程处理：保留原 8 个 Servo Lessons；新增 8 个 Scalp Path Lessons。每个课程目标都由本轨道的可执行解法回放生成，并经过可达性快照认证。
+
 - [x] 建立 `hcr.v1` Program IR 快照基线，确认路径模式只能导出既有 `set-joint-angle`、`wait`、`repeat`。
 - [x] 建立 7×12 头皮网格、静态安全姿态 Profile 和几何签名校验；完整网格保持可渲染，已认证的 3×10 连通安全补丁可供后续路径编译使用。
 - [x] 实现相对海龟 Blockly 积木、Scalp Program 编译、兼容 IR 导出和 500 命令上限；路径计划和旧 IR 在领域层独立，编辑器切换留待工作台集成阶段。

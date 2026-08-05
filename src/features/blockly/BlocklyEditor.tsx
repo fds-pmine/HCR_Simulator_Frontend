@@ -6,11 +6,13 @@ import {
 } from 'react';
 import * as Blockly from 'blockly/core';
 import type { Challenge } from '../../types/domain';
-import { registerHcrBlocks } from './blockDefinitions';
+import { createToolbox, registerHcrBlocks } from './blockDefinitions';
 import {
+  compileWorkspace,
   type ProgramCompilationError,
 } from './programCompiler';
-import { loadWorkspaceState } from './workspaceFactory';
+import { loadWorkspaceState, saveWorkspaceState } from './workspaceFactory';
+import type { ProgrammingMode } from './programmingMode';
 import {
   compileScalpWorkspace,
   createScalpTurtleToolbox,
@@ -28,6 +30,7 @@ export interface BlocklyEditorHandle {
 
 interface BlocklyEditorProps {
   challenge: Challenge;
+  programmingMode: ProgrammingMode;
   locked: boolean;
   visible: boolean;
 }
@@ -35,20 +38,25 @@ interface BlocklyEditorProps {
 export const BlocklyEditor = forwardRef<
   BlocklyEditorHandle,
   BlocklyEditorProps
->(function BlocklyEditor({ challenge, locked, visible }, ref) {
+>(function BlocklyEditor({ challenge, programmingMode, locked, visible }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | undefined>(undefined);
+  const workspaceStatesRef = useRef<Record<string, Record<string, unknown>>>({});
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
       return;
     }
+    const workspaceStates = workspaceStatesRef.current;
 
     registerHcrBlocks(challenge.robotConfig.joints);
     registerScalpTurtleBlocks();
     const workspace = Blockly.inject(container, {
-      toolbox: createScalpTurtleToolbox(),
+      toolbox:
+        programmingMode === 'scalp-path'
+          ? createScalpTurtleToolbox()
+          : createToolbox(challenge),
       renderer: 'zelos',
       theme: Blockly.Themes.Zelos,
       trashcan: true,
@@ -74,15 +82,20 @@ export const BlocklyEditor = forwardRef<
       },
     });
     workspaceRef.current = workspace;
-    // Path mode deliberately begins on a blank canvas. Existing angle-based
-    // starter workspaces remain valid legacy fixtures, but never enter the
-    // player-facing Scalp Turtle editor.
-    loadWorkspaceState(workspace, {});
+    const stateKey = `${challenge.id}:${programmingMode}`;
+    const savedState = workspaceStates[stateKey];
+    // Servo mode preserves the challenge's existing starting workspace. The
+    // opt-in path language begins blank, and switching modes keeps each canvas
+    // in memory so choosing a new language never destroys the other program.
+    loadWorkspaceState(
+      workspace,
+      savedState ?? (programmingMode === 'servo' ? challenge.starterWorkspace : {}),
+    );
     Blockly.svgResize(workspace);
 
     // A seam for the end-to-end tests, and only for them.
     //
-    // Every mode opens blank now (`withBlankCanvas`), so a browser test has no
+    // Competitive workbenches open blank (`withBlankCanvas`), so a browser test has no
     // program to drive unless it makes one. Four tests cover what happens *when
     // a program runs* — head collision, scoring, pause/step/resume, stop — and
     // authoring is incidental to all four, so they seed the workspace through
@@ -112,10 +125,11 @@ export const BlocklyEditor = forwardRef<
       if (import.meta.env.DEV) {
         delete (window as { __hcrSeedWorkspace?: unknown }).__hcrSeedWorkspace;
       }
+      workspaceStates[stateKey] = saveWorkspaceState(workspace);
       workspace.dispose();
       workspaceRef.current = undefined;
     };
-  }, [challenge]);
+  }, [challenge, programmingMode]);
 
   useEffect(() => {
     const workspace = workspaceRef.current;
@@ -148,7 +162,9 @@ export const BlocklyEditor = forwardRef<
         if (!workspace) {
           throw new Error('The Blockly workspace is not ready.');
         }
-        return compileScalpWorkspace(workspace, challenge);
+        return programmingMode === 'scalp-path'
+          ? compileScalpWorkspace(workspace, challenge)
+          : compileWorkspace(workspace, challenge);
       },
       highlightBlock(blockId) {
         workspaceRef.current?.highlightBlock(blockId ?? null);
@@ -169,13 +185,14 @@ export const BlocklyEditor = forwardRef<
         return workspaceRef.current;
       },
     }),
-    [challenge],
+    [challenge, programmingMode],
   );
 
   return (
     <div
       className="blockly-editor"
       data-testid="blockly-editor"
+      data-programming-mode={programmingMode}
       aria-label="Blockly program editor"
       aria-disabled={locked}
     >

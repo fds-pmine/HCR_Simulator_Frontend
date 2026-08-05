@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { SimulationWorkbench } from '../../components/layout/SimulationWorkbench';
-import { LESSONS } from '../../data/challenges/lessons';
-import { buildLessonChallenge } from '../../services/local/lessonChallenges';
+import {
+  ALL_LESSONS,
+  buildLessonChallenge,
+  isScalpPathLesson,
+  type CurriculumLesson,
+} from '../../services/local/lessonChallenges';
 import { LocalScoreProvider } from '../../services/local/LocalScoreProvider';
 import { normalizeChallenge } from '../../services/normalizeChallenge';
 import { SimulationEngine } from '../simulation/SimulationEngine';
@@ -18,7 +22,7 @@ interface LessonRunProps {
 }
 
 export function LessonRun({ lessonId, onSolved, onNext, onExit }: LessonRunProps) {
-  const lesson = LESSONS.find((entry) => entry.id === lessonId);
+  const lesson = ALL_LESSONS.find((entry) => entry.id === lessonId);
 
   const built = useMemo(() => {
     if (!lesson) return undefined;
@@ -71,7 +75,7 @@ function LessonStage({
   onNext,
   onExit,
 }: {
-  lesson: (typeof LESSONS)[number];
+  lesson: CurriculumLesson;
   challenge: ReturnType<typeof normalizeChallenge>;
   engine: SimulationEngine;
   onSolved: (lessonId: string) => void;
@@ -99,6 +103,7 @@ function LessonStage({
     <SimulationWorkbench
       challenge={challenge}
       engine={engine}
+      initialProgrammingMode={isScalpPathLesson(lesson) ? 'scalp-path' : 'servo'}
       modeLabel="LESSON"
       onExit={onExit}
       tutorial={{

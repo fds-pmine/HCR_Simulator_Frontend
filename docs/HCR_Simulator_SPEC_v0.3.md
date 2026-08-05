@@ -640,7 +640,15 @@ npm run test:e2e
 
 人工验收见 `docs/ACCEPTANCE.md`。
 
-## 15. 未来扩展 / 仍未决定
+## 15. Scalp Path 可选操作模式（2026-08 更新）
+
+- 工作台支持并列的 `Servo Angles` 与 `Scalp Path` Blockly 模式；`Servo Angles` 是默认模式，保留现有绝对角度积木、Program 编译器、运行语义和已有工作区。
+- 玩家显式选择 `Scalp Path` 后，工具箱只显示相对网格路径、Hover/Cut、Wait 和 Repeat；该模式输出冻结的现有 `hcr.v1 Program`，不更改提交 DTO、Provider 或后端协议。
+- 同一会话在两种模式之间切换时分别保存 Blockly 工作区；执行中和暂停中禁止切换，切换时重置仿真以避免混合两个 Program 的运行状态。
+- 路径教程和路径课程可指定 `Scalp Path` 作为初始模式，但不得移除原有 Servo 操作路径。
+- 课程列表同时保留原有 Servo Lessons 和新增 Scalp Path Lessons；二者的目标必须分别由对应语言的参考程序回放生成，并纳入可达性审计。
+
+## 16. 未来扩展 / 仍未决定
 
 以下内容不影响首版实现，不得在首版中提前固化：
 

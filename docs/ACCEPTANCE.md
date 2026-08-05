@@ -21,6 +21,10 @@
 
 ## Scalp Turtle
 
+> 当前产品决策：Scalp Path 是可选模式。默认 Servo Angles 保留原有绝对角度积木、编译器和工作区；切换到 Scalp Path 后才仅显示相对路径积木。两种工作区切换后均须保留，运行中不可切换。
+
+- [x] 原 8 个 Servo Lessons 与新增 8 个 Scalp Path Lessons 同时可用；各课程目标都由本轨道参考程序生成并经可达性快照覆盖。
+
 - [x] `hcr.v1` Program IR 快照锁定 `set-joint-angle`、`wait`、`repeat` 的可序列化结构、Repeat 展开与 500 命令上限。
 - [x] 玩家 Blockly 工具箱仅显示相对海龟路径、Hover/Cut、Wait 和 Repeat，不显示可编辑 Servo/Joint Angle。
 - [x] 7×12 网格全部可见，不可达/不可连通节点被禁用且不能编译进入。

@@ -1,5 +1,5 @@
 import { ArrowLeft, Check, GraduationCap } from 'lucide-react';
-import { LESSONS } from '../../data/challenges/lessons';
+import { ALL_LESSONS, isScalpPathLesson } from '../../services/local/lessonChallenges';
 
 interface LessonPickerProps {
   /** Ids the player has scored 100 on, in this browser. */
@@ -23,20 +23,15 @@ export function LessonPicker({ completed, onPick, onBack }: LessonPickerProps) {
           <GraduationCap size={13} />
           LESSONS
         </p>
-        <h1>Learn to drive the arm</h1>
+        <h1>Learn Servo control or scalp paths</h1>
         <p className="menu-screen__lede">
-          Eight challenges, each teaching one thing. Every one of them can be
-          finished perfectly — the targets were built by running a program that
-          works, not drawn by hand.
+          Choose a certified Servo or Scalp Path lesson. Each track keeps its own
+          Blockly language and derives targets from a solution in that language.
         </p>
       </header>
 
       <ol className="lesson-list">
-        {LESSONS.map((lesson, index) => {
-          // Nothing is locked, and nothing may look locked either: the first
-          // version drew a padlock beside every unstarted lesson while leaving
-          // them all clickable, which promises a gate that is not there. A
-          // learner who wants to jump ahead and come back is still learning.
+        {ALL_LESSONS.map((lesson, index) => {
           const done = completed.has(lesson.id);
           return (
             <li key={lesson.id}>
@@ -49,12 +44,19 @@ export function LessonPicker({ completed, onPick, onBack }: LessonPickerProps) {
                   {done ? <Check size={15} /> : index + 1}
                 </span>
                 <span className="lesson-row__text">
-                  <strong>{lesson.name.replace(/^\d+\s·\s/, '')}</strong>
-                  <small>{lesson.description}</small>
+                  <strong>{lesson.name.replace(/^(?:Path\s)?\d+\s·\s/, '')}</strong>
+                  <small>
+                    {isScalpPathLesson(lesson) ? 'SCALP PATH · ' : 'SERVO · '}
+                    {lesson.description}
+                  </small>
                 </span>
                 <span className="lesson-row__meta">
-                  {lesson.solution.length} block
-                  {lesson.solution.length === 1 ? '' : 's'}
+                  {isScalpPathLesson(lesson)
+                    ? lesson.solution.sourceBlockCount
+                    : lesson.solution.length}{' '}
+                  block{(isScalpPathLesson(lesson)
+                    ? lesson.solution.sourceBlockCount
+                    : lesson.solution.length) === 1 ? '' : 's'}
                 </span>
               </button>
             </li>

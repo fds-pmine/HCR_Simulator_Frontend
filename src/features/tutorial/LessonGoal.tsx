@@ -1,8 +1,10 @@
 import { ArrowRight, Check, Eye, GraduationCap, LogOut, Target } from 'lucide-react';
 import type { Lesson } from '../../data/challenges/lessons';
+import { describeScalpPathLessonSolution, type ScalpPathLesson } from '../../data/challenges/scalpPathLessons';
+import { isScalpPathLesson } from '../../services/local/lessonChallenges';
 
 interface LessonGoalProps {
-  lesson: Lesson;
+  lesson: Lesson | ScalpPathLesson;
   /** Latest completion score, or `undefined` before the first run. */
   completion?: number;
   solved: boolean;
@@ -13,14 +15,7 @@ interface LessonGoalProps {
   onExit: () => void;
 }
 
-/**
- * The goal card shown while a lesson is being solved.
- *
- * The written goal is always visible; the *program* is behind a deliberate
- * click. Showing the answer outright would turn every lesson into typing
- * practice, and hiding it entirely strands anyone who is genuinely stuck — a
- * button they choose to press is the honest middle.
- */
+/** The goal card shown while a blank-canvas path lesson is being solved. */
 export function LessonGoal({
   lesson,
   completion,
@@ -68,11 +63,6 @@ export function LessonGoal({
               : 'Close — check the target outline'}
         </span>
 
-        {/*
-          Once it is solved, the only thing worth offering is the next lesson.
-          Leaving somebody on a finished screen with nothing but "Leave" is how
-          a curriculum stops being one.
-        */}
         {solved ? (
           <button
             className="big-button big-button--primary tutorial__next"
@@ -85,9 +75,9 @@ export function LessonGoal({
           </button>
         ) : revealed ? (
           <code className="lesson-answer">
-            {lesson.solution
-              .map((step) => `${step.jointId} ${step.angleDeg}°`)
-              .join(' → ')}
+            {isScalpPathLesson(lesson)
+              ? describeScalpPathLessonSolution(lesson.solution.nodes)
+              : lesson.solution.map((step) => `${step.jointId} ${step.angleDeg}°`).join(' → ')}
           </code>
         ) : (
           <button className="ghost-button tutorial__next" type="button" onClick={onReveal}>

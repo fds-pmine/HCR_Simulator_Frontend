@@ -1,5 +1,4 @@
 import { defaultChallengeDefinition } from '../../data/challenges/defaultChallenge';
-import { LESSONS } from '../../data/challenges/lessons';
 import type {
   Challenge,
   ChallengeDefinition,
@@ -8,7 +7,7 @@ import type {
 import type { ChallengeProvider } from '../contracts';
 import { normalizeChallenge } from '../normalizeChallenge';
 import { validateChallengeDefinition } from '../validation';
-import { buildLessonChallenge, findLesson } from './lessonChallenges';
+import { ALL_LESSONS, buildLessonChallenge, findLesson } from './lessonChallenges';
 
 export class LocalChallengeProvider implements ChallengeProvider {
   private readonly definitions: readonly ChallengeDefinition[];
@@ -37,7 +36,7 @@ export class LocalChallengeProvider implements ChallengeProvider {
         name,
         description,
       })),
-      ...LESSONS.map(({ id, name, description }) => ({ id, name, description })),
+      ...ALL_LESSONS.map(({ id, name, description }) => ({ id, name, description })),
     ];
   }
 
