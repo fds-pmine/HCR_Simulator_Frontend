@@ -69,7 +69,7 @@ tests/
 
 - [x] 建立 `hcr.v1` Program IR 快照基线，确认路径模式只能导出既有 `set-joint-angle`、`wait`、`repeat`。
 - [x] 建立 7×12 头皮网格、静态安全姿态 Profile 和几何签名校验；完整网格保持可渲染，已认证的 3×9 连通安全补丁可供后续路径编译使用。
-- [ ] 实现相对海龟 Blockly 积木、Scalp Program 编译、兼容 IR 导出和 500 命令上限。
+- [x] 实现相对海龟 Blockly 积木、Scalp Program 编译、兼容 IR 导出和 500 命令上限；路径计划和旧 IR 在领域层独立，编辑器切换留待工作台集成阶段。
 - [ ] 实现多关节同步轨迹、连续碰撞/接触验证和同步/顺序双回放等价校验。
 - [ ] 集成网格可视化、Hover/Cut 状态、路径教学、Practice/Versus 提交和端到端验收。
 

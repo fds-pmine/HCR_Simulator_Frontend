@@ -2,4 +2,8 @@ export * from './defaultProfile';
 export * from './geometrySignature';
 export * from './profileValidation';
 export * from './scalpGrid';
+export * from './scalpBlockConstants';
+export * from './scalpBlockDefinitions';
+export * from './scalpProgramCompiler';
+export * from './scalpProgramTypes';
 export * from './types';

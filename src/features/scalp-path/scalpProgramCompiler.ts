@@ -1,0 +1,457 @@
+import type * as Blockly from 'blockly/core';
+import type { Challenge } from '../../types/domain';
+import {
+  MAX_RUNTIME_COMMANDS,
+  ProgramCompilationError,
+} from '../blockly/programCompiler';
+import { BLOCK_FIELDS, BLOCK_TYPES } from '../blockly/blockConstants';
+import { resolveScalpMotionProfile } from './defaultProfile';
+import { SCALP_BLOCK_FIELDS, SCALP_BLOCK_TYPES } from './scalpBlockConstants';
+import type {
+  CompiledScalpProgram,
+  ScalpCommand,
+  ScalpProgram,
+  ScalpProgramNode,
+  TrajectoryPlan,
+  TrajectorySegment,
+} from './scalpProgramTypes';
+import type {
+  Heading,
+  JointAngles,
+  ScalpMotionProfile,
+  SafetyEdge,
+  ToolMode,
+} from './types';
+
+export const MAX_SCALP_ACTIONS = 200;
+
+type CompilerErrorCode =
+  | 'SCALP_UNSUPPORTED_PROFILE'
+  | 'INVALID_FORWARD'
+  | 'INVALID_TURN'
+  | 'INVALID_TOOL_MODE'
+  | 'UNREACHABLE_GRID_NODE'
+  | 'NO_SAFE_ROUTE'
+  | 'SCALP_ACTION_LIMIT_EXCEEDED';
+
+interface TurtleState {
+  nodeId: string;
+  heading: Heading;
+  toolMode: ToolMode;
+  poseId: string;
+}
+
+export function compileScalpWorkspace(
+  workspace: Blockly.Workspace,
+  challenge: Challenge,
+): CompiledScalpProgram {
+  const resolution = resolveScalpMotionProfile(challenge);
+  if (!resolution.profile) {
+    throw scalpError('SCALP_UNSUPPORTED_PROFILE', resolution.error ?? 'No calibrated scalp profile is available.');
+  }
+
+  const topBlocks = workspace
+    .getTopBlocks(true)
+    .filter((block) => block.isEnabled() && !block.isShadow());
+  if (topBlocks.length === 0) {
+    throw new ProgramCompilationError('EMPTY_PROGRAM', 'The workspace does not contain an executable program.');
+  }
+  if (topBlocks.length > 1) {
+    throw new ProgramCompilationError(
+      'MULTIPLE_TOP_LEVEL_STACKS',
+      'The workspace can contain only one top-level program stack.',
+      topBlocks[1].id,
+    );
+  }
+
+  const nodes = compileSequence(topBlocks[0]);
+  if (nodes.length === 0) {
+    throw new ProgramCompilationError('EMPTY_PROGRAM', 'The workspace does not contain an executable program.');
+  }
+  const scalpProgram: ScalpProgram = {
+    nodes,
+    sourceBlockCount: workspace
+      .getAllBlocks(false)
+      .filter((block) => block.isEnabled() && !block.isShadow()).length,
+  };
+  const actions = expandScalpProgram(scalpProgram);
+  const trajectoryPlan = planTrajectory(actions, resolution.profile);
+  const runtimeCommands = emitCompatibilityCommands(
+    trajectoryPlan,
+    resolution.profile,
+    challenge,
+  );
+
+  return {
+    scalpProgram,
+    trajectoryPlan,
+    program: { nodes: runtimeCommands, sourceBlockCount: scalpProgram.sourceBlockCount },
+    runtimeCommands,
+    executedCommandCount: runtimeCommands.length,
+  };
+}
+
+export function expandScalpProgram(
+  program: ScalpProgram,
+  limit = MAX_SCALP_ACTIONS,
+): ScalpCommand[] {
+  const commands: ScalpCommand[] = [];
+  const append = (nodes: readonly ScalpProgramNode[]): void => {
+    for (const node of nodes) {
+      if (node.type === 'repeat') {
+        for (let iteration = 0; iteration < node.count; iteration += 1) {
+          append(node.body);
+        }
+      } else {
+        commands.push({ ...node });
+        if (commands.length > limit) {
+          throw scalpError(
+            'SCALP_ACTION_LIMIT_EXCEEDED',
+            `The expanded path exceeds ${limit} turtle actions.`,
+            node.sourceBlockId,
+          );
+        }
+      }
+    }
+  };
+  append(program.nodes);
+  return commands;
+}
+
+function compileSequence(first: Blockly.Block): ScalpProgramNode[] {
+  const nodes: ScalpProgramNode[] = [];
+  let current: Blockly.Block | null = first;
+  while (current) {
+    if (current.isEnabled() && !current.isShadow()) {
+      nodes.push(compileBlock(current));
+    }
+    current = current.getNextBlock();
+  }
+  return nodes;
+}
+
+function compileBlock(block: Blockly.Block): ScalpProgramNode {
+  if (block.type === SCALP_BLOCK_TYPES.moveForward) {
+    const steps = readNumber(block, SCALP_BLOCK_FIELDS.steps, 'INVALID_FORWARD');
+    if (!Number.isInteger(steps) || steps < 1 || steps > 12) {
+      throw scalpError('INVALID_FORWARD', 'Move Forward must use an integer between 1 and 12.', block.id);
+    }
+    return { type: 'move-forward', steps, sourceBlockId: block.id };
+  }
+  if (block.type === SCALP_BLOCK_TYPES.turn) {
+    const direction = block.getFieldValue(SCALP_BLOCK_FIELDS.direction);
+    if (direction !== 'left' && direction !== 'right') {
+      throw scalpError('INVALID_TURN', 'Turn direction must be left or right.', block.id);
+    }
+    return { type: 'turn', direction, sourceBlockId: block.id };
+  }
+  if (block.type === SCALP_BLOCK_TYPES.setToolMode) {
+    const mode = block.getFieldValue(SCALP_BLOCK_FIELDS.mode);
+    if (mode !== 'hover' && mode !== 'cut') {
+      throw scalpError('INVALID_TOOL_MODE', 'Cutter mode must be Hover or Cut.', block.id);
+    }
+    return { type: 'set-tool-mode', mode, sourceBlockId: block.id };
+  }
+  if (block.type === BLOCK_TYPES.wait) {
+    const durationMs = readNumber(block, BLOCK_FIELDS.duration, 'INVALID_WAIT');
+    if (durationMs < 0 || durationMs > 5_000) {
+      throw new ProgramCompilationError('INVALID_WAIT', 'Wait duration must be between 0ms and 5000ms.', block.id);
+    }
+    return { type: 'wait', durationMs, sourceBlockId: block.id };
+  }
+  if (block.type === BLOCK_TYPES.repeat) {
+    const count = readNumber(block, BLOCK_FIELDS.count, 'INVALID_REPEAT');
+    if (!Number.isInteger(count) || count < 1 || count > 20) {
+      throw new ProgramCompilationError('INVALID_REPEAT', 'Repeat count must be an integer between 1 and 20.', block.id);
+    }
+    const bodyBlock = block.getInputTargetBlock(BLOCK_FIELDS.body);
+    if (!bodyBlock) {
+      throw new ProgramCompilationError('EMPTY_REPEAT', 'Repeat must contain at least one command.', block.id);
+    }
+    const body = compileSequence(bodyBlock);
+    if (body.length === 0) {
+      throw new ProgramCompilationError('EMPTY_REPEAT', 'Repeat must contain at least one enabled command.', block.id);
+    }
+    return { type: 'repeat', count, body, sourceBlockId: block.id };
+  }
+  throw new ProgramCompilationError('DISALLOWED_BLOCK', `Block "${block.type}" is not allowed in Scalp Turtle mode.`, block.id);
+}
+
+function planTrajectory(
+  actions: readonly ScalpCommand[],
+  profile: ScalpMotionProfile,
+): TrajectoryPlan {
+  const nodes = new Map(profile.nodes.map((node) => [node.id, node]));
+  const poses = new Map(profile.poses.map((pose) => [pose.id, pose]));
+  const startNode = nodes.get(profile.startNodeId);
+  if (!startNode?.hoverPoseId) {
+    throw scalpError('NO_SAFE_ROUTE', 'The scalp profile does not define a reachable start node.');
+  }
+  const park = poses.get(profile.parkPoseId);
+  if (!park) {
+    throw scalpError('NO_SAFE_ROUTE', 'The scalp profile does not define a Park pose.');
+  }
+
+  const segments: TrajectorySegment[] = [];
+  let state: TurtleState = {
+    nodeId: startNode.id,
+    heading: profile.startHeading,
+    toolMode: 'hover',
+    poseId: startNode.hoverPoseId,
+  };
+  let segmentIndex = 0;
+  const add = (edge: SafetyEdge, sourceBlockId: string, actionIndex: number) => {
+    segments.push({
+      id: `segment-${segmentIndex++}`,
+      sourceBlockId,
+      actionIndex,
+      kind: edge.kind,
+      edge,
+      cutterEnabled: edge.cuttingEnabled,
+    });
+  };
+
+  // The first target is park; Phase 3 certifies this initial-pose transition
+  // with the same continuous validator used at runtime.
+  add(syntheticEdge('initial-to-park', 'initial', park.id, 'entry', false, park.jointAngles), '__scalp_entry__', -1);
+  const entry = profile.edges.find((edge) => edge.kind === 'entry' && edge.from === park.id && edge.to === state.poseId);
+  if (!entry) {
+    throw scalpError('NO_SAFE_ROUTE', 'The scalp profile does not define a safe entry route.');
+  }
+  add(entry, '__scalp_entry__', -1);
+
+  actions.forEach((action, actionIndex) => {
+    if (action.type === 'turn') {
+      state = { ...state, heading: rotate(state.heading, action.direction) };
+      segments.push({
+        id: `segment-${segmentIndex++}`,
+        sourceBlockId: action.sourceBlockId,
+        actionIndex,
+        kind: 'turn',
+        cutterEnabled: false,
+      });
+      return;
+    }
+    if (action.type === 'wait') {
+      segments.push({
+        id: `segment-${segmentIndex++}`,
+        sourceBlockId: action.sourceBlockId,
+        actionIndex,
+        kind: 'wait',
+        cutterEnabled: state.toolMode === 'cut',
+        edge: syntheticWaitEdge(action.durationMs),
+      });
+      return;
+    }
+    if (action.type === 'set-tool-mode') {
+      if (action.mode === state.toolMode) {
+        return;
+      }
+      const node = requireNode(nodes, state.nodeId, action.sourceBlockId);
+      const targetPoseId = action.mode === 'cut' ? node.cutPoseId : node.hoverPoseId;
+      if (!targetPoseId) {
+        throw scalpError('UNREACHABLE_GRID_NODE', `Grid node ${node.id} does not support ${action.mode}.`, action.sourceBlockId);
+      }
+      const edge = requireEdge(profile, state.poseId, targetPoseId, action.sourceBlockId);
+      add(edge, action.sourceBlockId, actionIndex);
+      state = { ...state, toolMode: action.mode, poseId: targetPoseId };
+      return;
+    }
+
+    for (let step = 0; step < action.steps; step += 1) {
+      const node = requireNode(nodes, state.nodeId, action.sourceBlockId);
+      const nextId = node.neighbors[state.heading];
+      const next = nextId ? nodes.get(nextId) : undefined;
+      if (!next || !next.reachable) {
+        throw scalpError('UNREACHABLE_GRID_NODE', 'The path leaves the calibrated reachable grid.', action.sourceBlockId);
+      }
+      const targetPoseId = state.toolMode === 'cut' ? next.cutPoseId : next.hoverPoseId;
+      if (!targetPoseId) {
+        throw scalpError('UNREACHABLE_GRID_NODE', `Grid node ${next.id} is disabled.`, action.sourceBlockId);
+      }
+      const edge = requireEdge(profile, state.poseId, targetPoseId, action.sourceBlockId);
+      add(edge, action.sourceBlockId, actionIndex);
+      state = { ...state, nodeId: next.id, poseId: targetPoseId };
+    }
+  });
+
+  if (state.toolMode === 'cut') {
+    const node = requireNode(nodes, state.nodeId, '__scalp_exit__');
+    const hoverPoseId = node.hoverPoseId;
+    if (!hoverPoseId) {
+      throw scalpError('NO_SAFE_ROUTE', 'The final Cut node cannot retract to Hover.');
+    }
+    add(requireEdge(profile, state.poseId, hoverPoseId, '__scalp_exit__'), '__scalp_exit__', actions.length);
+    state = { ...state, toolMode: 'hover', poseId: hoverPoseId };
+  }
+
+  for (const edge of shortestPath(profile, state.poseId, startNode.hoverPoseId)) {
+    add(edge, '__scalp_exit__', actions.length);
+    state = { ...state, poseId: edge.to };
+  }
+  const exit = profile.edges.find((edge) => edge.kind === 'exit' && edge.from === state.poseId && edge.to === park.id);
+  if (!exit) {
+    throw scalpError('NO_SAFE_ROUTE', 'The scalp profile does not define a safe exit route.');
+  }
+  add(exit, '__scalp_exit__', actions.length);
+
+  return {
+    segments,
+    initialNodeId: startNode.id,
+    finalNodeId: state.nodeId,
+    finalHeading: state.heading,
+    finalToolMode: state.toolMode,
+  };
+}
+
+function emitCompatibilityCommands(
+  plan: TrajectoryPlan,
+  profile: ScalpMotionProfile,
+  challenge: Challenge,
+) {
+  const current = Object.fromEntries(
+    challenge.robotConfig.joints.map((joint) => [joint.id, joint.initialAngleDeg]),
+  ) as JointAngles;
+  const commands: import('../blockly/programTypes').RobotCommand[] = [];
+  for (const segment of plan.segments) {
+    if (segment.kind === 'turn') {
+      continue;
+    }
+    if (segment.kind === 'wait') {
+      const durationMs = segment.edge?.legacyWaypoints[0]?.__waitMs;
+      if (durationMs === undefined || !Number.isFinite(durationMs)) {
+        throw new Error('Scalp wait segment is missing its duration.');
+      }
+      commands.push({ type: 'wait', durationMs, sourceBlockId: segment.sourceBlockId });
+      continue;
+    }
+    for (const waypoint of segment.edge?.legacyWaypoints ?? []) {
+      for (const joint of challenge.robotConfig.joints) {
+        const target = waypoint[joint.id];
+        if (!Number.isFinite(target)) {
+          throw new Error(`Scalp edge ${segment.edge?.id} is missing ${joint.id}.`);
+        }
+        if (current[joint.id] === target) {
+          continue;
+        }
+        commands.push({
+          type: 'set-joint-angle',
+          jointId: joint.id,
+          angleDeg: target,
+          sourceBlockId: segment.sourceBlockId,
+        });
+        current[joint.id] = target;
+        if (commands.length > MAX_RUNTIME_COMMANDS) {
+          throw new ProgramCompilationError('COMMAND_LIMIT_EXCEEDED', `The generated compatibility program exceeds ${MAX_RUNTIME_COMMANDS} atomic commands.`, segment.sourceBlockId);
+        }
+      }
+    }
+  }
+  return commands;
+}
+
+function shortestPath(
+  profile: ScalpMotionProfile,
+  from: string,
+  to: string,
+): SafetyEdge[] {
+  if (from === to) {
+    return [];
+  }
+  const queue: Array<{ poseId: string; path: SafetyEdge[] }> = [{ poseId: from, path: [] }];
+  const visited = new Set([from]);
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const candidates = profile.edges
+      .filter((edge) => edge.from === current.poseId && !edge.cuttingEnabled)
+      .sort((left, right) => left.id.localeCompare(right.id));
+    for (const edge of candidates) {
+      if (visited.has(edge.to)) {
+        continue;
+      }
+      const path = [...current.path, edge];
+      if (edge.to === to) {
+        return path;
+      }
+      visited.add(edge.to);
+      queue.push({ poseId: edge.to, path });
+    }
+  }
+  throw scalpError('NO_SAFE_ROUTE', 'No safe Hover route reaches the Park exit.');
+}
+
+function requireEdge(profile: ScalpMotionProfile, from: string, to: string, blockId: string): SafetyEdge {
+  const edge = profile.edges.find((item) => item.from === from && item.to === to);
+  if (!edge) {
+    throw scalpError('NO_SAFE_ROUTE', `No certified route connects ${from} to ${to}.`, blockId);
+  }
+  return edge;
+}
+
+function requireNode(
+  nodes: ReadonlyMap<string, ScalpMotionProfile['nodes'][number]>,
+  id: string,
+  blockId: string,
+) {
+  const node = nodes.get(id);
+  if (!node) {
+    throw scalpError('UNREACHABLE_GRID_NODE', `Grid node ${id} does not exist.`, blockId);
+  }
+  return node;
+}
+
+function rotate(heading: Heading, direction: 'left' | 'right'): Heading {
+  const headings: Heading[] = ['north', 'east', 'south', 'west'];
+  const index = headings.indexOf(heading);
+  return headings[(index + (direction === 'left' ? 3 : 1)) % headings.length];
+}
+
+function syntheticEdge(
+  id: string,
+  from: string,
+  to: string,
+  kind: SafetyEdge['kind'],
+  cuttingEnabled: boolean,
+  target: JointAngles,
+): SafetyEdge {
+  return {
+    id,
+    from,
+    to,
+    kind,
+    cuttingEnabled,
+    synchronousWaypoints: [{ ...target }],
+    legacyWaypoints: [{ ...target }],
+  };
+}
+
+function syntheticWaitEdge(durationMs: number): SafetyEdge {
+  return {
+    id: `wait-${durationMs}`,
+    from: 'wait',
+    to: 'wait',
+    kind: 'hover',
+    cuttingEnabled: false,
+    synchronousWaypoints: [{ __waitMs: durationMs }],
+    legacyWaypoints: [{ __waitMs: durationMs }],
+  };
+}
+
+function readNumber(
+  block: Blockly.Block,
+  fieldName: string,
+  code: CompilerErrorCode | 'INVALID_WAIT' | 'INVALID_REPEAT',
+): number {
+  const value = Number(block.getFieldValue(fieldName));
+  if (Number.isFinite(value)) {
+    return value;
+  }
+  if (code === 'INVALID_WAIT' || code === 'INVALID_REPEAT') {
+    throw new ProgramCompilationError(code, `Field "${fieldName}" must be a finite number.`, block.id);
+  }
+  throw scalpError(code, `Field "${fieldName}" must be a finite number.`, block.id);
+}
+
+function scalpError(code: CompilerErrorCode, message: string, blockId?: string): ProgramCompilationError {
+  return new ProgramCompilationError(code as never, message, blockId);
+}
