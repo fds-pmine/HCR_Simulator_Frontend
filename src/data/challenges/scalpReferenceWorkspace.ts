@@ -41,8 +41,9 @@ function cutter(id: string, mode: 'hover' | 'cut'): SerializedBlock {
 }
 
 /**
- * The calibration path for the shipped crown challenge. It deliberately uses
- * only relative turtle instructions and removes exactly the target trim set.
+ * The smallest certified path for the shipped crown challenge. It deliberately
+ * uses only relative turtle instructions and removes exactly the target trim
+ * set under the frozen compatibility scoring baseline.
  */
 const referencePath = chain([
   turn('scalp-ref-turn-north', 'left'),
@@ -51,15 +52,6 @@ const referencePath = chain([
   move('scalp-ref-approach', 1),
   cutter('scalp-ref-cut-crown', 'cut'),
   move('scalp-ref-first-sweep', 8),
-  turn('scalp-ref-turn-south-at-east', 'right'),
-  turn('scalp-ref-turn-west', 'right'),
-  move('scalp-ref-return-west', 9),
-  cutter('scalp-ref-hover', 'hover'),
-  turn('scalp-ref-turn-south-at-west', 'left'),
-  move('scalp-ref-descend', 2),
-  turn('scalp-ref-turn-east-again', 'left'),
-  cutter('scalp-ref-cut-finish', 'cut'),
-  move('scalp-ref-final-sweep', 9),
 ]);
 
 referencePath.x = 40;

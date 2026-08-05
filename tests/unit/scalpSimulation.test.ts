@@ -47,10 +47,11 @@ describe('Scalp Turtle simulation integration', () => {
       challenge.initialHair.voxels.size,
     );
     expect(snapshot.hairVoxels).toEqual(challenge.targetHair.voxels);
-    expect(snapshot.scalpPath?.actionCount).toBe(15);
+    expect(snapshot.scalpPath?.actionCount).toBe(6);
     expect(snapshot.metrics.executedCommandCount).toBe(
       compiled.executedCommandCount,
     );
+    expect(snapshot.scoreResult?.finalScore).toBeGreaterThanOrEqual(80);
   });
 
   it('removes the same hair under uneven render-frame deltas', () => {

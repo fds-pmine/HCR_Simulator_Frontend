@@ -115,7 +115,7 @@ test.describe('HCR Simulator workbench', () => {
     );
     await expect(
       page.locator('.blocklyBlockCanvas .blocklyDraggable'),
-    ).toHaveCount(15);
+    ).toHaveCount(6);
   }
 
   test('keeps the legacy Servo language and workspace when Scalp Path is selected', async ({
@@ -271,7 +271,7 @@ test.describe('HCR Simulator workbench', () => {
       '229',
     );
     await expect(page.getByTestId('executed-command-count')).toHaveText(
-      '23',
+      '15',
     );
     await expect(page.getByTestId('final-score')).toBeVisible();
     await expect(page.getByTestId('simulator-canvas')).toHaveAttribute(
