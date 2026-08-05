@@ -6,19 +6,20 @@ import {
 } from 'react';
 import * as Blockly from 'blockly/core';
 import type { Challenge } from '../../types/domain';
+import { registerHcrBlocks } from './blockDefinitions';
 import {
-  createToolbox,
-  registerHcrBlocks,
-} from './blockDefinitions';
-import {
-  compileWorkspace,
   type ProgramCompilationError,
 } from './programCompiler';
-import type { CompiledProgram } from './programTypes';
 import { loadWorkspaceState } from './workspaceFactory';
+import {
+  compileScalpWorkspace,
+  createScalpTurtleToolbox,
+  registerScalpTurtleBlocks,
+} from '../scalp-path';
+import type { ExecutableProgram } from '../simulation/executableProgram';
 
 export interface BlocklyEditorHandle {
-  compile: () => CompiledProgram;
+  compile: () => ExecutableProgram;
   highlightBlock: (blockId?: string) => void;
   locateError: (error: ProgramCompilationError) => void;
   clear: () => void;
@@ -45,8 +46,9 @@ export const BlocklyEditor = forwardRef<
     }
 
     registerHcrBlocks(challenge.robotConfig.joints);
+    registerScalpTurtleBlocks();
     const workspace = Blockly.inject(container, {
-      toolbox: createToolbox(challenge),
+      toolbox: createScalpTurtleToolbox(),
       renderer: 'zelos',
       theme: Blockly.Themes.Zelos,
       trashcan: true,
@@ -72,7 +74,10 @@ export const BlocklyEditor = forwardRef<
       },
     });
     workspaceRef.current = workspace;
-    loadWorkspaceState(workspace, challenge.starterWorkspace);
+    // Path mode deliberately begins on a blank canvas. Existing angle-based
+    // starter workspaces remain valid legacy fixtures, but never enter the
+    // player-facing Scalp Turtle editor.
+    loadWorkspaceState(workspace, {});
     Blockly.svgResize(workspace);
 
     // A seam for the end-to-end tests, and only for them.
@@ -143,7 +148,7 @@ export const BlocklyEditor = forwardRef<
         if (!workspace) {
           throw new Error('The Blockly workspace is not ready.');
         }
-        return compileWorkspace(workspace, challenge);
+        return compileScalpWorkspace(workspace, challenge);
       },
       highlightBlock(blockId) {
         workspaceRef.current?.highlightBlock(blockId ?? null);

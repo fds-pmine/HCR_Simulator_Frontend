@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { starterWorkspaceState } from '../../src/data/challenges/starterWorkspace';
+import { scalpReferenceWorkspaceState } from '../../src/data/challenges/scalpReferenceWorkspace';
 
 /** `#rrggbb` as the `rgb(r, g, b)` string `toHaveCSS` compares against. */
 function rgb(hex: string): string {
@@ -17,6 +17,26 @@ function rgb(hex: string): string {
  * assertion with a readable diff instead.
  */
 const SCENE_BACKGROUND = '#0a141d';
+
+const invalidPathWorkspaceState: Record<string, unknown> = {
+  blocks: {
+    languageVersion: 0,
+    blocks: [
+      {
+        id: 'invalid-turn',
+        type: 'hcr_scalp_turn',
+        fields: { DIRECTION: 'left' },
+        next: {
+          block: {
+            id: 'invalid-forward',
+            type: 'hcr_scalp_move_forward',
+            fields: { STEPS: 3 },
+          },
+        },
+      },
+    ],
+  },
+};
 
 test.describe('HCR Simulator workbench', () => {
   test.beforeEach(async ({ page }) => {
@@ -52,6 +72,8 @@ test.describe('HCR Simulator workbench', () => {
     // Every mode now opens blank — a prefilled workspace is a partial answer.
     // So each test builds the program it needs, the same way a learner does.
     await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
+    await expect(page.getByText('Servo', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Joint Angle', { exact: true })).toHaveCount(0);
   });
 
   /*
@@ -68,7 +90,7 @@ test.describe('HCR Simulator workbench', () => {
    * only way a learner builds anything. That gap is real and separate; seeding
    * here does not close it and is not meant to.
    */
-  async function seedStarterProgram(page: Page): Promise<void> {
+  async function seedReferencePath(page: Page): Promise<void> {
     await page.evaluate(
       (state) => {
         const seed = (
@@ -83,37 +105,68 @@ test.describe('HCR Simulator workbench', () => {
         }
         seed(state);
       },
-      starterWorkspaceState,
+      scalpReferenceWorkspaceState,
     );
     await expect(
       page.locator('.blocklyBlockCanvas .blocklyDraggable'),
-    ).toHaveCount(5);
+    ).toHaveCount(15);
   }
 
-  test('blocks a head collision at the last safe pose without scoring', async ({
+  test('authors a turtle path by dragging from the Path toolbox', async ({
     page,
   }) => {
-    await seedStarterProgram(page);
-    await setBlocklyNumberField(page, 'starter-shoulder-roll', 0);
-    await setBlocklyNumberField(page, 'starter-shoulder', 50);
-    await setBlocklyNumberField(page, 'starter-elbow', -15);
-    await setBlocklyNumberField(page, 'starter-wrist', -30);
-    await setBlocklyNumberField(page, 'starter-base-sweep', -24);
+    await page
+      .locator('.blocklyToolboxCategory')
+      .filter({ hasText: 'Path' })
+      .click();
+    const source = page.locator('.blocklyFlyout .blocklyDraggable').first();
+    await expect(source).toBeVisible();
+    const sourceBox = await source.boundingBox();
+    const targetBox = await page
+      .locator('.blockly-editor__surface')
+      .boundingBox();
+    if (!sourceBox || !targetBox) {
+      throw new Error('Blockly drag geometry is unavailable.');
+    }
+    await page.mouse.move(
+      sourceBox.x + sourceBox.width / 2,
+      sourceBox.y + sourceBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(targetBox.x + 220, targetBox.y + 150, {
+      steps: 12,
+    });
+    await page.mouse.up();
+
+    await expect.poll(async () =>
+      page.locator('.blocklyDraggable').evaluateAll(
+        (blocks) =>
+          blocks.filter((block) => !block.closest('.blocklyFlyout')).length,
+      ),
+    ).toBe(1);
+  });
+
+  test('locates a path instruction that leaves the calibrated grid', async ({
+    page,
+  }) => {
+    await page.evaluate((state) => {
+      const seed = (
+        window as unknown as {
+          __hcrSeedWorkspace?: (value: Record<string, unknown>) => void;
+        }
+      ).__hcrSeedWorkspace;
+      if (!seed) {
+        throw new Error('The Blockly seed hook is missing.');
+      }
+      seed(state);
+    }, invalidPathWorkspaceState);
 
     await page.getByTestId('run-button').click();
 
-    await expect(page.getByTestId('simulation-status')).toHaveText(
-      'Error',
-      { timeout: 15_000 },
-    );
-    await expect(page.getByRole('alert')).toContainText('baseYaw');
-    await expect(page.getByRole('alert')).toContainText('contact the head');
-    // The offending block is highlighted rather than named: its Blockly id is
-    // an internal string a learner cannot act on.
+    await expect(page.getByTestId('simulation-status')).toHaveText('Idle');
+    await expect(page.getByRole('alert')).toContainText('calibrated reachable grid');
     await expect(page.locator('.blocklyHighlighted')).toHaveCount(1);
-    await expect(page.getByTestId('executed-command-count')).toHaveText(
-      '4',
-    );
+    await expect(page.getByTestId('executed-command-count')).toHaveText('0');
     await expect(page.getByTestId('final-score')).toHaveCount(0);
     await expect(page.locator('.blocklyHighlighted')).toHaveCount(1);
     await expect(page.getByTestId('run-button')).toBeEnabled();
@@ -126,7 +179,8 @@ test.describe('HCR Simulator workbench', () => {
   test('runs the starter program to a reproducible scored result', async ({
     page,
   }) => {
-    await seedStarterProgram(page);
+    test.setTimeout(60_000);
+    await seedReferencePath(page);
     const pageErrors: Error[] = [];
     page.on('pageerror', (error) => pageErrors.push(error));
     const blockCountBefore = await page
@@ -177,13 +231,13 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.locator('.blocklyHighlighted')).toHaveCount(1);
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Completed',
-      { timeout: 15_000 },
+      { timeout: 30_000 },
     );
     await expect(page.getByTestId('current-voxel-count')).toHaveText(
-      '230',
+      '229',
     );
     await expect(page.getByTestId('executed-command-count')).toHaveText(
-      '5',
+      '23',
     );
     await expect(page.getByTestId('final-score')).toBeVisible();
     await expect(page.getByTestId('simulator-canvas')).toHaveAttribute(
@@ -194,7 +248,7 @@ test.describe('HCR Simulator workbench', () => {
     const completion = Number(
       await page.getByTestId('completion-score').textContent(),
     );
-    expect(completion).toBeGreaterThanOrEqual(80);
+    expect(completion).toBeGreaterThanOrEqual(90);
 
     await page.getByTestId('reset-button').click();
     await expect(page.getByTestId('simulation-status')).toHaveText('Idle');
@@ -211,7 +265,8 @@ test.describe('HCR Simulator workbench', () => {
   test('pauses, advances one command, resumes and records events', async ({
     page,
   }) => {
-    await seedStarterProgram(page);
+    test.setTimeout(60_000);
+    await seedReferencePath(page);
     await page.getByTestId('run-button').click();
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Running',
@@ -232,17 +287,17 @@ test.describe('HCR Simulator workbench', () => {
     await page.getByTestId('step-button').click();
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Paused',
-      { timeout: 5_000 },
+      { timeout: 12_000 },
     );
     const countAfterStep = Number(
       await page.getByTestId('executed-command-count').textContent(),
     );
-    expect(countAfterStep).toBe(countBeforeStep + 1);
+    expect(countAfterStep).toBeGreaterThan(countBeforeStep);
 
     await page.getByTestId('resume-button').click();
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Completed',
-      { timeout: 15_000 },
+      { timeout: 30_000 },
     );
 
     await page.getByTestId('log-toggle').click();
@@ -258,7 +313,7 @@ test.describe('HCR Simulator workbench', () => {
   test('stops without a formal score and preserves reset behavior', async ({
     page,
   }) => {
-    await seedStarterProgram(page);
+    await seedReferencePath(page);
     await page.getByTestId('run-button').click();
     await expect(page.getByTestId('simulation-status')).toHaveText(
       'Running',
@@ -352,21 +407,4 @@ async function expectReadableFontSizes(
     );
     expect(fontSize, `${selector} font size`).toBeGreaterThanOrEqual(11);
   }
-}
-
-async function setBlocklyNumberField(
-  page: import('@playwright/test').Page,
-  blockId: string,
-  value: number,
-): Promise<void> {
-  const field = page
-    .locator(
-      `.blocklyDraggable[data-id="${blockId}"] > .blocklyNumberField`,
-    )
-    .last();
-  await field.click({ force: true });
-  const input = page.locator('.blocklyHtmlInput');
-  await expect(input).toBeVisible();
-  await input.fill(String(value));
-  await input.press('Enter');
 }

@@ -18,7 +18,13 @@ import {
 import {
   ProgramCompilationError,
 } from '../../features/blockly/programCompiler';
-import type { CompiledProgram, Program } from '../../features/blockly/programTypes';
+import {
+  isScalpProgram,
+  type ExecutableProgram,
+} from '../../features/simulation/executableProgram';
+import {
+  type ScalpProgram,
+} from '../../features/scalp-path';
 import { SimulatorCanvas } from '../../features/simulation/SimulatorCanvas';
 import type { SimulationEngine } from '../../features/simulation/SimulationEngine';
 import { runHeadless } from '../../features/simulation/headlessRun';
@@ -43,7 +49,7 @@ export interface WorkbenchMatch {
   /** Whether the round is currently accepting entries. */
   canSubmit: boolean;
   submitting: boolean;
-  onSubmit: (compiled: CompiledProgram) => void;
+  onSubmit: (compiled: ExecutableProgram) => void;
 }
 
 /**
@@ -64,7 +70,7 @@ export interface WorkbenchTutorial {
    * placed. Compiling on each change is a small tree walk over a program capped
    * at 500 commands.
    */
-  onProgramChange: (program: Program | undefined, blockCount: number) => void;
+  onProgramChange: (program: ScalpProgram | undefined, blockCount: number) => void;
   /** Test was pressed. */
   onTested: () => void;
 }
@@ -124,7 +130,13 @@ export function SimulationWorkbench({
         .getAllBlocks(false)
         .filter((block) => block.isEnabled() && !block.isShadow()).length;
       try {
-        report(editorRef.current?.compile().program, blockCount);
+        const compiled = editorRef.current?.compile();
+        report(
+          compiled && isScalpProgram(compiled)
+            ? compiled.scalpProgram
+            : undefined,
+          blockCount,
+        );
       } catch {
         // Half-built programs do not compile, which is the normal state while
         // somebody is dragging blocks around. Report the block count anyway so
@@ -137,7 +149,7 @@ export function SimulationWorkbench({
     return () => workspace.removeChangeListener(publish);
   }, [report]);
 
-  const compile = (): CompiledProgram | undefined => {
+  const compile = (): ExecutableProgram | undefined => {
     try {
       const result = editorRef.current?.compile();
       if (!result) {
@@ -277,7 +289,7 @@ export function SimulationWorkbench({
           <div className="panel-header">
             <div>
               <span>PROGRAM</span>
-              <strong>Servo Control Program</strong>
+              <strong>Scalp Path Program</strong>
             </div>
             <button
               type="button"

@@ -38,6 +38,7 @@ export interface MoveAdvanceResult {
   moved: boolean;
   previousEndEffector: Vec3Tuple;
   currentEndEffector: Vec3Tuple;
+  endEffectorPath: readonly Vec3Tuple[];
   blockedCollision?: BlockedHeadCollision;
 }
 
@@ -52,6 +53,7 @@ export interface PoseMoveAdvanceResult {
   moved: boolean;
   previousEndEffector: Vec3Tuple;
   currentEndEffector: Vec3Tuple;
+  endEffectorPath: readonly Vec3Tuple[];
   blockedCollision?: BlockedPoseCollision;
 }
 
@@ -123,6 +125,7 @@ export class RobotController {
     const move = this.activeMove;
     const previousPose = this.getPose();
     const previousEndEffector = previousPose.endEffector;
+    const previousAngles = this.getAngles();
     const remainingMs = Math.max(0, move.durationMs - move.elapsedMs);
     const consumedMs = Math.min(deltaMs, remainingMs);
     const targetElapsedMs = move.elapsedMs + consumedMs;
@@ -162,6 +165,10 @@ export class RobotController {
         ),
         previousEndEffector,
         currentEndEffector,
+        endEffectorPath: this.sampleEndEffectorPath(
+          previousAngles,
+          this.jointAngles,
+        ),
         blockedCollision,
       };
     }
@@ -180,6 +187,10 @@ export class RobotController {
       moved: !pointsEqual(previousEndEffector, currentEndEffector),
       previousEndEffector,
       currentEndEffector,
+      endEffectorPath: this.sampleEndEffectorPath(
+        previousAngles,
+        this.jointAngles,
+      ),
     };
   }
 
@@ -266,6 +277,12 @@ export class RobotController {
         moved: !pointsEqual(previousEndEffector, currentEndEffector),
         previousEndEffector,
         currentEndEffector,
+        endEffectorPath: this.sampleSynchronizedEndEffectorPath(
+          move.startAngles,
+          move.targetAngles,
+          startProgress,
+          blockedCollision.safeProgress,
+        ),
         blockedCollision,
       };
     }
@@ -283,6 +300,12 @@ export class RobotController {
       moved: !pointsEqual(previousEndEffector, currentEndEffector),
       previousEndEffector,
       currentEndEffector,
+      endEffectorPath: this.sampleSynchronizedEndEffectorPath(
+        move.startAngles,
+        move.targetAngles,
+        startProgress,
+        targetProgress,
+      ),
     };
   }
 
@@ -439,6 +462,65 @@ export class RobotController {
         throw new Error(`Unknown joint "${jointId}".`);
       }
     }
+  }
+
+  /**
+   * Exposes fixed angular samples to contact code. Rendering frames may arrive
+   * at arbitrary times, but swept-hair checks must not depend on where those
+   * frame boundaries happened to fall along a curved tool path.
+   */
+  private sampleEndEffectorPath(
+    startAngles: Readonly<Record<JointId, number>>,
+    endAngles: Readonly<Record<JointId, number>>,
+  ): Vec3Tuple[] {
+    const largestDelta = Math.max(
+      ...this.robotConfig.joints.map((joint) =>
+        Math.abs(endAngles[joint.id] - startAngles[joint.id]),
+      ),
+    );
+    const stepCount = Math.max(
+      1,
+      Math.ceil(largestDelta / MAX_ANGULAR_STEP_DEG),
+    );
+    return Array.from({ length: stepCount }, (_, index) =>
+      computeRobotPose(
+        this.robotConfig,
+        interpolateAngles(startAngles, endAngles, (index + 1) / stepCount),
+      ).endEffector,
+    );
+  }
+
+  private sampleSynchronizedEndEffectorPath(
+    movementStart: Readonly<Record<JointId, number>>,
+    movementTarget: Readonly<Record<JointId, number>>,
+    startProgress: number,
+    endProgress: number,
+  ): Vec3Tuple[] {
+    const largestDelta = Math.max(
+      ...this.robotConfig.joints.map((joint) =>
+        Math.abs(movementTarget[joint.id] - movementStart[joint.id]),
+      ),
+    );
+    const stepCount = Math.max(
+      1,
+      Math.ceil(largestDelta / MAX_ANGULAR_STEP_DEG),
+    );
+    const firstIndex = Math.floor(startProgress * stepCount) + 1;
+    const lastIndex = Math.floor(endProgress * stepCount + Number.EPSILON);
+    const checkpoints: Vec3Tuple[] = [];
+    for (let index = firstIndex; index <= lastIndex; index += 1) {
+      checkpoints.push(
+        computeRobotPose(
+          this.robotConfig,
+          interpolateAngles(
+            movementStart,
+            movementTarget,
+            Math.min(1, index / stepCount),
+          ),
+        ).endEffector,
+      );
+    }
+    return checkpoints;
   }
 }
 

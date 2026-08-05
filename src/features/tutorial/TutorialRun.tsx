@@ -5,7 +5,7 @@ import { LocalChallengeProvider } from '../../services/local/LocalChallengeProvi
 import { LocalScoreProvider } from '../../services/local/LocalScoreProvider';
 import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import type { Challenge } from '../../types/domain';
-import type { Program } from '../blockly/programTypes';
+import type { ScalpProgram } from '../scalp-path';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { useSimulationSnapshot } from '../simulation/useSimulationSnapshot';
 import { LESSONS } from './lessons';
@@ -30,7 +30,7 @@ export function TutorialRun({ onExit }: TutorialRunProps) {
   const [error, setError] = useState<string>();
 
   const [step, setStep] = useState(0);
-  const [program, setProgram] = useState<Program>();
+  const [program, setProgram] = useState<ScalpProgram>();
   const [blockCount, setBlockCount] = useState(0);
   const [testCount, setTestCount] = useState(0);
 
@@ -79,7 +79,7 @@ export function TutorialRun({ onExit }: TutorialRunProps) {
   }, [challenge]);
 
   const onProgramChange = useCallback(
-    (next: Program | undefined, blocks: number) => {
+    (next: ScalpProgram | undefined, blocks: number) => {
       setProgram(next);
       setBlockCount(blocks);
     },
@@ -155,10 +155,10 @@ function TutorialStage({
   challenge: Challenge;
   engine: SimulationEngine;
   step: number;
-  program?: Program;
+  program?: ScalpProgram;
   blockCount: number;
   testCount: number;
-  onProgramChange: (program: Program | undefined, blockCount: number) => void;
+  onProgramChange: (program: ScalpProgram | undefined, blockCount: number) => void;
   onTested: () => void;
   onNext: () => void;
   onFinish: () => void;

@@ -2,7 +2,6 @@ import type { Challenge, JointId, Vec3Tuple, VoxelKey } from '../../types/domain
 import {
   RobotController,
   type BlockedPoseCollision,
-  type PoseMoveAdvanceResult,
 } from '../robot/RobotController';
 import { findRobotHeadCollision } from '../robot/headCollision';
 import { findSweptVoxelHits } from '../voxel/contactDetection';
@@ -12,6 +11,7 @@ import type { TrajectoryPlan, TrajectorySegment } from './scalpProgramTypes';
 interface ActiveWait {
   elapsedMs: number;
 }
+
 
 export interface TrajectoryMovement {
   segment: TrajectorySegment;
@@ -43,6 +43,7 @@ export class TrajectoryExecutor {
   private activeSegment: TrajectorySegment | undefined;
   private activeWaypointIndex = 0;
   private activeWait: ActiveWait | undefined;
+  private contactEndEffector: Vec3Tuple | undefined;
 
   constructor(
     private readonly robotController: RobotController,
@@ -55,6 +56,7 @@ export class TrajectoryExecutor {
     this.activeSegment = undefined;
     this.activeWaypointIndex = 0;
     this.activeWait = undefined;
+    this.contactEndEffector = undefined;
   }
 
   reset(): void {
@@ -63,6 +65,7 @@ export class TrajectoryExecutor {
     this.activeSegment = undefined;
     this.activeWaypointIndex = 0;
     this.activeWait = undefined;
+    this.contactEndEffector = undefined;
   }
 
   advance(
@@ -86,7 +89,7 @@ export class TrajectoryExecutor {
       segmentsCompleted < maxSegmentsToComplete
     ) {
       safetyCounter += 1;
-      if (safetyCounter > this.segments.length * 3 + 3) {
+      if (safetyCounter > 100_000) {
         throw new Error('Trajectory executor failed to make progress.');
       }
 
@@ -135,8 +138,12 @@ export class TrajectoryExecutor {
       const movement = this.robotController.advancePoseMove(remainingMs);
       consumedMs += movement.consumedMs;
       remainingMs = Math.max(0, remainingMs - movement.consumedMs);
-      if (movement.moved) {
-        movements.push(toMovement(segment, movement));
+      if (movement.endEffectorPath.length > 0) {
+        const start = this.contactEndEffector ?? movement.previousEndEffector;
+        movements.push(
+          ...toMovements(segment, start, movement.endEffectorPath),
+        );
+        this.contactEndEffector = movement.endEffectorPath.at(-1);
       }
       if (movement.blockedCollision) {
         blockedCollision = movement.blockedCollision;
@@ -195,6 +202,7 @@ export class TrajectoryExecutor {
         ? {}
         : { maxEndEffectorStep: this.maxEndEffectorStep },
     );
+    this.contactEndEffector = this.robotController.getPose().endEffector;
   }
 
   private completeSegment(hooks: TrajectoryExecutorHooks): void {
@@ -207,6 +215,7 @@ export class TrajectoryExecutor {
     this.activeSegment = undefined;
     this.activeWaypointIndex = 0;
     this.activeWait = undefined;
+    this.contactEndEffector = undefined;
   }
 }
 
@@ -284,7 +293,11 @@ export function replaySynchronizedTrajectory(
 export function replayLegacyCommands(
   commands: readonly RobotCommand[],
   challenge: Challenge,
+  tickMs = 16,
 ): TrajectoryReplayResult {
+  if (!Number.isFinite(tickMs) || tickMs <= 0) {
+    throw new Error('Legacy replay tick must be a positive finite number.');
+  }
   const controller = constrainedController(challenge);
   let hairVoxels = new Set(challenge.initialHair.voxels);
   let elapsedMs = 0;
@@ -294,25 +307,34 @@ export function replayLegacyCommands(
       continue;
     }
     controller.beginMove(command.jointId, command.angleDeg);
-    const movement = controller.advanceMove(Number.MAX_SAFE_INTEGER);
-    elapsedMs += movement.consumedMs;
-    if (movement.blockedCollision) {
-      return failure(
+    for (let ticks = 0; controller.hasActiveMove(); ticks += 1) {
+      if (ticks > 100_000) {
+        return failure(
+          hairVoxels,
+          controller,
+          elapsedMs,
+          'Legacy trajectory exceeded its tick budget.',
+          command.sourceBlockId,
+        );
+      }
+      const movement = controller.advanceMove(tickMs);
+      elapsedMs += movement.consumedMs;
+      if (movement.blockedCollision) {
+        return failure(
+          hairVoxels,
+          controller,
+          elapsedMs,
+          `${movement.blockedCollision.partLabel} would contact the head.`,
+          command.sourceBlockId,
+        );
+      }
+      hairVoxels = removePathHits(
+        movement.previousEndEffector,
+        movement.endEffectorPath,
         hairVoxels,
-        controller,
-        elapsedMs,
-        `${movement.blockedCollision.partLabel} would contact the head.`,
-        command.sourceBlockId,
+        challenge,
       );
     }
-    const hits = findSweptVoxelHits(
-      movement.previousEndEffector,
-      movement.currentEndEffector,
-      hairVoxels,
-      challenge.voxelConfig,
-      challenge.robotConfig.geometry.toolRadius,
-    );
-    hairVoxels = removeHits(hairVoxels, hits);
   }
   return {
     status: 'completed',
@@ -401,15 +423,20 @@ function removeHits(
   return next;
 }
 
-function toMovement(
+function toMovements(
   segment: TrajectorySegment,
-  movement: PoseMoveAdvanceResult,
-): TrajectoryMovement {
-  return {
-    segment,
-    previousEndEffector: movement.previousEndEffector,
-    currentEndEffector: movement.currentEndEffector,
-  };
+  start: Vec3Tuple,
+  path: readonly Vec3Tuple[],
+): TrajectoryMovement[] {
+  let previous = start;
+  return path.flatMap((currentEndEffector) => {
+    if (pointsEqual(previous, currentEndEffector)) {
+      return [];
+    }
+    const item = { segment, previousEndEffector: previous, currentEndEffector };
+    previous = currentEndEffector;
+    return [item];
+  });
 }
 
 function failure(
@@ -439,4 +466,34 @@ function anglesEqual(
 ): boolean {
   const ids = new Set([...Object.keys(left), ...Object.keys(right)]);
   return [...ids].every((id) => Math.abs((left[id] ?? 0) - (right[id] ?? 0)) <= 1e-6);
+}
+
+function removePathHits(
+  start: Vec3Tuple,
+  path: readonly Vec3Tuple[],
+  voxels: ReadonlySet<VoxelKey>,
+  challenge: Challenge,
+): Set<VoxelKey> {
+  let next = new Set(voxels);
+  let previous = start;
+  for (const current of path) {
+    const hits = findSweptVoxelHits(
+      previous,
+      current,
+      next,
+      challenge.voxelConfig,
+      challenge.robotConfig.geometry.toolRadius,
+    );
+    next = removeHits(next, hits);
+    previous = current;
+  }
+  return next;
+}
+
+function pointsEqual(left: Vec3Tuple, right: Vec3Tuple): boolean {
+  return (
+    Math.abs(left[0] - right[0]) < Number.EPSILON &&
+    Math.abs(left[1] - right[1]) < Number.EPSILON &&
+    Math.abs(left[2] - right[2]) < Number.EPSILON
+  );
 }

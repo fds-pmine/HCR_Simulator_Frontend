@@ -17,9 +17,9 @@ describe('default Scalp Turtle motion profile', () => {
     const enabled = nodes.filter((node) => node.reachable);
 
     expect(nodes).toHaveLength(SCALP_GRID_ROWS * SCALP_GRID_COLUMNS);
-    expect(enabled).toHaveLength(27);
+    expect(enabled).toHaveLength(30);
     expect(new Set(enabled.map((node) => node.row)).size).toBe(3);
-    expect(new Set(enabled.map((node) => node.column)).size).toBe(9);
+    expect(new Set(enabled.map((node) => node.column)).size).toBe(10);
     expect(nodes.find((node) => node.id === 'r0-c0')?.neighbors.west).toBe(
       'r0-c11',
     );

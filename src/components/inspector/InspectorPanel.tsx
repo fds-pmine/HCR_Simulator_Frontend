@@ -53,9 +53,38 @@ export function InspectorPanel({
         </button>
       </section>
 
-      <section className="inspector-section">
-        <div className="section-heading">
+      {snapshot.scalpPath ? (
+        <section className="inspector-section scalp-path-readout" data-testid="scalp-path-readout">
+          <div className="section-heading">
+            <span>SCALP TURTLE</span>
+            <span>{snapshot.scalpPath.toolMode.toUpperCase()}</span>
+          </div>
+          <div className="metric-grid">
+            <Metric label="Current Cell" value={snapshot.scalpPath.gridNodeId} />
+            <Metric label="Heading" value={snapshot.scalpPath.heading} />
+            <Metric
+              label="Path Action"
+              value={`${Math.min((snapshot.scalpPath.actionIndex ?? -1) + 1, snapshot.scalpPath.actionCount)} / ${snapshot.scalpPath.actionCount}`}
+            />
+            <Metric
+              label="Safe Segments"
+              value={`${snapshot.scalpPath.segmentIndex} / ${snapshot.scalpPath.segmentCount}`}
+            />
+          </div>
+          <div className="duration-row">
+            <span>Generated IR Commands</span>
+            <strong>{snapshot.metrics.executedCommandCount}</strong>
+          </div>
+        </section>
+      ) : null}
+
+      <details className="inspector-section joint-diagnostics">
+        <summary>
+          <span>DIAGNOSTICS</span>
           <span>JOINT TELEMETRY</span>
+        </summary>
+        <div className="section-heading">
+          <span>JOINT ANGLES</span>
           <span>DEG</span>
         </div>
         <div className="joint-list">
@@ -85,7 +114,7 @@ export function InspectorPanel({
             ))}
           </div>
         </div>
-      </section>
+      </details>
 
       <section className="inspector-section">
         <div className="section-heading">
@@ -163,7 +192,7 @@ function Metric({
   testId,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   testId?: string;
 }) {
   return (

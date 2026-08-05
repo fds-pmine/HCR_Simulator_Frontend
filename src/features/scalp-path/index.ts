@@ -8,3 +8,4 @@ export * from './scalpProgramCompiler';
 export * from './scalpProgramTypes';
 export * from './trajectoryExecutor';
 export * from './types';
+export * from './ScalpGridOverlay';

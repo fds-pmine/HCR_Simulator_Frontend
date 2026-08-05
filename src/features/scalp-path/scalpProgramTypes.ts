@@ -29,6 +29,12 @@ export interface TrajectorySegment {
   edge?: SafetyEdge;
   cutterEnabled: boolean;
   durationMs?: number;
+  /** State shown to players after this segment has completed. */
+  gridNodeId?: string;
+  heading?: Heading;
+  toolMode?: ToolMode;
+  /** Number of frozen hcr.v1 commands emitted for this segment. */
+  compatibilityCommandCount?: number;
 }
 
 export interface TrajectoryPlan {

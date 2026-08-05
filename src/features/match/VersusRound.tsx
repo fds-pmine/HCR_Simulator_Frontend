@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { useServices } from '../../app/servicesContext';
 import { SimulationWorkbench } from '../../components/layout/SimulationWorkbench';
-import type { CompiledProgram } from '../blockly/programTypes';
+import type { ExecutableProgram } from '../simulation/executableProgram';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { runHeadless } from '../simulation/headlessRun';
 import type { PlayerIdentity } from './identity';
@@ -116,7 +116,7 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
     );
   }
 
-  const handleSubmit = async (compiled: CompiledProgram) => {
+  const handleSubmit = async (compiled: ExecutableProgram) => {
     // Evaluate first. Online, the score is discarded and the server replays the
     // IR itself; offline there is no server, so this *is* the score — which is
     // exactly why an offline round is practice. `MatchSubmission.clientScore`.

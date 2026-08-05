@@ -1,181 +1,105 @@
-/**
- * The guided tutorial.
- *
- * Lessons are declarative: a title, what to do, and a predicate over the live
- * program and the engine's state. The tutorial never simulates anything of its
- * own and never mocks the workbench — a step is complete when the *real* engine
- * says so, so nothing here can drift away from how the app actually behaves.
- *
- * # What it teaches, and why these things
- *
- * Two rules account for almost every "it's broken" report, and neither is
- * discoverable by poking at the editor:
- *
- * 1. **Angles are absolute.** `Repeat 5 × [Set Base Yaw to −55°]` moves the arm
- *    once and then drives a joint to where it already is, four times. It looks
- *    exactly like a broken Repeat block, and it costs efficiency for nothing.
- * 2. **The head stops the arm.** A sweep through the head halts at the last safe
- *    pose and scores whatever it had managed. Better to meet that deliberately,
- *    in a step that expects it, than to hit it by accident and read it as a bug.
- *
- * The angles below are tuned to the shipped challenge's geometry — `baseYaw`
- * travels ±60° with a head-safe band of roughly ±35–60° — which is why the
- * tutorial pins itself to that challenge rather than whatever the catalog serves.
- */
-import type { Program, ProgramNode } from '../blockly/programTypes';
+import type { ScalpProgram, ScalpProgramNode } from '../scalp-path';
 import type { SimulationSnapshot } from '../simulation/SimulationEngine';
 
-/** Everything a lesson may inspect. */
 export interface TutorialContext {
-  /** The workspace as it stands, or `undefined` while it does not compile. */
-  program?: Program;
-  /** Blocks on the canvas, including ones not yet connected. */
+  program?: ScalpProgram;
   blockCount: number;
-  /** Live engine state — status, score, remaining voxels. */
   snapshot: SimulationSnapshot;
-  /** How many times Test has been pressed this session. */
   testCount: number;
 }
 
 export interface Lesson {
   id: string;
   title: string;
-  /** What the learner should do. */
   body: string;
-  /** Shown after they have been on the step a while. */
   hint?: string;
-  /**
-   * Whether the step is satisfied. Absent means "informational" — the learner
-   * moves on with Next.
-   */
   done?: (context: TutorialContext) => boolean;
 }
 
-/** The joint the tutorial drives. Its travel is what the safe angles assume. */
-export const TUTORIAL_JOINT = 'baseYaw';
-
+/** The tutorial uses exactly the same relative language as the workbench. */
 export const LESSONS: readonly Lesson[] = [
   {
     id: 'welcome',
-    title: 'The arm cuts, you write the program',
+    title: 'Program a path, not a motor',
     body:
-      'The orange blocks are hair. The faint outline is the target haircut. ' +
-      'You cannot move the arm by hand — you write a program, and the tool ' +
-      'removes whatever hair it sweeps through.',
+      'The dots on the head are scalp cells. You guide the cutter like a turtle: ' +
+      'turn it, move it one cell at a time, and choose when it may cut.',
   },
   {
     id: 'first-block',
-    title: 'Add your first command',
+    title: 'Add your first path action',
     body:
-      'Open the Servo category on the left and drag a "Set … to …°" block onto ' +
-      'the canvas.',
-    hint: 'The category list is the narrow strip down the left of the program panel.',
-    done: (context) => targetsOf(context.program, TUTORIAL_JOINT).length > 0,
+      'Open Path and drag a Move forward block onto the canvas. The tool starts ' +
+      'at the bright cursor in Hover mode.',
+    hint: 'Path is the teal category in the left toolbox.',
+    done: (context) => context.blockCount > 0,
   },
   {
-    id: 'absolute',
-    title: 'Angles are absolute, not relative',
+    id: 'turn',
+    title: 'Turn before you travel',
     body:
-      'Set the block to Base Yaw and −55°. That means "drive this joint to −55°", ' +
-      'not "turn it 55° further". Every command in this language works that way.',
-    hint: 'Pick Base Yaw in the dropdown, then click the number and type -55.',
-    done: (context) => targetsOf(context.program, TUTORIAL_JOINT).includes(-55),
+      'Add a Turn block. Left and right change only the turtle heading; they do ' +
+      'not move the cutter or touch hair.',
+    done: (context) => commandsOf(context.program, 'turn').length > 0,
+  },
+  {
+    id: 'hover-cut',
+    title: 'Hover protects transfers',
+    body:
+      'Add Set cutter Cut after you have chosen a safe row. Use Hover whenever ' +
+      'you cross to another row. Hover contact is an error, not a silent cut.',
+    done: (context) => commandsOf(context.program, 'set-tool-mode').length > 0,
   },
   {
     id: 'test',
-    title: 'Test runs it instantly',
+    title: 'Test validates the whole route',
     body:
-      'Press Test. It evaluates the program in milliseconds instead of animating ' +
-      'it in real time — so how fast you can try ideas does not depend on how ' +
-      'fast your machine draws. Run is for watching.',
-    done: (context) => context.testCount > 0 && context.snapshot.scoreResult !== undefined,
-  },
-  {
-    id: 'head',
-    title: 'The head stops the arm',
-    body:
-      'Now change the angle to 0° and press Test. The arm will not reach it: it ' +
-      'stops at the last safe pose and tells you which block was to blame. This ' +
-      'is meant to happen — change it back to −55° when you have seen it.',
-    hint: 'Look for the red banner naming the joint and where it stopped.',
+      'Press Test. It runs the same path validator and replay used for a submit, ' +
+      'without making you wait for the 3D animation.',
     done: (context) =>
-      context.snapshot.status === 'error' &&
-      (context.snapshot.errorMessage ?? '').toLowerCase().includes('head'),
+      context.testCount > 0 && context.snapshot.scoreResult !== undefined,
   },
   {
-    id: 'repeat-noop',
-    title: 'Repeat, and why it looks broken',
+    id: 'boundary',
+    title: 'The disabled cells are real boundaries',
     body:
-      'From Control, drag a Repeat block in and put your Set block inside it. ' +
-      'Set it back to −55° and press Test. Nothing changes — the score is ' +
-      'identical. The first iteration drives the joint to −55°; the rest drive it ' +
-      'to where it already is.',
-    hint: 'Drop the Set block into the "Do" slot inside the Repeat block.',
+      'Grey cells look like grid cells but have no certified route. A Move that ' +
+      'would enter one is located before the arm starts.',
+  },
+  {
+    id: 'repeat',
+    title: 'Repeat a safe pattern',
+    body:
+      'From Control, add Repeat and put a small turn-and-move pattern inside it. ' +
+      'The compiler expands it safely and still points back to your block.',
     done: (context) => hasRepeat(context.program),
   },
   {
-    id: 'repeat-sweep',
-    title: 'Make the repeat actually sweep',
-    body:
-      'Add a second Set block inside the Repeat, below the first, and give it a ' +
-      'different angle — −38° works. Now each iteration moves the tool back and ' +
-      'forth across the hair. Press Test and watch the score climb.',
-    hint: 'Two blocks inside Do: Base Yaw −55°, then Base Yaw −38°.',
-    done: (context) => repeatSweeps(context.program, TUTORIAL_JOINT),
-  },
-  {
     id: 'done',
-    title: 'That is the whole language',
+    title: 'You are ready for a scalp path',
     body:
-      'Absolute angles, Wait, and Repeat. Everything else is deciding where to ' +
-      'cut and in what order. Try Solo Practice for the full challenge, or a ' +
-      'Versus round against other people.',
+      'Plan in cells, keep transfers in Hover, cut only on a certified row, and ' +
+      'use Repeat to keep the program small. Solo Practice and Versus use this ' +
+      'same language.',
   },
 ];
 
-/** Flatten repeat bodies so a command inside one is still visible. */
-function flatten(nodes: readonly ProgramNode[]): ProgramNode[] {
+function flatten(nodes: readonly ScalpProgramNode[]): ScalpProgramNode[] {
   return nodes.flatMap((node) =>
-    node.type === 'repeat' ? flatten(node.body) : [node],
+    node.type === 'repeat' ? [node, ...flatten(node.body)] : [node],
   );
 }
 
-/** Every angle the program drives `jointId` to, in order. */
-function targetsOf(program: Program | undefined, jointId: string): number[] {
-  if (!program) return [];
-  return flatten(program.nodes)
-    .filter((node) => node.type === 'set-joint-angle' && node.jointId === jointId)
-    .map((node) => (node as { angleDeg: number }).angleDeg);
+function commandsOf(
+  program: ScalpProgram | undefined,
+  type: 'turn' | 'set-tool-mode',
+) {
+  if (!program) {
+    return [];
+  }
+  return flatten(program.nodes).filter((node) => node.type === type);
 }
 
-/**
- * Whether the program contains a repeat anywhere.
- *
- * A top-level scan is complete: `repeat` is the only node that nests, so a
- * nested one always has an ancestor at the top level.
- */
-function hasRepeat(program: Program | undefined): boolean {
-  return program?.nodes.some((node) => node.type === 'repeat') ?? false;
-}
-
-/**
- * Whether a repeat body drives `jointId` to more than one angle.
- *
- * This is exactly the condition under which repeating does anything at all:
- * with absolute commands, a body that only ever writes one value per joint
- * leaves the arm where the first iteration put it.
- */
-function repeatSweeps(program: Program | undefined, jointId: string): boolean {
-  if (!program) return false;
-  const check = (nodes: readonly ProgramNode[]): boolean =>
-    nodes.some((node) => {
-      if (node.type !== 'repeat') return false;
-      const distinct = new Set(
-        flatten(node.body)
-          .filter((inner) => inner.type === 'set-joint-angle' && inner.jointId === jointId)
-          .map((inner) => (inner as { angleDeg: number }).angleDeg),
-      );
-      return distinct.size > 1 || check(node.body);
-    });
-  return check(program.nodes);
+function hasRepeat(program: ScalpProgram | undefined): boolean {
+  return flatten(program?.nodes ?? []).some((node) => node.type === 'repeat');
 }

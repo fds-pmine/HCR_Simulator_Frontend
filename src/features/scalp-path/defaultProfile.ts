@@ -11,8 +11,8 @@ import type {
 } from './types';
 
 const REACHABLE_ROWS = [2, 3, 4] as const;
-const REACHABLE_COLUMNS = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
-const BASE_YAWS = [-55, -40, -25, -10, 5, 20, 35, 50, 55] as const;
+const REACHABLE_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+const BASE_YAWS = [-55, -45, -32.5, -20, -7.5, 5, 17.5, 30, 42.5, 55] as const;
 
 const CUT_CONFIGS: Readonly<Record<number, Omit<JointAngles, 'baseYaw'>>> = {
   2: { shoulderRoll: 0, shoulder: 90, elbow: -40, wrist: -20 },
@@ -33,7 +33,7 @@ export const DEFAULT_SCALP_GEOMETRY_SIGNATURE = scalpGeometrySignature({
 });
 
 /**
- * The initial certified profile intentionally exposes a connected 3×9 patch.
+ * The initial certified profile intentionally exposes a connected 3×10 patch.
  * Its joint candidates are conservative poses checked against the same head
  * collision primitive as the simulator; the remaining 57 grid nodes stay
  * visible but disabled until a later calibration expands coverage.
@@ -59,7 +59,7 @@ function buildDefaultProfile(): ScalpMotionProfile {
   );
   const poses: SafetyPose[] = [];
   const edges: SafetyEdge[] = [];
-  const startNodeId = scalpNodeId(4, 2);
+  const startNodeId = scalpNodeId(4, 1);
   const parkPoseId = 'park';
 
   const parkAngles = hoverAngles(-55);
@@ -82,8 +82,34 @@ function buildDefaultProfile(): ScalpMotionProfile {
         { id: hoverPoseId, kind: 'hover', gridNodeId: node.id, jointAngles: hoverAngles(baseYaw) },
         { id: cutPoseId, kind: 'cut', gridNodeId: node.id, jointAngles: cutAngles(row, baseYaw) },
       );
+      const engageWaypoints =
+        node.id === scalpNodeId(2, 2)
+          ? referenceCrownEngageWaypoints(baseYaw)
+          : row === 4
+          ? [
+              {
+                ...hoverAngles(baseYaw),
+                elbow: -40,
+                wrist: -20,
+              },
+              {
+                ...hoverAngles(baseYaw),
+                shoulder: 70,
+                elbow: -40,
+                wrist: -20,
+              },
+              cutAngles(row, baseYaw),
+            ]
+          : [cutAngles(row, baseYaw)];
       edges.push(
-        edge(`engage-${node.id}`, hoverPoseId, cutPoseId, 'engage', true, cutAngles(row, baseYaw)),
+        edgeWithWaypoints(
+          `engage-${node.id}`,
+          hoverPoseId,
+          cutPoseId,
+          'engage',
+          true,
+          engageWaypoints,
+        ),
         edge(`retract-${node.id}`, cutPoseId, hoverPoseId, 'retract', false, hoverAngles(baseYaw)),
       );
     }
@@ -100,6 +126,42 @@ function buildDefaultProfile(): ScalpMotionProfile {
       edges.push(
         edge(`hover-${node.id}-to-${neighbor.id}`, node.hoverPoseId, neighbor.hoverPoseId, 'hover', false, targetHover),
         edge(`cut-${node.id}-to-${neighbor.id}`, node.cutPoseId, neighbor.cutPoseId, 'cut', true, targetCut),
+      );
+    }
+  }
+
+  // Certified horizontal sweeps preserve the continuous crown passes from the
+  // calibration program. A turtle still visits every logical cell, but a
+  // multi-cell Move Forward becomes one verified physical sweep instead of a
+  // chain of artificial stops between adjacent cells.
+  for (const node of nodes.filter((item) => item.reachable)) {
+    const peers = nodes.filter(
+      (candidate) =>
+        candidate.reachable &&
+        candidate.row === node.row &&
+        candidate.id !== node.id,
+    );
+    for (const peer of peers) {
+      if (!node.hoverPoseId || !node.cutPoseId || !peer.hoverPoseId || !peer.cutPoseId) {
+        continue;
+      }
+      edges.push(
+        edge(
+          `hover-sweep-${node.id}-to-${peer.id}`,
+          node.hoverPoseId,
+          peer.hoverPoseId,
+          'hover',
+          false,
+          poseById(poses, peer.hoverPoseId).jointAngles,
+        ),
+        edge(
+          `cut-sweep-${node.id}-to-${peer.id}`,
+          node.cutPoseId,
+          peer.cutPoseId,
+          'cut',
+          true,
+          poseById(poses, peer.cutPoseId).jointAngles,
+        ),
       );
     }
   }
@@ -134,6 +196,21 @@ function cutAngles(row: number, baseYaw: number): JointAngles {
   return { baseYaw, ...config };
 }
 
+/**
+ * Replays the calibrated crown-entry sequence at the one grid cell where the
+ * reference path begins cutting. Each waypoint changes one joint, so the
+ * synchronized animation and legacy IR follow the same certified route.
+ */
+function referenceCrownEngageWaypoints(baseYaw: number): JointAngles[] {
+  const hover = hoverAngles(baseYaw);
+  const lowerShoulder = { ...hover, shoulder: 45 };
+  const foldedElbow = { ...lowerShoulder, elbow: -80 };
+  const foldedWrist = { ...foldedElbow, wrist: 35 };
+  const raisedShoulder = { ...foldedWrist, shoulder: 90 };
+  const cuttingElbow = { ...raisedShoulder, elbow: -40 };
+  return [{ ...lowerShoulder }, { ...foldedElbow }, { ...foldedWrist }, { ...raisedShoulder }, { ...cuttingElbow }, { ...cuttingElbow, wrist: -20 }];
+}
+
 function edge(
   id: string,
   from: string,
@@ -142,14 +219,25 @@ function edge(
   cuttingEnabled: boolean,
   target: JointAngles,
 ): SafetyEdge {
+  return edgeWithWaypoints(id, from, to, kind, cuttingEnabled, [target]);
+}
+
+function edgeWithWaypoints(
+  id: string,
+  from: string,
+  to: string,
+  kind: SafetyEdge['kind'],
+  cuttingEnabled: boolean,
+  waypoints: readonly JointAngles[],
+): SafetyEdge {
   return {
     id,
     from,
     to,
     kind,
     cuttingEnabled,
-    synchronousWaypoints: [{ ...target }],
-    legacyWaypoints: [{ ...target }],
+    synchronousWaypoints: waypoints.map((waypoint) => ({ ...waypoint })),
+    legacyWaypoints: waypoints.map((waypoint) => ({ ...waypoint })),
   };
 }
 

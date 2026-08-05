@@ -222,7 +222,12 @@ function planTrajectory(
     poseId: startNode.hoverPoseId,
   };
   let segmentIndex = 0;
-  const add = (edge: SafetyEdge, sourceBlockId: string, actionIndex: number) => {
+  const add = (
+    edge: SafetyEdge,
+    sourceBlockId: string,
+    actionIndex: number,
+    stateAfter: TurtleState = state,
+  ) => {
     segments.push({
       id: `segment-${segmentIndex++}`,
       sourceBlockId,
@@ -230,6 +235,9 @@ function planTrajectory(
       kind: edge.kind,
       edge,
       cutterEnabled: edge.cuttingEnabled,
+      gridNodeId: stateAfter.nodeId,
+      heading: stateAfter.heading,
+      toolMode: stateAfter.toolMode,
     });
   };
 
@@ -251,6 +259,9 @@ function planTrajectory(
         actionIndex,
         kind: 'turn',
         cutterEnabled: false,
+        gridNodeId: state.nodeId,
+        heading: state.heading,
+        toolMode: state.toolMode,
       });
       return;
     }
@@ -262,6 +273,9 @@ function planTrajectory(
         kind: 'wait',
         cutterEnabled: state.toolMode === 'cut',
         durationMs: action.durationMs,
+        gridNodeId: state.nodeId,
+        heading: state.heading,
+        toolMode: state.toolMode,
       });
       return;
     }
@@ -275,25 +289,55 @@ function planTrajectory(
         throw scalpError('UNREACHABLE_GRID_NODE', `Grid node ${node.id} does not support ${action.mode}.`, action.sourceBlockId);
       }
       const edge = requireEdge(profile, state.poseId, targetPoseId, action.sourceBlockId);
-      add(edge, action.sourceBlockId, actionIndex);
-      state = { ...state, toolMode: action.mode, poseId: targetPoseId };
+      const nextState = { ...state, toolMode: action.mode, poseId: targetPoseId };
+      add(edge, action.sourceBlockId, actionIndex, nextState);
+      state = nextState;
       return;
     }
 
+    const moveStart = state;
+    const route: Array<{ id: string; poseId: string }> = [];
+    let cursor = state;
     for (let step = 0; step < action.steps; step += 1) {
-      const node = requireNode(nodes, state.nodeId, action.sourceBlockId);
-      const nextId = node.neighbors[state.heading];
+      const node = requireNode(nodes, cursor.nodeId, action.sourceBlockId);
+      const nextId = node.neighbors[cursor.heading];
       const next = nextId ? nodes.get(nextId) : undefined;
       if (!next || !next.reachable) {
         throw scalpError('UNREACHABLE_GRID_NODE', 'The path leaves the calibrated reachable grid.', action.sourceBlockId);
       }
-      const targetPoseId = state.toolMode === 'cut' ? next.cutPoseId : next.hoverPoseId;
+      const targetPoseId = cursor.toolMode === 'cut' ? next.cutPoseId : next.hoverPoseId;
       if (!targetPoseId) {
         throw scalpError('UNREACHABLE_GRID_NODE', `Grid node ${next.id} is disabled.`, action.sourceBlockId);
       }
-      const edge = requireEdge(profile, state.poseId, targetPoseId, action.sourceBlockId);
-      add(edge, action.sourceBlockId, actionIndex);
-      state = { ...state, nodeId: next.id, poseId: targetPoseId };
+      route.push({ id: next.id, poseId: targetPoseId });
+      cursor = { ...cursor, nodeId: next.id, poseId: targetPoseId };
+    }
+    const destination = route.at(-1);
+    if (!destination) {
+      return;
+    }
+    state = cursor;
+    // Horizontal multi-cell moves use their profile's certified continuous
+    // sweep edge. Vertical movement keeps a per-cell route because its poses
+    // can change elbow and shoulder geometry between rows.
+    if (
+      route.length > 1 &&
+      (moveStart.heading === 'east' || moveStart.heading === 'west')
+    ) {
+      const edge = requireEdge(
+        profile,
+        moveStart.poseId,
+        destination.poseId,
+        action.sourceBlockId,
+      );
+      add(edge, action.sourceBlockId, actionIndex, state);
+      return;
+    }
+    let replayState = moveStart;
+    for (const next of route) {
+      const edge = requireEdge(profile, replayState.poseId, next.poseId, action.sourceBlockId);
+      replayState = { ...replayState, nodeId: next.id, poseId: next.poseId };
+      add(edge, action.sourceBlockId, actionIndex, replayState);
     }
   });
 
@@ -303,19 +347,25 @@ function planTrajectory(
     if (!hoverPoseId) {
       throw scalpError('NO_SAFE_ROUTE', 'The final Cut node cannot retract to Hover.');
     }
-    add(requireEdge(profile, state.poseId, hoverPoseId, '__scalp_exit__'), '__scalp_exit__', actions.length);
-    state = { ...state, toolMode: 'hover', poseId: hoverPoseId };
+    const nextState: TurtleState = {
+      ...state,
+      toolMode: 'hover',
+      poseId: hoverPoseId,
+    };
+    add(requireEdge(profile, state.poseId, hoverPoseId, '__scalp_exit__'), '__scalp_exit__', actions.length, nextState);
+    state = nextState;
   }
 
   for (const edge of shortestPath(profile, state.poseId, startNode.hoverPoseId)) {
-    add(edge, '__scalp_exit__', actions.length);
-    state = { ...state, poseId: edge.to };
+    const nextState = { ...state, poseId: edge.to };
+    add(edge, '__scalp_exit__', actions.length, nextState);
+    state = nextState;
   }
   const exit = profile.edges.find((edge) => edge.kind === 'exit' && edge.from === state.poseId && edge.to === park.id);
   if (!exit) {
     throw scalpError('NO_SAFE_ROUTE', 'The scalp profile does not define a safe exit route.');
   }
-  add(exit, '__scalp_exit__', actions.length);
+  add(exit, '__scalp_exit__', actions.length, state);
 
   return {
     segments,
@@ -337,6 +387,7 @@ function emitCompatibilityCommands(
   const commands: import('../blockly/programTypes').RobotCommand[] = [];
   for (const segment of plan.segments) {
     if (segment.kind === 'turn') {
+      segment.compatibilityCommandCount = 0;
       continue;
     }
     if (segment.kind === 'wait') {
@@ -345,8 +396,10 @@ function emitCompatibilityCommands(
         throw new Error('Scalp wait segment is missing its duration.');
       }
       commands.push({ type: 'wait', durationMs, sourceBlockId: segment.sourceBlockId });
+      segment.compatibilityCommandCount = 1;
       continue;
     }
+    const commandStart = commands.length;
     for (const waypoint of segment.edge?.legacyWaypoints ?? []) {
       for (const joint of challenge.robotConfig.joints) {
         const target = waypoint[joint.id];
@@ -368,6 +421,7 @@ function emitCompatibilityCommands(
         }
       }
     }
+    segment.compatibilityCommandCount = commands.length - commandStart;
   }
   return commands;
 }

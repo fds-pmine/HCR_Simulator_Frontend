@@ -10,15 +10,10 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
   id: DEFAULT_CHALLENGE_ID,
   name: 'Neat Short Haircut',
   description:
-    // Says what to do *and* how to start. The old wording promised a
-    // "symmetric neat crop", which the arm cannot cut, and offered no way in —
-    // so the honest reading of a low score was "this is broken", not "try
-    // something else".
-    'Twelve voxels on the crown have to come off, and nothing else. Lift the ' +
-    'tool clear of the head first — the arm cannot swing across at rest — then ' +
-    'sweep Base Yaw over the crown. One pass gets most of it; the last patch ' +
-    'sits at a different height. Finish the Lessons if you want this broken ' +
-    'down step by step.',
+    'Trim the highlighted crown path without touching the surrounding hair. ' +
+    'Use Hover for every transfer, then use Cut only while sweeping a safe ' +
+    'scalp grid row. Finish the Lessons to practise turns, repeats and the ' +
+    'two-height crown pass.',
   robotConfig: {
     joints: [
       {

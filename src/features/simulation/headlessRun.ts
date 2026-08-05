@@ -1,6 +1,6 @@
-import type { CompiledProgram } from '../blockly/programTypes';
 import type { ScoreResult } from '../../types/domain';
 import type { SimulationEngine } from './SimulationEngine';
+import type { ExecutableProgram } from './executableProgram';
 
 /**
  * Fixed step used when evaluating without rendering.
@@ -30,7 +30,7 @@ const DEFAULT_BUDGET_MS = 2_000;
  */
 export async function runHeadless(
   engine: SimulationEngine,
-  compiled: CompiledProgram,
+  compiled: ExecutableProgram,
   budgetMs: number = DEFAULT_BUDGET_MS,
 ): Promise<ScoreResult | undefined> {
   engine.run(compiled);

@@ -14,6 +14,10 @@ import { SimulationTicker } from './SimulationTicker';
 import { RobotModel } from '../robot/RobotModel';
 import { VoxelHair } from '../voxel/VoxelHair';
 import { supportsWebGL } from './webglSupport';
+import {
+  resolveScalpMotionProfile,
+  ScalpGridOverlay,
+} from '../scalp-path';
 
 interface SimulatorCanvasProps {
   engine: SimulationEngine;
@@ -140,6 +144,7 @@ function SimulatorScene({
 }: SimulatorCanvasProps) {
   const snapshot = useSimulationSnapshot(engine);
   const challenge = engine.getChallenge();
+  const scalpProfile = resolveScalpMotionProfile(challenge).profile;
 
   return (
     <>
@@ -169,6 +174,13 @@ function SimulatorScene({
         center={challenge.voxelConfig.headCenter}
         scale={challenge.voxelConfig.headScale}
       />
+      {scalpProfile ? (
+        <ScalpGridOverlay
+          profile={scalpProfile}
+          currentNodeId={snapshot.scalpPath?.gridNodeId}
+          cutterMode={snapshot.scalpPath?.toolMode}
+        />
+      ) : null}
       <VoxelHair
         voxels={snapshot.hairVoxels}
         voxelConfig={challenge.voxelConfig}

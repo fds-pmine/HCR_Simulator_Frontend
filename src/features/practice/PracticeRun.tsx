@@ -4,7 +4,7 @@ import { useServices } from '../../app/servicesContext';
 import { SimulationWorkbench } from '../../components/layout/SimulationWorkbench';
 import type { Challenge } from '../../types/domain';
 import type { NextItem, SessionSnapshot } from '../../types/session';
-import type { CompiledProgram } from '../blockly/programTypes';
+import type { ExecutableProgram } from '../simulation/executableProgram';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { runHeadless } from '../simulation/headlessRun';
 import { withBlankCanvas } from '../blockly/blankCanvas';
@@ -104,7 +104,7 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
   }, [challenge, scoreProvider]);
 
   const submit = useCallback(
-    async (compiled: CompiledProgram) => {
+    async (compiled: ExecutableProgram) => {
       if (!engine || !challenge) {
         return;
       }

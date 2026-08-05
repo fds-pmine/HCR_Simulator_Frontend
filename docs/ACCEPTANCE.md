@@ -22,11 +22,11 @@
 ## Scalp Turtle
 
 - [x] `hcr.v1` Program IR 快照锁定 `set-joint-angle`、`wait`、`repeat` 的可序列化结构、Repeat 展开与 500 命令上限。
-- [ ] 玩家 Blockly 工具箱仅显示相对海龟路径、Hover/Cut、Wait 和 Repeat，不显示可编辑 Servo/Joint Angle。
-- [ ] 7×12 网格全部可见，不可达/不可连通节点被禁用且不能编译进入。
+- [x] 玩家 Blockly 工具箱仅显示相对海龟路径、Hover/Cut、Wait 和 Repeat，不显示可编辑 Servo/Joint Angle。
+- [x] 7×12 网格全部可见，不可达/不可连通节点被禁用且不能编译进入。
 - [x] 同步路径与兼容顺序 IR 在前端无头双回放中校验终态、删发集合和评分时长一致；任一差异均阻止编译。
 - [x] Hover/Transit 接触头发、头部/连杆碰撞、命令溢出和 Profile 签名不匹配均会阻止执行或提交。
-- [ ] Practice、Session 与 Versus 的提交 payload 仍只有既有 `Program`，无需后端 schema 或 API 改动。
+- [x] Practice、Session 与 Versus 的提交 payload 仍只有既有 `Program`，无需后端 schema 或 API 改动。
 
 ## 英文运行时文案
 
