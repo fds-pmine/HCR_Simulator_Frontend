@@ -28,6 +28,7 @@ export interface TrajectorySegment {
   kind: SafetyEdge['kind'] | 'turn' | 'wait';
   edge?: SafetyEdge;
   cutterEnabled: boolean;
+  durationMs?: number;
 }
 
 export interface TrajectoryPlan {

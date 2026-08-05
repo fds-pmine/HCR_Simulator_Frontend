@@ -8,6 +8,7 @@ import {
   registerScalpTurtleBlocks,
   SCALP_BLOCK_FIELDS,
   SCALP_BLOCK_TYPES,
+  verifyScalpCompatibility,
 } from '../../src/features/scalp-path';
 import { normalizeChallenge } from '../../src/services/normalizeChallenge';
 
@@ -55,6 +56,13 @@ describe('Scalp Turtle Blockly compiler', () => {
       ),
     ).toBe(true);
     expect(compiled.executedCommandCount).toBe(compiled.runtimeCommands.length);
+    expect(
+      verifyScalpCompatibility(
+        compiled.trajectoryPlan,
+        compiled.runtimeCommands,
+        challenge,
+      ).valid,
+    ).toBe(true);
   });
 
   it('maps repeat bodies into repeated turtle actions', () => {

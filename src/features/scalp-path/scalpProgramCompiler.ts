@@ -6,6 +6,7 @@ import {
 } from '../blockly/programCompiler';
 import { BLOCK_FIELDS, BLOCK_TYPES } from '../blockly/blockConstants';
 import { resolveScalpMotionProfile } from './defaultProfile';
+import { verifyScalpCompatibility } from './trajectoryExecutor';
 import { SCALP_BLOCK_FIELDS, SCALP_BLOCK_TYPES } from './scalpBlockConstants';
 import type {
   CompiledScalpProgram,
@@ -32,7 +33,10 @@ type CompilerErrorCode =
   | 'INVALID_TOOL_MODE'
   | 'UNREACHABLE_GRID_NODE'
   | 'NO_SAFE_ROUTE'
-  | 'SCALP_ACTION_LIMIT_EXCEEDED';
+  | 'SCALP_ACTION_LIMIT_EXCEEDED'
+  | 'HEAD_COLLISION'
+  | 'HOVER_CONTACT'
+  | 'COMPATIBILITY_DIVERGENCE';
 
 interface TurtleState {
   nodeId: string;
@@ -81,6 +85,24 @@ export function compileScalpWorkspace(
     resolution.profile,
     challenge,
   );
+  const compatibility = verifyScalpCompatibility(
+    trajectoryPlan,
+    runtimeCommands,
+    challenge,
+  );
+  if (!compatibility.valid) {
+    const error = compatibility.synchronized.error ?? compatibility.error;
+    const code = error?.includes('contact hair')
+      ? 'HOVER_CONTACT'
+      : error?.includes('contact the head')
+        ? 'HEAD_COLLISION'
+        : 'COMPATIBILITY_DIVERGENCE';
+    throw scalpError(
+      code,
+      error ?? 'The synchronized path diverges from its compatibility program.',
+      compatibility.synchronized.blockId ?? compatibility.legacy.blockId,
+    );
+  }
 
   return {
     scalpProgram,
@@ -239,7 +261,7 @@ function planTrajectory(
         actionIndex,
         kind: 'wait',
         cutterEnabled: state.toolMode === 'cut',
-        edge: syntheticWaitEdge(action.durationMs),
+        durationMs: action.durationMs,
       });
       return;
     }
@@ -318,7 +340,7 @@ function emitCompatibilityCommands(
       continue;
     }
     if (segment.kind === 'wait') {
-      const durationMs = segment.edge?.legacyWaypoints[0]?.__waitMs;
+      const durationMs = segment.durationMs;
       if (durationMs === undefined || !Number.isFinite(durationMs)) {
         throw new Error('Scalp wait segment is missing its duration.');
       }
@@ -422,18 +444,6 @@ function syntheticEdge(
     cuttingEnabled,
     synchronousWaypoints: [{ ...target }],
     legacyWaypoints: [{ ...target }],
-  };
-}
-
-function syntheticWaitEdge(durationMs: number): SafetyEdge {
-  return {
-    id: `wait-${durationMs}`,
-    from: 'wait',
-    to: 'wait',
-    kind: 'hover',
-    cuttingEnabled: false,
-    synchronousWaypoints: [{ __waitMs: durationMs }],
-    legacyWaypoints: [{ __waitMs: durationMs }],
   };
 }
 

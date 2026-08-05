@@ -6,4 +6,5 @@ export * from './scalpBlockConstants';
 export * from './scalpBlockDefinitions';
 export * from './scalpProgramCompiler';
 export * from './scalpProgramTypes';
+export * from './trajectoryExecutor';
 export * from './types';
