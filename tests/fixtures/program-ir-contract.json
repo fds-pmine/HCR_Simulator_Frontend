@@ -1,0 +1,39 @@
+{
+  "protocol": "hcr.v1",
+  "program": {
+    "nodes": [
+      {
+        "type": "set-joint-angle",
+        "jointId": "baseYaw",
+        "angleDeg": -45,
+        "sourceBlockId": "move-base"
+      },
+      {
+        "type": "repeat",
+        "count": 2,
+        "sourceBlockId": "repeat-sweep",
+        "body": [
+          {
+            "type": "wait",
+            "durationMs": 200,
+            "sourceBlockId": "pause"
+          },
+          {
+            "type": "set-joint-angle",
+            "jointId": "wrist",
+            "angleDeg": -20,
+            "sourceBlockId": "move-wrist"
+          }
+        ]
+      }
+    ],
+    "sourceBlockCount": 4
+  },
+  "expandedTypes": [
+    "set-joint-angle",
+    "wait",
+    "set-joint-angle",
+    "wait",
+    "set-joint-angle"
+  ]
+}

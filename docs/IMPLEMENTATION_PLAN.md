@@ -1,6 +1,6 @@
 # HCR Simulator Demo 实施计划
 
-> 本文记录分阶段实施状态。Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门已完成；Phase 7 仅剩跨浏览器人工视觉验收。
+> 本文记录分阶段实施状态。Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门已完成；Phase 7 仅剩跨浏览器人工视觉验收。2026-08 起，`scalp-turtle` 分支按主路径 `docs/SCALP_GRID_PATH_PROGRAMMING_PLAN.md` 实施头皮网格路径编程改造；该改造保持 `hcr.v1` Program IR 与后端提交接口不变。
 
 ## 1. 实施原则
 
@@ -64,6 +64,16 @@ tests/
 目录可在不破坏模块边界的前提下小幅调整；不要为首版建立路由、后端或通用插件系统。
 
 ## 3. 分阶段任务
+
+### Phase 8 — Scalp Turtle 路径编程
+
+- [x] 建立 `hcr.v1` Program IR 快照基线，确认路径模式只能导出既有 `set-joint-angle`、`wait`、`repeat`。
+- [ ] 建立 7×12 头皮网格、静态安全姿态 Profile 和几何签名校验。
+- [ ] 实现相对海龟 Blockly 积木、Scalp Program 编译、兼容 IR 导出和 500 命令上限。
+- [ ] 实现多关节同步轨迹、连续碰撞/接触验证和同步/顺序双回放等价校验。
+- [ ] 集成网格可视化、Hover/Cut 状态、路径教学、Practice/Versus 提交和端到端验收。
+
+阶段出口：玩家界面不暴露可编辑关节角度；已认证路径可安全驱动真实机械臂动画、剪除 voxel，并以未修改的 `Program` 提交给现有后端。
 
 ### Phase 0 — 文档基线
 
