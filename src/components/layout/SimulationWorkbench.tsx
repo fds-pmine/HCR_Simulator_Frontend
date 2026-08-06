@@ -329,7 +329,7 @@ export function SimulationWorkbench({
           <div className="panel-header">
             <div>
               <span>PROGRAM</span>
-              <strong>Scalp Path Program</strong>
+              <strong>{PROGRAMMING_MODE_LABEL[programmingMode]} Program</strong>
             </div>
             <button
               type="button"

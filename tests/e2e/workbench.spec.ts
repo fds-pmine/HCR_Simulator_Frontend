@@ -126,12 +126,18 @@ test.describe('HCR Simulator workbench', () => {
       'data-programming-mode',
       'servo',
     );
+    await expect(
+      page.locator('.side-panel--left .panel-header strong'),
+    ).toHaveText('Servo Angles Program');
     await expect(page.getByText('Servo', { exact: true })).toHaveCount(1);
 
     await seedWorkspace(page, starterWorkspaceState);
     await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(5);
 
     await switchToScalpPath(page);
+    await expect(
+      page.locator('.side-panel--left .panel-header strong'),
+    ).toHaveText('Scalp Path Program');
     await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
     await expect(page.getByText('Servo', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Path', { exact: true })).toHaveCount(1);
