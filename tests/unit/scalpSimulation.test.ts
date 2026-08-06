@@ -54,6 +54,17 @@ describe('Scalp Turtle simulation integration', () => {
     expect(snapshot.scoreResult?.finalScore).toBeGreaterThanOrEqual(80);
   });
 
+  it('uses the compiled profile heading for the initial path readout', () => {
+    const compiled = compileReferencePath();
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    engine.run({
+      ...compiled,
+      trajectoryPlan: { ...compiled.trajectoryPlan, initialHeading: 'north' },
+    });
+
+    expect(engine.getSnapshot().scalpPath?.heading).toBe('north');
+  });
+
   it('removes the same hair under uneven render-frame deltas', () => {
     const engine = new SimulationEngine(challenge, new LocalScoreProvider());
     engine.run(compileReferencePath());

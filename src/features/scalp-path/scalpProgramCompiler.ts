@@ -391,6 +391,7 @@ function planTrajectory(
   return {
     segments,
     initialNodeId: startNode.id,
+    initialHeading: profile.startHeading,
     finalNodeId: state.nodeId,
     finalHeading: state.heading,
     finalToolMode: state.toolMode,

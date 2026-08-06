@@ -40,6 +40,7 @@ export interface TrajectorySegment {
 export interface TrajectoryPlan {
   segments: TrajectorySegment[];
   initialNodeId: string;
+  initialHeading: Heading;
   finalNodeId: string;
   finalHeading: Heading;
   finalToolMode: ToolMode;

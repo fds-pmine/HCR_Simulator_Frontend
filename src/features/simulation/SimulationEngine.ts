@@ -394,7 +394,7 @@ export class SimulationEngine {
       this.trajectoryExecutor.load(compiled.trajectoryPlan);
       this.scalpPath = {
         gridNodeId: compiled.trajectoryPlan.initialNodeId,
-        heading: 'east',
+        heading: compiled.trajectoryPlan.initialHeading,
         toolMode: 'hover',
         segmentIndex: 0,
         segmentCount: compiled.trajectoryPlan.segments.length,

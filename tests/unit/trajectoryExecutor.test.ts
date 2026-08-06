@@ -97,6 +97,7 @@ function oneSweep(mode: 'hover' | 'cut'): {
   const plan: TrajectoryPlan = {
     segments: [{ id: 'segment', sourceBlockId: 'move', actionIndex: 0, kind: edge.kind, edge, cutterEnabled: edge.cuttingEnabled }],
     initialNodeId: 'start',
+    initialHeading: 'east',
     finalNodeId: 'end',
     finalHeading: 'east',
     finalToolMode: mode,
