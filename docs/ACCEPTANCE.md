@@ -19,6 +19,14 @@
 - [x] `npm run build`
 - [x] `npm run test:e2e`
 
+## Scalp Turtle 跨仓库验证前置条件
+
+- [x] 前端双回放、Profile/课程可达性快照和既有提交 DTO 兼容性均已在前端测试中验证。
+- [ ] `npm run vectors` 暂不能执行：`hcr-backend/tools/generate-vectors.ts` 仍硬编码引用已不存在的 `HCR_Simulator_Frontend` 目录，因而无法加载 TypeScript 仿真器。
+- [ ] `cargo test --workspace` 暂不能执行：后端 `hcr_qbank` 的本地路径依赖 `C:\Code\Site\FDS\HCR\arona` 未提供，Cargo 无法加载 workspace。
+
+以上两项是当前检出环境的跨仓库验证前置条件，不通过修改路径模式、后端协议或评分输入规避；后端仓库在本阶段保持零文件改动。
+
 ## Scalp Turtle
 
 > 当前产品决策：Scalp Path 是可选模式。默认 Servo Angles 保留原有绝对角度积木、编译器和工作区；切换到 Scalp Path 后才仅显示相对路径积木。两种工作区切换后均须保留，运行中不可切换。

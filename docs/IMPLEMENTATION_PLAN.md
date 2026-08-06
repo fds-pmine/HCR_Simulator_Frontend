@@ -79,6 +79,8 @@ tests/
 - [x] 实现多关节同步轨迹、连续碰撞/接触验证和同步/顺序双回放等价校验；同步插值以兼容 IR 时长为准，角度与末端位移共同细分，Hover/Transit 接触和回放差异均会阻止编译。
 - [x] 集成网格可视化、Hover/Cut 状态、路径教学、Practice/Versus 提交和端到端验收；工作台单步以高层路径动作为边界，提交层仍只读取兼容 `Program`。
 
+跨仓库验证说明：前端的双回放、可达性快照及全部前端质量门已通过。当前检出环境无法执行 Rust conformance：vector 生成器仍指向旧 `HCR_Simulator_Frontend` 路径，且 Cargo workspace 缺少同级 `arona` 路径依赖。该项等待环境补齐，不以改动后端协议或评分语义绕过。
+
 阶段出口：Scalp Path 模式不暴露可编辑关节角度，Servo Angles 模式继续保留原有操作；已认证路径可安全驱动真实机械臂动画、剪除 voxel，并以未修改的 `Program` 提交给现有后端。
 
 ### Phase 0 — 文档基线
