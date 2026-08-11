@@ -1,13 +1,13 @@
 # Cloudflare Pages response headers.
 #
-# The app is a static bundle that talks to hcrapi.pmine.org and nothing else,
+# The app is a static bundle that talks to api.hcr.rs and nothing else,
 # so the policy can be tight. `connect-src` is the line that matters: it is what
 # stops injected script from shipping a workspace anywhere but our own API.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://hcrapi.pmine.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.hcr.rs; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
 
 # Hashed assets are immutable; index.html must never be, or a deploy will not
 # reach anyone still holding a cached copy.
