@@ -13,8 +13,13 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "vectors": "vitest run --config vectors.config.ts",
-    "reachability": "vitest run --config reachability.config.ts"
+    "reachability": "vitest run --config reachability.config.ts",
+    "electron:dev": "cross-env VITE_HCR_API_BASE_URL=http://127.0.0.1:18623 concurrently -k -n vite,electron -c cyan,magenta \"vite --strictPort\" \"wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
+    "electron:preview": "npm run build:desktop && electron .",
+    "build:desktop": "cross-env VITE_HCR_API_BASE_URL=https://api.hcr.rs npm run build",
+    "app:build": "npm run build:desktop && electron-builder --publish never"
   },
+  "main": "electron/main.cjs",
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
@@ -25,8 +30,38 @@
     "three": "^0.185.1",
     "zustand": "^5.0.14"
   },
+  "build": {
+    "appId": "rs.hcr.simulator",
+    "productName": "HCR Simulator",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.education"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Education"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.1",
     "@playwright/test": "^1.62.0",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",

@@ -1,4 +1,22 @@
 export type JointId = string;
+
+/** A servo on the arm. Named as `hcr-fw` names them (`robot/axis_config.rs`). */
+export type ServoAxisId = 'X' | 'Y' | 'Z' | 'B' | 'E';
+
+/**
+ * Affine map between a joint's servo degrees and the geometric angle the
+ * kinematics rotates by. Applied in `features/robot/servoMapping.ts`, which is
+ * where the reasoning lives.
+ */
+export interface ServoMapping {
+  axis: ServoAxisId;
+  /** Servo angle the joint's `offsetDeg` lands on. 90° on every axis. */
+  centerDeg: number;
+  /** +1 when the servo turns the same way as the model, −1 when it opposes. */
+  direction: 1 | -1;
+  /** Geometric angle that `centerDeg` corresponds to. */
+  offsetDeg: number;
+}
 export type VoxelKey = `${number},${number},${number}`;
 export type Axis = 'x' | 'y' | 'z';
 export type Vec3Tuple = readonly [number, number, number];
@@ -17,10 +35,18 @@ export interface JointConfig {
   id: JointId;
   name: string;
   axis: Axis;
+  /**
+   * Limits, start and commanded angles are **servo degrees** — the number the
+   * physical servo is driven to — for every joint that has a `servo` mapping.
+   * A joint without one has no servo to speak for, so its angles stay geometric.
+   * See `features/robot/servoMapping.ts`.
+   */
   minAngleDeg: number;
   maxAngleDeg: number;
   initialAngleDeg: number;
   speedDegPerSec: number;
+  /** Absent for simulation-only joints the arm has no axis for. */
+  servo?: ServoMapping;
 }
 
 export interface RobotGeometryConfig {

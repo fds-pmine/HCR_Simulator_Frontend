@@ -11,6 +11,7 @@ import {
   createInitialJointAngles,
 } from '../features/robot/kinematics';
 import { findRobotHeadCollision } from '../features/robot/headCollision';
+import { assertServoRange } from '../features/robot/servoMapping';
 
 const ALLOWED_BLOCKS = new Set<AllowedBlockType>([
   'set-joint-angle',
@@ -164,6 +165,15 @@ function validateJoint(joint: JointConfig): void {
   }
   if (!Number.isFinite(joint.speedDegPerSec) || joint.speedDegPerSec <= 0) {
     fail(`Joint "${joint.id}" speed must be greater than 0.`);
+  }
+  // A joint configured past its servo's travel does not look wrong on screen —
+  // it simulates correctly and then the arm cannot reproduce it. Refuse the
+  // definition instead, which matters most when `offsetDeg` is being changed
+  // from a measurement and a slip shifts a whole joint off the end.
+  try {
+    assertServoRange(joint);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
   }
 }
 

@@ -4,6 +4,7 @@ import type { Group } from 'three';
 import { MathUtils } from 'three';
 import type { SimulationEngine } from '../simulation/SimulationEngine';
 import type { JointId } from '../../types/domain';
+import { toGeometricAngles } from './servoMapping';
 
 interface RobotModelProps {
   engine: SimulationEngine;
@@ -31,7 +32,14 @@ export function RobotModel({
   const geometry = challenge.robotConfig.geometry;
 
   useFrame(() => {
-    const angles = engine.robotController.getAngles();
+    // Servo degrees in, geometric rotations out — the same conversion
+    // `computeRobotPose` does, because this is the one consumer that builds its
+    // transform from the angles directly rather than from a pose. Skipping it
+    // here would draw an arm that disagreed with the arm being scored.
+    const angles = toGeometricAngles(
+      challenge.robotConfig,
+      engine.robotController.getAngles(),
+    );
 
     if (baseYawRef.current) {
       baseYawRef.current.rotation.y = MathUtils.degToRad(angles.baseYaw);

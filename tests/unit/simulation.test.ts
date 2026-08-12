@@ -11,6 +11,7 @@ import {
   findRobotHeadCollision,
   segmentIntersectsExpandedEllipsoid,
 } from '../../src/features/robot/headCollision';
+import { toServoDeg } from '../../src/features/robot/servoMapping';
 import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
 import { clampFrameDeltaMs } from '../../src/features/simulation/frameTiming';
 import {
@@ -42,15 +43,34 @@ describe('render frame timing', () => {
   });
 });
 
+/**
+ * Servo angles that put the arm at a given *geometric* pose.
+ *
+ * The assertions below are about the geometry — "all joints at zero puts the
+ * tool straight out along +X" — but `computeRobotPose` takes servo degrees now.
+ * Converting here keeps each test saying what it means and still exercises the
+ * mapping, rather than hard-coding servo numbers whose geometric meaning a
+ * reader would have to work out.
+ */
+const servoPose = (
+  geometric: Readonly<Record<string, number>>,
+): Record<string, number> =>
+  Object.fromEntries(
+    defaultChallenge.robotConfig.joints.map((joint) => [
+      joint.id,
+      toServoDeg(joint, geometric[joint.id] ?? 0),
+    ]),
+  );
+
 describe('robot kinematics', () => {
   it('computes the known zero-angle planar pose', () => {
-    const angles = {
+    const angles = servoPose({
       baseYaw: 0,
       shoulderRoll: 0,
       shoulder: 0,
       elbow: 0,
       wrist: 0,
-    };
+    });
 
     const pose = computeRobotPose(defaultChallenge.robotConfig, angles);
 
@@ -63,33 +83,42 @@ describe('robot kinematics', () => {
   });
 
   it('rotates the whole planar chain around the Y axis', () => {
-    const pose = computeRobotPose(defaultChallenge.robotConfig, {
-      baseYaw: 60,
-      shoulderRoll: 0,
-      shoulder: 0,
-      elbow: 0,
-      wrist: 0,
-    });
+    const pose = computeRobotPose(
+      defaultChallenge.robotConfig,
+      servoPose({
+        baseYaw: 60,
+        shoulderRoll: 0,
+        shoulder: 0,
+        elbow: 0,
+        wrist: 0,
+      }),
+    );
 
     expect(pose.endEffector[0]).toBeCloseTo(1.15);
     expect(pose.endEffector[2]).toBeCloseTo(-1.9919, 3);
   });
 
   it('moves the planar chain out of plane with shoulder roll', () => {
-    const neutral = computeRobotPose(defaultChallenge.robotConfig, {
-      baseYaw: 0,
-      shoulderRoll: 0,
-      shoulder: 45,
-      elbow: 0,
-      wrist: 0,
-    });
-    const rolled = computeRobotPose(defaultChallenge.robotConfig, {
-      baseYaw: 0,
-      shoulderRoll: 30,
-      shoulder: 45,
-      elbow: 0,
-      wrist: 0,
-    });
+    const neutral = computeRobotPose(
+      defaultChallenge.robotConfig,
+      servoPose({
+        baseYaw: 0,
+        shoulderRoll: 0,
+        shoulder: 45,
+        elbow: 0,
+        wrist: 0,
+      }),
+    );
+    const rolled = computeRobotPose(
+      defaultChallenge.robotConfig,
+      servoPose({
+        baseYaw: 0,
+        shoulderRoll: 30,
+        shoulder: 45,
+        elbow: 0,
+        wrist: 0,
+      }),
+    );
 
     expect(neutral.endEffector[2]).toBeCloseTo(0);
     expect(Math.abs(rolled.endEffector[2])).toBeGreaterThan(0.5);
@@ -100,20 +129,21 @@ describe('robot kinematics', () => {
 describe('RobotController', () => {
   it('interpolates linearly at the configured joint speed', () => {
     const controller = new RobotController(defaultChallenge.robotConfig);
-    controller.beginMove('shoulder', 90);
+    // Shoulder starts at servo 95° and runs at 45°/s, so 140° is exactly 1s.
+    controller.beginMove('shoulder', 140);
 
     const halfway = controller.advanceMove(500);
-    expect(controller.getAngles().shoulder).toBeCloseTo(67.5);
+    expect(controller.getAngles().shoulder).toBeCloseTo(117.5);
     expect(halfway.completed).toBe(false);
 
     const complete = controller.advanceMove(500);
-    expect(controller.getAngles().shoulder).toBe(90);
+    expect(controller.getAngles().shoulder).toBe(140);
     expect(complete.completed).toBe(true);
   });
 
   it('restores every configured joint on reset', () => {
     const controller = new RobotController(defaultChallenge.robotConfig);
-    controller.beginMove('baseYaw', 0);
+    controller.beginMove('baseYaw', 90);
     controller.advanceMove(1_000);
     controller.reset();
 
@@ -520,11 +550,13 @@ function setJointCommand(
 }
 
 function createUnsafeHeadCollisionProgram(): CompiledProgram {
+  // Servo degrees; the geometric pose this drives into the head is
+  // shoulder 50°, elbow −15°, wrist −30°, baseYaw −24°.
   const commands: RobotCommand[] = [
-    setJointCommand('shoulder', 50, 'unsafe-shoulder'),
-    setJointCommand('elbow', -15, 'unsafe-elbow'),
-    setJointCommand('wrist', -30, 'unsafe-wrist'),
-    setJointCommand('baseYaw', -24, 'unsafe-base'),
+    setJointCommand('shoulder', 100, 'unsafe-shoulder'),
+    setJointCommand('elbow', 137.5, 'unsafe-elbow'),
+    setJointCommand('wrist', 60, 'unsafe-wrist'),
+    setJointCommand('baseYaw', 66, 'unsafe-base'),
   ];
 
   return {

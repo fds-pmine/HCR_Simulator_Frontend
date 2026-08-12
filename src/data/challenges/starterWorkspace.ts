@@ -36,23 +36,25 @@ function setJoint(
   );
 }
 
+// Servo degrees. Geometric equivalents in comments, since the poses these
+// produce were chosen in the old convention and are easier to check that way.
 const starterProgram = setJoint(
   'starter-shoulder-roll',
   'shoulderRoll',
-  15,
+  15, // simulation-only joint, so still geometric
   setJoint(
     'starter-shoulder',
     'shoulder',
-    80,
+    130, // geometric 80
     setJoint(
       'starter-elbow',
       'elbow',
-      0,
+      152.5, // geometric 0
       setJoint(
         'starter-wrist',
         'wrist',
-        -80,
-        setJoint('starter-base-sweep', 'baseYaw', 55),
+        10, // geometric -80
+        setJoint('starter-base-sweep', 'baseYaw', 145), // geometric 55
       ),
     ),
   ),

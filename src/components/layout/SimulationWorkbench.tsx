@@ -25,6 +25,7 @@ import { runHeadless } from '../../features/simulation/headlessRun';
 import { useSimulationSnapshot } from '../../features/simulation/useSimulationSnapshot';
 import { useWorkbenchStore } from '../../features/simulation/simulationStore';
 import { SimulationControls } from '../controls/SimulationControls';
+import { ArmDock } from '../controls/ArmDock';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { LogDrawer } from './LogDrawer';
 
@@ -396,6 +397,11 @@ export function SimulationWorkbench({
               }
             : {})}
         />
+        {/*
+          Absent in the web build — `ArmDock` returns null when no Electron
+          preload has exposed the bridge, which is every browser tab.
+        */}
+        <ArmDock challenge={challenge} compile={compile} />
         <LogDrawer
           logs={snapshot.logs}
           open={logOpen}

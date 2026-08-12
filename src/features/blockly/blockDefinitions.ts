@@ -34,7 +34,11 @@ export function registerHcrBlocks(joints: readonly JointConfig[]): void {
         initialJoint.initialAngleDeg,
         Math.min(...joints.map((joint) => joint.minAngleDeg)),
         Math.max(...joints.map((joint) => joint.maxAngleDeg)),
-        1,
+        // Tenths of a degree, because that is the resolution the arm has:
+        // `hcr-fw` carries angles as tenths and its parser accepts exactly one
+        // fractional digit. Whole degrees would round 162.5° — a real elbow
+        // limit — to a value the servo cannot be commanded to.
+        0.1,
         function validateAngle(
           this: Blockly.FieldNumber,
           value: string | number,

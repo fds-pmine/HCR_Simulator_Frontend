@@ -21,19 +21,26 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
     'down step by step.',
   robotConfig: {
     joints: [
+      // Angles are servo degrees — what the arm's servo is commanded to, and
+      // what `hcr-fw` reports back. See `features/robot/servoMapping.ts`.
       {
         id: 'baseYaw',
         name: 'Base Yaw',
         axis: 'y',
-        minAngleDeg: -60,
-        maxAngleDeg: 60,
-        initialAngleDeg: -45,
+        // 底座 X. Geometric −60…60 centred on the servo's 90° home.
+        minAngleDeg: 30,
+        maxAngleDeg: 150,
+        initialAngleDeg: 45,
         speedDegPerSec: 60,
+        servo: { axis: 'X', centerDeg: 90, direction: 1, offsetDeg: 0 },
       },
       {
         id: 'shoulderRoll',
         name: 'Shoulder Roll',
         axis: 'x',
+        // Simulation-only: the arm has five servos and none of them rolls the
+        // shoulder. No mapping, so these stay geometric. `T` (GPIO 12) is free
+        // on the legacy board if this ever gets a real axis.
         minAngleDeg: -45,
         maxAngleDeg: 45,
         initialAngleDeg: 0,
@@ -43,28 +50,36 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
         id: 'shoulder',
         name: 'Shoulder',
         axis: 'z',
-        minAngleDeg: -20,
-        maxAngleDeg: 100,
-        initialAngleDeg: 45,
+        // 前后 Y. Geometric −20…100.
+        minAngleDeg: 30,
+        maxAngleDeg: 150,
+        initialAngleDeg: 95,
         speedDegPerSec: 45,
+        servo: { axis: 'Y', centerDeg: 90, direction: 1, offsetDeg: 40 },
       },
       {
         id: 'elbow',
         name: 'Elbow',
         axis: 'z',
-        minAngleDeg: -135,
-        maxAngleDeg: 10,
-        initialAngleDeg: -80,
+        // 上下 Z. Geometric −135…10.
+        minAngleDeg: 17.5,
+        maxAngleDeg: 162.5,
+        initialAngleDeg: 72.5,
         speedDegPerSec: 60,
+        servo: { axis: 'Z', centerDeg: 90, direction: 1, offsetDeg: -62.5 },
       },
       {
         id: 'wrist',
         name: 'Wrist',
         axis: 'z',
-        minAngleDeg: -100,
-        maxAngleDeg: 100,
-        initialAngleDeg: 35,
+        // 平衡 B. Geometric −90…90 — the full servo throw. The simulator used
+        // to allow ±100°, which needs 200° of travel from a 180° servo, so the
+        // arm would have silently disagreed with the screen at the extremes.
+        minAngleDeg: 0,
+        maxAngleDeg: 180,
+        initialAngleDeg: 125,
         speedDegPerSec: 75,
+        servo: { axis: 'B', centerDeg: 90, direction: 1, offsetDeg: 0 },
       },
     ],
     geometry: {

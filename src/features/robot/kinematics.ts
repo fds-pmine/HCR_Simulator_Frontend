@@ -1,9 +1,11 @@
 import type {
   Challenge,
+  JointConfig,
   JointId,
   RobotGeometryConfig,
   Vec3Tuple,
 } from '../../types/domain';
+import { toGeometricDeg } from './servoMapping';
 
 export interface RobotPose {
   base: Vec3Tuple;
@@ -21,15 +23,16 @@ export function computeRobotPose(
   jointAngles: Readonly<Record<JointId, number>>,
 ): RobotPose {
   const { geometry } = robotConfig;
-  const baseYaw = degreesToRadians(readAngle(jointAngles, 'baseYaw'));
-  const shoulderRollAngle = degreesToRadians(
-    readAngle(jointAngles, 'shoulderRoll'),
-  );
-  const shoulderAngle = degreesToRadians(
-    readAngle(jointAngles, 'shoulder'),
-  );
-  const elbowAngle = degreesToRadians(readAngle(jointAngles, 'elbow'));
-  const wristAngle = degreesToRadians(readAngle(jointAngles, 'wrist'));
+  // `jointAngles` is in servo degrees; the rotations below are geometric. This
+  // is the boundary between the two, and the only one — every other consumer of
+  // a pose goes through this function.
+  const read = (jointId: JointId): number =>
+    degreesToRadians(readAngle(robotConfig.joints, jointAngles, jointId));
+  const baseYaw = read('baseYaw');
+  const shoulderRollAngle = read('shoulderRoll');
+  const shoulderAngle = read('shoulder');
+  const elbowAngle = read('elbow');
+  const wristAngle = read('wrist');
 
   const base = geometry.basePosition;
   const shoulder: Vec3Tuple = [
@@ -186,6 +189,7 @@ function rotationZ(angle: number): Matrix3 {
 }
 
 function readAngle(
+  joints: readonly JointConfig[],
   jointAngles: Readonly<Record<JointId, number>>,
   jointId: JointId,
 ): number {
@@ -193,7 +197,11 @@ function readAngle(
   if (!Number.isFinite(angle)) {
     throw new Error(`Missing or invalid angle for joint "${jointId}".`);
   }
-  return angle;
+  const joint = joints.find((candidate) => candidate.id === jointId);
+  if (!joint) {
+    throw new Error(`No joint configured with id "${jointId}".`);
+  }
+  return toGeometricDeg(joint, angle);
 }
 
 function degreesToRadians(degrees: number): number {

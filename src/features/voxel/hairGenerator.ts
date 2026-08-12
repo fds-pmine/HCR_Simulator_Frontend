@@ -59,14 +59,15 @@ export const REFERENCE_SOLUTION: readonly {
   jointId: string;
   angleDeg: number;
 }[] = [
-  { jointId: 'shoulder', angleDeg: 90 },
-  { jointId: 'elbow', angleDeg: -40 },
-  { jointId: 'wrist', angleDeg: -20 },
-  { jointId: 'baseYaw', angleDeg: 55 },
-  { jointId: 'baseYaw', angleDeg: -55 },
-  { jointId: 'shoulder', angleDeg: 70 },
-  { jointId: 'elbow', angleDeg: 0 },
-  { jointId: 'baseYaw', angleDeg: 55 },
+  // Servo degrees; geometric equivalents in comments.
+  { jointId: 'shoulder', angleDeg: 140 }, // 90
+  { jointId: 'elbow', angleDeg: 112.5 }, // -40
+  { jointId: 'wrist', angleDeg: 70 }, // -20
+  { jointId: 'baseYaw', angleDeg: 145 }, // 55
+  { jointId: 'baseYaw', angleDeg: 35 }, // -55
+  { jointId: 'shoulder', angleDeg: 120 }, // 70
+  { jointId: 'elbow', angleDeg: 152.5 }, // 0
+  { jointId: 'baseYaw', angleDeg: 145 }, // 55
 ];
 
 export function generateDefaultHairstyles(): GeneratedHairstyles {

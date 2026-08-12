@@ -42,10 +42,10 @@ const STARTER_PROGRAM = {
   sourceBlockCount: 5,
   nodes: [
     { type: 'set-joint-angle', jointId: 'shoulderRoll', angleDeg: 15, sourceBlockId: 'starter-shoulder-roll' },
-    { type: 'set-joint-angle', jointId: 'shoulder', angleDeg: 80, sourceBlockId: 'starter-shoulder' },
-    { type: 'set-joint-angle', jointId: 'elbow', angleDeg: 0, sourceBlockId: 'starter-elbow' },
-    { type: 'set-joint-angle', jointId: 'wrist', angleDeg: -80, sourceBlockId: 'starter-wrist' },
-    { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 55, sourceBlockId: 'starter-base-sweep' },
+    { type: 'set-joint-angle', jointId: 'shoulder', angleDeg: 130, sourceBlockId: 'starter-shoulder' },
+    { type: 'set-joint-angle', jointId: 'elbow', angleDeg: 152.5, sourceBlockId: 'starter-elbow' },
+    { type: 'set-joint-angle', jointId: 'wrist', angleDeg: 10, sourceBlockId: 'starter-wrist' },
+    { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 145, sourceBlockId: 'starter-base-sweep' },
   ],
 };
 
@@ -115,7 +115,7 @@ describe('live backend', () => {
       program: {
         sourceBlockCount: 1,
         nodes: [
-          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 0, sourceBlockId: 'reckless' },
+          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 90, sourceBlockId: 'reckless' },
         ],
       },
     });
@@ -124,7 +124,8 @@ describe('live backend', () => {
     expect(result.terminal.reason).toBe('head-collision');
     expect(result.terminal.jointId).toBe('baseYaw');
     expect(result.terminal.sourceBlockId).toBe('reckless');
-    expect(result.terminal.safeAngleDeg).toBeCloseTo(-34.48, 1);
+    // Servo degrees, like every angle crossing the wire; geometric -34.48°.
+    expect(result.terminal.safeAngleDeg).toBeCloseTo(55.52, 1);
   });
 
   it('surfaces a backend validation error with its field', async ({ skip }) => {

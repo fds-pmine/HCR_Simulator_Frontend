@@ -98,8 +98,10 @@ describe('Blockly program compiler', () => {
 
   it('rejects angles that are invalid for the selected joint', () => {
     const block = workspace.newBlock(BLOCK_TYPES.setJointAngle);
+    // 170° is the full servo throw the wrist has and 20° past what the base
+    // does, so switching the joint leaves an angle the new joint cannot reach.
     block.setFieldValue('wrist', BLOCK_FIELDS.jointId);
-    block.setFieldValue(90, BLOCK_FIELDS.angle);
+    block.setFieldValue(170, BLOCK_FIELDS.angle);
     block.setFieldValue('baseYaw', BLOCK_FIELDS.jointId);
 
     expectCompilationError(
@@ -305,10 +307,10 @@ describe('workspace deserialization is independent of field order', () => {
 
     expect(angles).toEqual([
       ['shoulderRoll', 15],
-      ['shoulder', 80],
-      ['elbow', 0],
-      ['wrist', -80],
-      ['baseYaw', 55],
+      ['shoulder', 130],
+      ['elbow', 152.5],
+      ['wrist', 10],
+      ['baseYaw', 145],
     ]);
   });
 
@@ -370,7 +372,7 @@ describe('repeat', () => {
       workspace,
       // Both angles sit inside the head-safe yaw band, so the run is about
       // repetition rather than about the collision constraint.
-      repeatOf(3, setJoint('a', 'baseYaw', -55, setJoint('b', 'baseYaw', -38))),
+      repeatOf(3, setJoint('a', 'baseYaw', 35, setJoint('b', 'baseYaw', 52))),
     );
 
     const compiled = compileWorkspace(workspace, challenge);
@@ -383,8 +385,8 @@ describe('repeat', () => {
         count: 3,
         sourceBlockId: 'rep',
         body: [
-          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: -55, sourceBlockId: 'a' },
-          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: -38, sourceBlockId: 'b' },
+          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 35, sourceBlockId: 'a' },
+          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 52, sourceBlockId: 'b' },
         ],
       },
     ]);
@@ -394,7 +396,7 @@ describe('repeat', () => {
   it('runs every iteration through the engine', async () => {
     loadWorkspaceState(
       workspace,
-      repeatOf(3, setJoint('a', 'baseYaw', -55, setJoint('b', 'baseYaw', -38))),
+      repeatOf(3, setJoint('a', 'baseYaw', 35, setJoint('b', 'baseYaw', 52))),
     );
     const compiled = compileWorkspace(workspace, challenge);
 
@@ -432,9 +434,9 @@ describe('repeat', () => {
       };
     };
 
-    const repeated = await run(repeatOf(5, setJoint('a', 'baseYaw', -55)));
+    const repeated = await run(repeatOf(5, setJoint('a', 'baseYaw', 35)));
     const once = await run({
-      blocks: { languageVersion: 0, blocks: [setJoint('a', 'baseYaw', -55)] },
+      blocks: { languageVersion: 0, blocks: [setJoint('a', 'baseYaw', 35)] },
     });
 
     expect(repeated.commands).toBe(5);
