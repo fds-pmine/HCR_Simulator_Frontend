@@ -94,11 +94,15 @@ test.describe('HCR Simulator workbench', () => {
     page,
   }) => {
     await seedStarterProgram(page);
+    // Servo degrees, as every angle in the UI now is. The geometric pose this
+    // drives into the head is shoulder 50°, elbow −15°, wrist −30°,
+    // baseYaw −24° — the same pose `createUnsafeHeadCollisionProgram` uses in
+    // the unit suite. `shoulderRoll` has no servo, so its angle is unchanged.
     await setBlocklyNumberField(page, 'starter-shoulder-roll', 0);
-    await setBlocklyNumberField(page, 'starter-shoulder', 50);
-    await setBlocklyNumberField(page, 'starter-elbow', -15);
-    await setBlocklyNumberField(page, 'starter-wrist', -30);
-    await setBlocklyNumberField(page, 'starter-base-sweep', -24);
+    await setBlocklyNumberField(page, 'starter-shoulder', 100);
+    await setBlocklyNumberField(page, 'starter-elbow', 137.5);
+    await setBlocklyNumberField(page, 'starter-wrist', 60);
+    await setBlocklyNumberField(page, 'starter-base-sweep', 66);
 
     await page.getByTestId('run-button').click();
 

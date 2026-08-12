@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.3.0",
   "type": "module",
+  "description": "HCR Simulator \u2014 a Blockly and Web 3D robotic haircut simulation",
+  "homepage": "https://web.hcr.rs",
+  "//author": "Required, not decorative: electron-builder derives the deb and rpm `maintainer` field from it and refuses to package those formats without one.",
+  "author": "JerrySu5379 <jerrysu5379@gmail.com>",
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",
@@ -34,26 +38,84 @@
     "appId": "rs.hcr.simulator",
     "productName": "HCR Simulator",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
       "electron/**/*"
     ],
+    "artifactName": "${name}-${version}-${arch}.${ext}",
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "category": "public.app-category.education"
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true
     },
     "linux": {
-      "target": "AppImage",
-      "category": "Education"
-    }
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "Education",
+      "synopsis": "Blockly and Web 3D robotic haircut simulation",
+      "desktop": {
+        "entry": {
+          "Name": "HCR Simulator",
+          "Categories": "Education;Science;Robotics;"
+        }
+      }
+    },
+    "publish": null
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

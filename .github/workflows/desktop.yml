@@ -1,0 +1,143 @@
+name: Desktop build
+
+# Tag to release; dispatch to get installers without publishing anything.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Same checks as an ordinary push. A tag that cannot pass CI must not become a
+  # download on the website.
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  # The tag and `package.json` both end up in front of users — the tag names the
+  # release, the version names every file inside it. Catch a mismatch before
+  # three runners spend twenty minutes building artifacts labelled wrongly.
+  version:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match package.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag v$tag does not match package.json version $pkg."
+            echo "Bump package.json (and commit) or retag, then try again."
+            exit 1
+          fi
+          echo "v$tag matches package.json."
+
+  build:
+    needs: [verify]
+    strategy:
+      # One platform failing should not hide whether the others work — on a
+      # release you want to know the full picture in one run.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macos
+            # dmg and zip, x64 and arm64. No ia32: macOS has not run 32-bit
+            # binaries since Catalina.
+          - os: windows-latest
+            label: windows
+            # nsis for x64, ia32 and arm64. Windows is the only platform where
+            # 32-bit is still a real target.
+          - os: ubuntu-latest
+            label: linux
+            # AppImage, deb and rpm, x64 and arm64. No ia32: Electron dropped
+            # Linux 32-bit after v4, so there is no binary to package.
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # `rpmbuild` is not on the runner image, and electron-builder shells out to
+      # it for the rpm target. Without this the rpm silently drops out of the
+      # matrix while the job still reports success.
+      - name: Install rpm tooling
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Build installers
+        env:
+          # No Developer ID certificate is configured, so tell electron-builder
+          # not to go looking for one. Left on, it finds whatever happens to be
+          # in the runner keychain and fails late, or signs with something
+          # meaningless. See the note in docs/RELEASING.md about what unsigned
+          # means for the people downloading this.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # electron-builder reads this to attach release notes and upload; we
+          # publish explicitly in the release job instead, so it stays unset.
+          GH_TOKEN: ''
+        run: npm run app:build
+
+      # The build can "succeed" having produced nothing if a target silently
+      # drops out. `if-no-files-found: error` is what turns that into a red run.
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: hcr-simulator-${{ matrix.label }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.blockmap
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: [build, version]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      # The only elevated permission in this pipeline, and only on this job.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect every platform's installers
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List what will be published
+        run: ls -lh artifacts/
+
+      # `create` fails if the release already exists, which is exactly what
+      # happens when a build is re-run after a partial failure. Upload into the
+      # existing one instead of erroring on a retry.
+      - name: Publish to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag exists — uploading into it."
+            gh release upload "$tag" artifacts/* --clobber
+          else
+            gh release create "$tag" \
+              --title "HCR Simulator ${tag}" \
+              --generate-notes \
+              --verify-tag \
+              artifacts/*
+          fi
