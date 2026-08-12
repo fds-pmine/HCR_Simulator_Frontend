@@ -166,10 +166,10 @@ tests/
 
 ### Cutter Grid Phase 1 — Blockly、独立 IR 与 Workspace 隔离
 
-- [ ] 增加 `servo | cutter-grid` 模式、六种 Move 积木和模式工具箱。
-- [ ] 实现距离/Wait/Repeat 校验、单格展开、500 原子动作限制和错误定位。
-- [ ] 按 Challenge 签名与模式保存独立内存 Workspace，只允许在 `idle` 切换。
-- [ ] 保持 Servo Program IR、编译器和后端序列化完全不变。
+- [x] 增加 `servo | cutter-grid` 模式、六种 Move 积木和模式工具箱。
+- [x] 实现距离/Wait/Repeat 校验、单格展开、500 原子动作限制和错误定位。
+- [x] 按 Challenge 签名与模式保存独立内存 Workspace，只允许在 `idle` 切换。
+- [x] 保持 Servo Program IR、编译器和后端序列化完全不变。
 
 阶段出口：两种语言可以独立编辑和编译，但 Cutter Grid 尚不执行 IK。
 

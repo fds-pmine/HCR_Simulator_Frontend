@@ -1468,6 +1468,16 @@ input:focus-visible {
   font-weight: 700;
 }
 
+.programming-mode-switch {
+  flex: 0 0 auto;
+  margin: 10px 12px 0;
+}
+
+.programming-mode-switch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
 .big-button {
   display: inline-flex;
   height: 44px;

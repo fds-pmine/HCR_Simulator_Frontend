@@ -27,8 +27,8 @@
 ## Cutter Grid 功能验收
 
 - [ ] Servo 默认选中，Cutter Grid 仅在 Practice 和专属 Lessons 可选。
-- [ ] 六种 Move 距离为整数 `1–12`，Move N 展开为 N 格，展开后上限为 500。
-- [ ] Servo/Cutter Grid Workspace 独立保留，只能在 `idle` 切换。
+- [x] 六种 Move 距离为整数 `1–12`，Move N 展开为 N 格，展开后上限为 500。
+- [x] Servo/Cutter Grid Workspace 独立保留，只能在 `idle` 切换。
 - [ ] 编译期 IK、同步轨迹、Worker 取消和签名满足 v0.3 参数。
 - [ ] 入场零接触且不计命令/耗时/成绩；Step 每次执行一格或 Wait。
 - [ ] Run、Test、Step 复用同一冻结计划并产生相同终态、剪发集合和指标。

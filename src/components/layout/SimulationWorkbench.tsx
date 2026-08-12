@@ -19,6 +19,12 @@ import {
   ProgramCompilationError,
 } from '../../features/blockly/programCompiler';
 import type { CompiledProgram, Program } from '../../features/blockly/programTypes';
+import {
+  PROGRAMMING_MODE_LABEL,
+  canSwitchProgrammingMode,
+  type ProgrammingMode,
+} from '../../features/blockly/programmingMode';
+import { CutterGridCompilationError } from '../../features/cutter-grid/programCompiler';
 import { SimulatorCanvas } from '../../features/simulation/SimulatorCanvas';
 import type { SimulationEngine } from '../../features/simulation/SimulationEngine';
 import { runHeadless } from '../../features/simulation/headlessRun';
@@ -70,7 +76,7 @@ export interface WorkbenchTutorial {
   onTested: () => void;
 }
 
-interface SimulationWorkbenchProps {
+export interface SimulationWorkbenchProps {
   challenge: Challenge;
   engine: SimulationEngine;
   /** Shown in the topbar instead of the offline badge. */
@@ -78,6 +84,9 @@ interface SimulationWorkbenchProps {
   onExit?: () => void;
   match?: WorkbenchMatch;
   tutorial?: WorkbenchTutorial;
+  /** Modes certified by the caller for this challenge and product surface. */
+  availableProgrammingModes?: readonly ProgrammingMode[];
+  initialProgrammingMode?: ProgrammingMode;
 }
 
 export function SimulationWorkbench({
@@ -87,11 +96,18 @@ export function SimulationWorkbench({
   onExit,
   match,
   tutorial,
+  availableProgrammingModes = ['servo'],
+  initialProgrammingMode = 'servo',
 }: SimulationWorkbenchProps) {
   const editorRef = useRef<BlocklyEditorHandle>(null);
   const snapshot = useSimulationSnapshot(engine);
   const [compileError, setCompileError] = useState<string>();
   const [testing, setTesting] = useState(false);
+  const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>(() =>
+    availableProgrammingModes.includes(initialProgrammingMode)
+      ? initialProgrammingMode
+      : (availableProgrammingModes[0] ?? 'servo'),
+  );
   const {
     leftPanelOpen,
     rightPanelOpen,
@@ -125,7 +141,13 @@ export function SimulationWorkbench({
         .getAllBlocks(false)
         .filter((block) => block.isEnabled() && !block.isShadow()).length;
       try {
-        report(editorRef.current?.compile().program, blockCount);
+        const compilation = editorRef.current?.compile();
+        report(
+          compilation?.mode === 'servo'
+            ? compilation.compiled.program
+            : undefined,
+          blockCount,
+        );
       } catch {
         // Half-built programs do not compile, which is the normal state while
         // somebody is dragging blocks around. Report the block count anyway so
@@ -136,7 +158,7 @@ export function SimulationWorkbench({
     publish();
     workspace.addChangeListener(publish);
     return () => workspace.removeChangeListener(publish);
-  }, [report]);
+  }, [programmingMode, report]);
 
   const compile = (): CompiledProgram | undefined => {
     try {
@@ -144,13 +166,21 @@ export function SimulationWorkbench({
       if (!result) {
         throw new Error('The Blockly workspace is not ready.');
       }
+      if (result.mode === 'cutter-grid') {
+        throw new Error(
+          'Cutter Grid trajectory planning is not available until its certified planner is loaded.',
+        );
+      }
       setCompileError(undefined);
-      return result;
+      return result.compiled;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Program compilation failed.';
       setCompileError(message);
-      if (error instanceof ProgramCompilationError) {
+      if (
+        error instanceof ProgramCompilationError ||
+        error instanceof CutterGridCompilationError
+      ) {
         editorRef.current?.locateError(error);
       }
       return undefined;
@@ -200,6 +230,19 @@ export function SimulationWorkbench({
     setCompileError(undefined);
     editorRef.current?.highlightBlock();
     engine.reset();
+  };
+
+  const handleProgrammingModeChange = (nextMode: ProgrammingMode) => {
+    if (
+      nextMode === programmingMode ||
+      !availableProgrammingModes.includes(nextMode) ||
+      !canSwitchProgrammingMode(snapshot.status)
+    ) {
+      return;
+    }
+    setCompileError(undefined);
+    engine.reset();
+    setProgrammingMode(nextMode);
   };
 
   const visibleError = compileError ?? snapshot.errorMessage;
@@ -278,7 +321,7 @@ export function SimulationWorkbench({
           <div className="panel-header">
             <div>
               <span>PROGRAM</span>
-              <strong>Servo Control Program</strong>
+              <strong>{PROGRAMMING_MODE_LABEL[programmingMode]} Program</strong>
             </div>
             <button
               type="button"
@@ -288,11 +331,32 @@ export function SimulationWorkbench({
               <ChevronLeft size={17} />
             </button>
           </div>
+          {availableProgrammingModes.length > 1 ? (
+            <div
+              className="programming-mode-switch segmented"
+              role="group"
+              aria-label="Programming mode"
+            >
+              {availableProgrammingModes.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={mode === programmingMode ? 'is-active' : ''}
+                  aria-pressed={mode === programmingMode}
+                  disabled={!canSwitchProgrammingMode(snapshot.status)}
+                  onClick={() => handleProgrammingModeChange(mode)}
+                >
+                  {PROGRAMMING_MODE_LABEL[mode]}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <BlocklyEditor
             ref={editorRef}
             challenge={challenge}
             locked={editorLocked}
             visible={leftPanelOpen}
+            programmingMode={programmingMode}
           />
           <div className="panel-footer">
             <span>
@@ -401,7 +465,9 @@ export function SimulationWorkbench({
           Absent in the web build — `ArmDock` returns null when no Electron
           preload has exposed the bridge, which is every browser tab.
         */}
-        <ArmDock challenge={challenge} compile={compile} />
+        {programmingMode === 'servo' ? (
+          <ArmDock challenge={challenge} compile={compile} />
+        ) : null}
         <LogDrawer
           logs={snapshot.logs}
           open={logOpen}

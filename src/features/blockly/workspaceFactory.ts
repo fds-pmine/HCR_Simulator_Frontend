@@ -1,7 +1,12 @@
 import * as Blockly from 'blockly/core';
 import type { Challenge } from '../../types/domain';
+import {
+  createCutterGridToolbox,
+  registerCutterGridBlocks,
+} from '../cutter-grid/blockDefinitions';
 import { BLOCK_FIELDS } from './blockConstants';
-import { registerHcrBlocks } from './blockDefinitions';
+import { createToolbox, registerHcrBlocks } from './blockDefinitions';
+import type { ProgrammingMode } from './programmingMode';
 
 /**
  * Fields that must be applied before any other field on the same block.
@@ -13,10 +18,42 @@ import { registerHcrBlocks } from './blockDefinitions';
 const LEADING_FIELDS: readonly string[] = [BLOCK_FIELDS.jointId];
 
 export function createHeadlessWorkspace(challenge: Challenge): Blockly.Workspace {
-  registerHcrBlocks(challenge.robotConfig.joints);
+  return createHeadlessWorkspaceForMode(challenge, 'servo');
+}
+
+export function createHeadlessWorkspaceForMode(
+  challenge: Challenge,
+  mode: ProgrammingMode,
+  state = initialWorkspaceState(challenge, mode),
+): Blockly.Workspace {
+  registerBlocksForMode(challenge, mode);
   const workspace = new Blockly.Workspace();
-  loadWorkspaceState(workspace, challenge.starterWorkspace);
+  loadWorkspaceState(workspace, state);
   return workspace;
+}
+
+export function registerBlocksForMode(
+  challenge: Challenge,
+  mode: ProgrammingMode,
+): void {
+  registerHcrBlocks(challenge.robotConfig.joints);
+  if (mode === 'cutter-grid') {
+    registerCutterGridBlocks();
+  }
+}
+
+export function toolboxForMode(
+  challenge: Challenge,
+  mode: ProgrammingMode,
+): Blockly.utils.toolbox.ToolboxDefinition {
+  return mode === 'servo' ? createToolbox(challenge) : createCutterGridToolbox();
+}
+
+export function initialWorkspaceState(
+  challenge: Challenge,
+  mode: ProgrammingMode,
+): Record<string, unknown> {
+  return mode === 'servo' ? challenge.starterWorkspace : {};
 }
 
 export function loadWorkspaceState(

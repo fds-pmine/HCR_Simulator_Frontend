@@ -45,6 +45,20 @@ export interface CutterGridProgramV1 {
   sourceBlockCount: number;
 }
 
+export type CutterGridAtomicActionV1 =
+  | {
+      type: 'move-cell';
+      direction: CutterGridDirection;
+      sourceBlockId: string;
+    }
+  | CutterGridWaitV1;
+
+export interface CompiledCutterGridProgramV1 {
+  program: CutterGridProgramV1;
+  runtimeActions: CutterGridAtomicActionV1[];
+  executedCommandCount: number;
+}
+
 export type CutterGridBlockedReason =
   | 'joint-limit'
   | 'head-collision'
@@ -117,4 +131,3 @@ export type CutterGridPlanningErrorCode =
   | 'path-deviation'
   | 'trajectory-discontinuity'
   | 'planning-cancelled';
-

@@ -6,21 +6,25 @@ import {
 } from 'react';
 import * as Blockly from 'blockly/core';
 import type { Challenge } from '../../types/domain';
-import {
-  createToolbox,
-  registerHcrBlocks,
-} from './blockDefinitions';
+import { compileCutterGridWorkspace } from '../cutter-grid/programCompiler';
+import type { EditorCompilation } from './editorCompilation';
 import {
   compileWorkspace,
-  type ProgramCompilationError,
 } from './programCompiler';
-import type { CompiledProgram } from './programTypes';
-import { loadWorkspaceState } from './workspaceFactory';
+import type { ProgrammingMode } from './programmingMode';
+import {
+  initialWorkspaceState,
+  loadWorkspaceState,
+  registerBlocksForMode,
+  saveWorkspaceState,
+  toolboxForMode,
+} from './workspaceFactory';
+import { programmingWorkspaceMemory } from './workspaceMemory';
 
 export interface BlocklyEditorHandle {
-  compile: () => CompiledProgram;
+  compile: () => EditorCompilation;
   highlightBlock: (blockId?: string) => void;
-  locateError: (error: ProgramCompilationError) => void;
+  locateError: (error: { blockId?: string }) => void;
   clear: () => void;
   getWorkspace: () => Blockly.WorkspaceSvg | undefined;
 }
@@ -29,12 +33,16 @@ interface BlocklyEditorProps {
   challenge: Challenge;
   locked: boolean;
   visible: boolean;
+  programmingMode: ProgrammingMode;
 }
 
 export const BlocklyEditor = forwardRef<
   BlocklyEditorHandle,
   BlocklyEditorProps
->(function BlocklyEditor({ challenge, locked, visible }, ref) {
+>(function BlocklyEditor(
+  { challenge, locked, visible, programmingMode },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | undefined>(undefined);
 
@@ -44,9 +52,9 @@ export const BlocklyEditor = forwardRef<
       return;
     }
 
-    registerHcrBlocks(challenge.robotConfig.joints);
+    registerBlocksForMode(challenge, programmingMode);
     const workspace = Blockly.inject(container, {
-      toolbox: createToolbox(challenge),
+      toolbox: toolboxForMode(challenge, programmingMode),
       renderer: 'zelos',
       theme: Blockly.Themes.Zelos,
       trashcan: true,
@@ -72,7 +80,11 @@ export const BlocklyEditor = forwardRef<
       },
     });
     workspaceRef.current = workspace;
-    loadWorkspaceState(workspace, challenge.starterWorkspace);
+    loadWorkspaceState(
+      workspace,
+      programmingWorkspaceMemory.load(challenge, programmingMode) ??
+        initialWorkspaceState(challenge, programmingMode),
+    );
     Blockly.svgResize(workspace);
 
     // A seam for the end-to-end tests, and only for them.
@@ -104,13 +116,18 @@ export const BlocklyEditor = forwardRef<
 
     return () => {
       resizeObserver.disconnect();
+      programmingWorkspaceMemory.save(
+        challenge,
+        programmingMode,
+        saveWorkspaceState(workspace),
+      );
       if (import.meta.env.DEV) {
         delete (window as { __hcrSeedWorkspace?: unknown }).__hcrSeedWorkspace;
       }
       workspace.dispose();
       workspaceRef.current = undefined;
     };
-  }, [challenge]);
+  }, [challenge, programmingMode]);
 
   useEffect(() => {
     const workspace = workspaceRef.current;
@@ -143,7 +160,12 @@ export const BlocklyEditor = forwardRef<
         if (!workspace) {
           throw new Error('The Blockly workspace is not ready.');
         }
-        return compileWorkspace(workspace, challenge);
+        return programmingMode === 'servo'
+          ? { mode: 'servo', compiled: compileWorkspace(workspace, challenge) }
+          : {
+              mode: 'cutter-grid',
+              compiled: compileCutterGridWorkspace(workspace),
+            };
       },
       highlightBlock(blockId) {
         workspaceRef.current?.highlightBlock(blockId ?? null);
@@ -164,7 +186,7 @@ export const BlocklyEditor = forwardRef<
         return workspaceRef.current;
       },
     }),
-    [challenge],
+    [challenge, programmingMode],
   );
 
   return (
