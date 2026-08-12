@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:visual": "playwright test --config playwright.visual.config.ts",
     "vectors": "vitest run --config vectors.config.ts",
     "reachability": "vitest run --config reachability.config.ts",
     "cutter-grid:audit": "vitest run --config cutter-grid-audit.config.ts",

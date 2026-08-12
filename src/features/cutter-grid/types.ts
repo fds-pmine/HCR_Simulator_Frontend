@@ -74,6 +74,7 @@ export interface CutterGridNodeProfileV1 {
 export interface CutterTrajectoryWaypointV1 {
   timeMs: number;
   jointAngles: Record<JointId, number>;
+  jointVelocitiesDegPerSec: Record<JointId, number>;
   endEffector: Vec3Tuple;
 }
 

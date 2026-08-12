@@ -1512,6 +1512,40 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+.cutter-grid-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: var(--font-xs);
+}
+
+.cutter-grid-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cutter-grid-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.cutter-grid-legend .is-reachable,
+.cutter-grid-legend .is-executed {
+  background: #38d6ce;
+}
+
+.cutter-grid-legend .is-blocked {
+  background: #ff805d;
+}
+
+.cutter-grid-legend .is-planned {
+  background: #f3c75f;
+}
+
 .programming-mode-switch {
   flex: 0 0 auto;
   margin: 10px 12px 0;

@@ -381,9 +381,6 @@ export function SimulationWorkbench({
   const handleReset = () => {
     setCompileError(undefined);
     editorRef.current?.highlightBlock();
-    workspaceVersionRef.current += 1;
-    cutterPlanRef.current = undefined;
-    setCutterPlan(undefined);
     plannerRef.current.cancel();
     engine.reset();
     if (programmingMode === 'cutter-grid') {

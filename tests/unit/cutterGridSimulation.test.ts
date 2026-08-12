@@ -82,6 +82,65 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     expect(engine.getSnapshot().metrics.executedCommandCount).toBe(plan.steps.length);
   });
 
+  it('counts Wait as one timed action without cutting hair', async () => {
+    const profile = registeredCutterGridProfile(challenge);
+    if (!profile) throw new Error('Expected bundled Profile.');
+    const engine = createPositionedEngine();
+    const endEffector = engine.getSnapshot().endEffector;
+    const zeroVelocity = Object.fromEntries(
+      challenge.robotConfig.joints.map((joint) => [joint.id, 0]),
+    );
+    const waitPlan: CutterTrajectoryPlanV1 = {
+      kind: 'cutter-grid-trajectory',
+      version: 1,
+      plannerVersion: profile.plannerVersion,
+      challengeSignature: profile.challengeSignature,
+      startCoord: [0, 0, 0],
+      endCoord: [0, 0, 0],
+      steps: [
+        {
+          index: 0,
+          kind: 'wait',
+          sourceBlockId: 'wait-only',
+          startCoord: [0, 0, 0],
+          endCoord: [0, 0, 0],
+          durationMs: 400,
+          waypoints: [
+            {
+              timeMs: 0,
+              jointAngles: profile.entryJointAngles,
+              jointVelocitiesDegPerSec: zeroVelocity,
+              endEffector,
+            },
+            {
+              timeMs: 400,
+              jointAngles: profile.entryJointAngles,
+              jointVelocitiesDegPerSec: zeroVelocity,
+              endEffector,
+            },
+          ],
+          expectedCutVoxels: [],
+        },
+      ],
+      expectedResultVoxels: [...challenge.initialHair.voxels].sort(),
+      estimatedDurationMs: 400,
+      executedCommandCount: 1,
+      trajectorySignature: 'wait-only-test',
+    };
+    const initialHair = engine.getSnapshot().hairVoxels;
+
+    engine.runCutterGrid(waitPlan, 1);
+    engine.tick(400);
+    await engine.waitForScore();
+
+    expect(engine.getSnapshot().hairVoxels).toEqual(initialHair);
+    expect(engine.getSnapshot().metrics).toEqual({
+      sourceBlockCount: 1,
+      executedCommandCount: 1,
+      estimatedDurationMs: 400,
+    });
+  });
+
   it('does not cut or score during certified positioning and exposes planning state', () => {
     const profile = registeredCutterGridProfile(challenge);
     if (!profile) throw new Error('Expected bundled Profile.');
@@ -100,6 +159,41 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     expect(engine.getSnapshot().status).toBe('planning');
     engine.cancelPlanning();
     expect(engine.getSnapshot().status).toBe('idle');
+  });
+
+  it('fails closed if a corrupted entry trajectory violates runtime safety', () => {
+    const profile = registeredCutterGridProfile(challenge);
+    if (!profile) throw new Error('Expected bundled Profile.');
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    engine.positionCutterGrid({
+      ...profile,
+      entryTrajectory: [
+        profile.entryTrajectory[0],
+        {
+          timeMs: 1,
+          jointAngles: {
+            baseYaw: -24,
+            shoulderRoll: 0,
+            shoulder: 50,
+            elbow: -15,
+            wrist: -30,
+          },
+          jointVelocitiesDegPerSec: {
+            baseYaw: 0,
+            shoulderRoll: 0,
+            shoulder: 0,
+            elbow: 0,
+            wrist: 0,
+          },
+          endEffector: [0, 0, 0],
+        },
+      ],
+    });
+
+    expect(() => engine.tick(10)).not.toThrow();
+    expect(engine.getSnapshot().status).toBe('error');
+    expect(engine.getSnapshot().scoreResult).toBeUndefined();
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(0);
   });
 
   it('scores Cutter Grid locally without calling the configured provider', async () => {

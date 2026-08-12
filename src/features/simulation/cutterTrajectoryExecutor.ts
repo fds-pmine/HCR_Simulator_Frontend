@@ -1,4 +1,5 @@
 import type { CutterTrajectoryPlanV1, CutterTrajectoryStepV1 } from '../cutter-grid/types';
+import { interpolateCutterTrajectoryJointAngles } from '../cutter-grid/trajectory';
 import type { RobotController, MoveAdvanceResult } from '../robot/RobotController';
 
 export interface CutterTrajectoryExecutorHooks {
@@ -131,16 +132,10 @@ export class CutterTrajectoryExecutor {
     const previous = step.waypoints[this.waypointIndex];
     const next = step.waypoints[this.waypointIndex + 1];
     if (!previous || !next || targetTimeMs <= previous.timeMs) return;
-    const spanMs = next.timeMs - previous.timeMs;
-    const progress = spanMs <= 0
-      ? 1
-      : Math.min(1, Math.max(0, (targetTimeMs - previous.timeMs) / spanMs));
-    const jointAngles = Object.fromEntries(
-      Object.keys(previous.jointAngles).map((jointId) => [
-        jointId,
-        previous.jointAngles[jointId] +
-          (next.jointAngles[jointId] - previous.jointAngles[jointId]) * progress,
-      ]),
+    const jointAngles = interpolateCutterTrajectoryJointAngles(
+      previous,
+      next,
+      targetTimeMs,
     );
     const movement = this.robotController.setTrajectoryAngles(jointAngles);
     if (movement.moved) hooks.onMovement?.(movement);

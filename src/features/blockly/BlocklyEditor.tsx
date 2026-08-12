@@ -200,7 +200,7 @@ export const BlocklyEditor = forwardRef<
       {locked ? (
         <div className="blockly-editor__lock" aria-live="polite">
           <span>PROGRAM LOCKED</span>
-          Editing is locked while the program is running
+          Editing is locked during positioning, planning, or execution
         </div>
       ) : null}
     </div>

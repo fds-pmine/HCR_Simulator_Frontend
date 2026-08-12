@@ -16,6 +16,21 @@ const cutterGridRightWorkspaceState: Record<string, unknown> = {
   },
 };
 
+const cutterGridBlockedWorkspaceState: Record<string, unknown> = {
+  blocks: {
+    languageVersion: 0,
+    blocks: [
+      {
+        type: 'hcr_cutter_grid_move_right',
+        id: 'e2e-cutter-grid-blocked',
+        x: 40,
+        y: 40,
+        fields: { DISTANCE: 4 },
+      },
+    ],
+  },
+};
+
 /** `#rrggbb` as the `rgb(r, g, b)` string `toHaveCSS` compares against. */
 function rgb(hex: string): string {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -166,7 +181,9 @@ test.describe('HCR Simulator workbench', () => {
         .locator('canvas'),
     ).toHaveCSS('background-color', rgb(SCENE_BACKGROUND));
     await expect(
-      page.getByText('Editing is locked while the program is running'),
+      page.getByText(
+        'Editing is locked during positioning, planning, or execution',
+      ),
     ).toBeVisible();
     // `toBeVisible` reports the notice as visible even when Blockly's toolbox
     // (z-index 70) paints over its first 24px, which rendered it as "ing is
@@ -350,12 +367,59 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(1);
 
     await page.getByTestId('step-button').click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Planning');
+    await expect(page.getByTestId('blockly-editor')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await expect(page.getByText(/Editing is locked during positioning/)).toBeVisible();
+    await expect(servoMode).toBeDisabled();
+    await expect(cutterMode).toBeDisabled();
     await expect(page.getByTestId('simulation-status')).toHaveText('Paused', {
       timeout: 120_000,
     });
     await expect(page.getByTestId('executed-command-count')).toHaveText('1');
     await expect(page.locator('.cutter-grid-summary')).toContainText('1/2');
     await expect(page.locator('.cutter-grid-summary')).toContainText('(1, 0, 0)');
+    await expect(page.getByTestId('final-score')).toHaveCount(0);
+
+    const trajectoryBeforeReset = await page
+      .locator('.cutter-grid-summary')
+      .locator('dd')
+      .last()
+      .textContent();
+    await page.getByTestId('reset-button').click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
+      timeout: 20_000,
+    });
+    await page.getByTestId('step-button').click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Paused', {
+      timeout: 20_000,
+    });
+    await expect(page.locator('.cutter-grid-summary').locator('dd').last()).toHaveText(
+      trajectoryBeforeReset ?? '',
+    );
+  });
+
+  test('fails an unreachable Cutter Grid command before execution and highlights it', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page
+      .getByRole('button', { name: 'Cutter Grid', exact: true })
+      .click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
+      timeout: 20_000,
+    });
+    await seedWorkspace(page, cutterGridBlockedWorkspaceState, 1);
+    await page.getByTestId('run-button').click();
+
+    await expect(page.getByRole('alert')).toContainText('(4, 0, 0)', {
+      timeout: 120_000,
+    });
+    await expect(page.getByRole('alert')).toContainText('blocked');
+    await expect(page.locator('.blocklyHighlighted')).toHaveCount(1);
+    await expect(page.getByTestId('executed-command-count')).toHaveText('0');
     await expect(page.getByTestId('final-score')).toHaveCount(0);
   });
 

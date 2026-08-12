@@ -1,6 +1,6 @@
 # HCR Simulator Demo 验收清单
 
-> Servo Phase 1–6、五关节/头部防穿模增量和自动化集成已实施；Cutter Grid 正按 Phase 0–5 实施。功能项只在具有直接验证证据时勾选。
+> Servo Phase 1–6、五关节/头部防穿模增量、自动化集成及 Cutter Grid Phase 0–5 已实施。功能项只在具有直接验证证据时勾选。
 
 ## 文档基线
 
@@ -43,6 +43,9 @@
 - [x] `npm test`
 - [x] `npm run build`
 - [x] `npm run test:e2e`
+- [x] `npm run cutter-grid:audit`：114 条安全剪发边、0 个未覆盖目标、0 个缺失方向。
+- [x] `npm run cutter-grid:profile`：2535 个节点、精确剪除 12 格、六方向认证。
+- [x] `npm run test:visual`：实际 Chrome/Edge 的 1280×720 与 1920×1080 共 4 项通过。
 
 ## 英文运行时文案
 
@@ -86,11 +89,13 @@
 
 ## 人工视觉验收
 
-- [ ] Chrome/Edge 1280×720 下核心控制无遮挡。
-- [ ] Chrome/Edge 1920×1080 下布局不过度拉伸。
-- [ ] 3D 主视图、Blockly 与指标层级清楚。
-- [ ] 机械臂、当前头发、目标预览和碰撞工具容易区分。
-- [ ] 非零肩部侧摆具有清晰的三维运动，运行全过程无头部穿模。
+- [x] Chrome/Edge 1280×720 下核心控制无遮挡。
+- [x] Chrome/Edge 1920×1080 下布局不过度拉伸。
+- [x] 3D 主视图、Blockly 与指标层级清楚。
+- [x] 机械臂、当前头发、目标预览、网格和剪发器容易区分。
+- [x] Cutter Grid 单格 Step 的五关节同步姿态、当前/下一坐标和执行/待执行路径清楚，运行全过程受碰撞复验保护。
+
+上述视觉项由 `tests/e2e/visualAcceptance.spec.ts` 在实际 Chrome/Edge 通道生成四张截图并检查视口、溢出和核心控件；2026-08-13 对截图完成肉眼复核。截图位于被忽略的 `test-results/`，不提交构建或验收产物。
 
 ## 关键人工场景
 

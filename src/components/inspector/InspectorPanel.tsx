@@ -89,6 +89,12 @@ export function InspectorPanel({
             <div><dt>Progress</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : 'Not planned'}</dd></div>
             <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
           </dl>
+          <div className="cutter-grid-legend" aria-label="Cutter Grid legend">
+            <span><i className="is-reachable" />Reachable</span>
+            <span><i className="is-blocked" />Blocked</span>
+            <span><i className="is-executed" />Executed</span>
+            <span><i className="is-planned" />Planned</span>
+          </div>
         </section>
       ) : null}
 

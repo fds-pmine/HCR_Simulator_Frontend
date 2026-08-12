@@ -15,6 +15,7 @@ import { cutterGridChallengeSignature } from './signature';
 import {
   planCutterGridEntryTrajectory,
   planCutterGridTrajectory,
+  serializeCutterTrajectoryPlan,
 } from './trajectory';
 import {
   CUTTER_GRID_PLANNER_VERSION,
@@ -59,16 +60,20 @@ export function generateCutterGridProfile(
     throw new Error('No geometric Cutter Grid reference program exists.');
   }
   const referenceCompiled = compileReference(reference.program);
-  const referencePlan = planCutterGridTrajectory(
+  const referencePlan = serializeCutterTrajectoryPlan(
     challenge,
-    referenceCompiled,
-    {
-      challengeSignature,
-      originHairCoord,
-      bounds,
-      startJointAngles: entryJointAngles,
-    },
-    options,
+    originHairCoord,
+    planCutterGridTrajectory(
+      challenge,
+      referenceCompiled,
+      {
+        challengeSignature,
+        originHairCoord,
+        bounds,
+        startJointAngles: entryJointAngles,
+      },
+      options,
+    ),
   );
   const expectedTarget = [...challenge.targetHair.voxels].sort();
   const referenceCutVoxels = referencePlan.steps
@@ -182,16 +187,20 @@ function certifyDirections(
       sourceBlockCount: path.length,
     };
     try {
-      planCutterGridTrajectory(
+      serializeCutterTrajectoryPlan(
         challenge,
-        compileReference(program),
-        {
-          challengeSignature,
-          originHairCoord,
-          bounds,
-          startJointAngles: entryJointAngles,
-        },
-        options,
+        originHairCoord,
+        planCutterGridTrajectory(
+          challenge,
+          compileReference(program),
+          {
+            challengeSignature,
+            originHairCoord,
+            bounds,
+            startJointAngles: entryJointAngles,
+          },
+          options,
+        ),
       );
       result.push(direction);
     } catch {

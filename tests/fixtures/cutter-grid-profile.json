@@ -29,6 +29,13 @@
         "elbow": 72.5,
         "wrist": 125
       },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 0,
+        "shoulderRoll": 0,
+        "shoulder": 0,
+        "elbow": 0,
+        "wrist": 0
+      },
       "endEffector": [
         1.293792542220904,
         0.6262433275299334,
@@ -43,6 +50,13 @@
         "shoulder": 95,
         "elbow": 72.76249999999999,
         "wrist": 125.05000000000001
+      },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 20.83333333333348,
+        "shoulderRoll": 0,
+        "shoulder": 0,
+        "elbow": 48.611111111111704,
+        "wrist": 8.33333333333365
       },
       "endEffector": [
         1.2979968502301273,
@@ -59,6 +73,13 @@
         "elbow": 73.2,
         "wrist": 125.10000000000001
       },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 16.666666666666707,
+        "shoulderRoll": 0,
+        "shoulder": 0,
+        "elbow": 38.88888888888905,
+        "wrist": 0
+      },
       "endEffector": [
         1.304968460023395,
         0.6401754393207614,
@@ -73,6 +94,13 @@
         "shoulder": 95.05000000000001,
         "elbow": 73.55,
         "wrist": 125.10000000000001
+      },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 16.666666666666657,
+        "shoulderRoll": 0,
+        "shoulder": 8.33333333333365,
+        "elbow": 38.88888888888885,
+        "wrist": 0
       },
       "endEffector": [
         1.310362803183739,
@@ -89,6 +117,13 @@
         "elbow": 73.9,
         "wrist": 125.10000000000001
       },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 16.666666666666707,
+        "shoulderRoll": 0,
+        "shoulder": 0,
+        "elbow": 38.88888888888905,
+        "wrist": 0
+      },
       "endEffector": [
         1.3157199653468308,
         0.6567861163831524,
@@ -103,6 +138,13 @@
         "shoulder": 95.10000000000001,
         "elbow": 74.24416666666667,
         "wrist": 125.10000000000001
+      },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 16.666666666666657,
+        "shoulderRoll": -8.333333333333336,
+        "shoulder": 0,
+        "elbow": 38.24074074074074,
+        "wrist": 0
       },
       "endEffector": [
         1.3213300613143664,
@@ -119,6 +161,13 @@
         "elbow": 74.60000000000001,
         "wrist": 125.10000000000001
       },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 16.666666666666707,
+        "shoulderRoll": 0,
+        "shoulder": 0,
+        "elbow": 41.4814814814815,
+        "wrist": 0
+      },
       "endEffector": [
         1.3269898529964728,
         0.6702651561047909,
@@ -133,6 +182,13 @@
         "shoulder": 95.10000000000001,
         "elbow": 74.99333333333334,
         "wrist": 125.10000000000001
+      },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 16.666666666666707,
+        "shoulderRoll": 0,
+        "shoulder": 0,
+        "elbow": 45.18518518518535,
+        "wrist": 0
       },
       "endEffector": [
         1.3326807823576203,
@@ -149,6 +205,13 @@
         "elbow": 75.4,
         "wrist": 125.10000000000001
       },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 16.66666666666651,
+        "shoulderRoll": 0,
+        "shoulder": 0,
+        "elbow": 44.44444444444429,
+        "wrist": 0
+      },
       "endEffector": [
         1.338413794410051,
         0.6857566411127366,
@@ -163,6 +226,13 @@
         "shoulder": 95.07407407407408,
         "elbow": 75.72592592592594,
         "wrist": 125.15185185185186
+      },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 22.222222222222143,
+        "shoulderRoll": -7.407407407407409,
+        "shoulder": -7.407407407407776,
+        "elbow": 59.25925925925905,
+        "wrist": 14.814814814813975
       },
       "endEffector": [
         1.3431983078053535,
@@ -179,6 +249,13 @@
         "elbow": 76.05185185185186,
         "wrist": 125.24814814814818
       },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 16.66666666666651,
+        "shoulderRoll": -7.407407407407409,
+        "shoulder": -7.407407407407776,
+        "elbow": 44.44444444444429,
+        "wrist": 14.814814814813975
+      },
       "endEffector": [
         1.3481119762131404,
         0.6969439407239557,
@@ -193,6 +270,13 @@
         "shoulder": 95,
         "elbow": 76.2,
         "wrist": 125.30000000000001
+      },
+      "jointVelocitiesDegPerSec": {
+        "baseYaw": 0,
+        "shoulderRoll": 0,
+        "shoulder": 0,
+        "elbow": 0,
+        "wrist": 0
       },
       "endEffector": [
         1.3503670477866112,
@@ -34979,7 +35063,7 @@
     ],
     "sourceBlockCount": 5
   },
-  "referenceTrajectorySignature": "5bec0a5675049aff",
+  "referenceTrajectorySignature": "599e1c470cba9426",
   "certification": {
     "passed": true,
     "entryZeroContact": true,

@@ -51,6 +51,30 @@ export interface CutterGridPlanningOptions {
   shouldCancel?: () => boolean;
 }
 
+export function interpolateCutterTrajectoryJointAngles(
+  start: CutterTrajectoryWaypointV1,
+  end: CutterTrajectoryWaypointV1,
+  targetTimeMs: number,
+): Record<JointId, number> {
+  const spanMs = end.timeMs - start.timeMs;
+  const progress = spanMs <= 0
+    ? 1
+    : Math.min(1, Math.max(0, (targetTimeMs - start.timeMs) / spanMs));
+  const durationSeconds = Math.max(1e-9, spanMs / 1000);
+  return Object.fromEntries(
+    Object.keys(start.jointAngles).map((jointId) => [
+      jointId,
+      hermite(
+        start.jointAngles[jointId],
+        end.jointAngles[jointId],
+        start.jointVelocitiesDegPerSec[jointId] * durationSeconds,
+        end.jointVelocitiesDegPerSec[jointId] * durationSeconds,
+        progress,
+      ),
+    ]),
+  );
+}
+
 interface Knot {
   world: Vec3Tuple;
   angles: Record<JointId, number>;
@@ -68,6 +92,7 @@ interface FineSegment {
   direction: CutterGridDirection;
   actionIndex: number;
   durationMs: number;
+  continuityGroup: number;
 }
 
 export function planCutterGridTrajectory(
@@ -122,27 +147,65 @@ export function serializeCutterTrajectoryPlan(
   originHairCoord: CutterGridCoord,
   plan: CutterTrajectoryPlanV1,
 ): CutterTrajectoryPlanV1 {
-  const serializedSteps = plan.steps.map((step) => ({
-    ...step,
-    durationMs: Math.round(step.durationMs),
-    expectedCutVoxels: [...step.expectedCutVoxels].sort(),
-    waypoints: step.waypoints.map((waypoint) => {
+  const quantizedSteps = plan.steps.map((step) => {
+    let previousTimeMs = -1;
+    const waypoints = step.waypoints.map((waypoint, waypointIndex) => {
       const jointAngles = Object.fromEntries(
         Object.entries(waypoint.jointAngles).map(([id, value]) => [
           id,
           Math.round(value * 10) / 10,
         ]),
       );
+      const roundedTimeMs = Math.round(waypoint.timeMs);
+      const timeMs =
+        step.kind === 'wait' || waypointIndex === 0
+          ? roundedTimeMs
+          : Math.max(previousTimeMs + 1, roundedTimeMs);
+      previousTimeMs = timeMs;
       return {
-        timeMs: Math.round(waypoint.timeMs),
+        timeMs,
         jointAngles,
+        jointVelocitiesDegPerSec: Object.fromEntries(
+          Object.entries(waypoint.jointVelocitiesDegPerSec).map(
+            ([id, value]) => [id, round(value, 6)],
+          ),
+        ),
         endEffector: computeRobotPose(
           challenge.robotConfig,
           jointAngles,
         ).endEffector,
       };
-    }),
-  }));
+    });
+    return {
+      ...step,
+      durationMs:
+        step.kind === 'wait'
+          ? Math.round(step.durationMs)
+          : (waypoints.at(-1)?.timeMs ?? 0),
+      expectedCutVoxels: [...step.expectedCutVoxels].sort(),
+      waypoints,
+    };
+  });
+  const speedScale = Math.ceil(
+    serializedTrajectorySpeedScale(challenge, quantizedSteps),
+  );
+  const serializedSteps = quantizedSteps.map((step) =>
+    step.kind === 'wait' || speedScale === 1
+      ? step
+      : {
+          ...step,
+          durationMs: step.durationMs * speedScale,
+          waypoints: step.waypoints.map((waypoint) => ({
+            ...waypoint,
+            timeMs: waypoint.timeMs * speedScale,
+            jointVelocitiesDegPerSec: Object.fromEntries(
+              Object.entries(waypoint.jointVelocitiesDegPerSec).map(
+                ([id, value]) => [id, round(value / speedScale, 6)],
+              ),
+            ),
+          })),
+        },
+  );
   const expectedResultVoxels = computeExpectedContacts(
     challenge,
     serializedSteps,
@@ -161,6 +224,33 @@ export function serializeCutterTrajectoryPlan(
     ...serialized,
     trajectorySignature: trajectorySignature(serialized),
   };
+}
+
+function serializedTrajectorySpeedScale(
+  challenge: Challenge,
+  steps: readonly CutterTrajectoryStepV1[],
+): number {
+  let scale = 1;
+  for (const step of steps) {
+    if (step.kind === 'wait') continue;
+    for (let index = 1; index < step.waypoints.length; index += 1) {
+      const start = step.waypoints[index - 1];
+      const end = step.waypoints[index];
+      const durationSeconds = (end.timeMs - start.timeMs) / 1000;
+      if (durationSeconds <= 0) continue;
+      for (const joint of challenge.robotConfig.joints) {
+        const maximumSpeed =
+          hermiteMaxDerivative(
+            start.jointAngles[joint.id],
+            end.jointAngles[joint.id],
+            start.jointVelocitiesDegPerSec[joint.id] * durationSeconds,
+            end.jointVelocitiesDegPerSec[joint.id] * durationSeconds,
+          ) / durationSeconds;
+        scale = Math.max(scale, maximumSpeed / joint.speedDegPerSec);
+      }
+    }
+  }
+  return scale > 1 ? scale * (1 + 1e-6) : 1;
 }
 
 export function validateCutterTrajectoryPlan(
@@ -188,6 +278,18 @@ export function validateCutterTrajectoryPlan(
         targetCoord: step.endCoord,
       };
       validateJointLimits(challenge, waypoint.jointAngles, knot);
+      for (const joint of challenge.robotConfig.joints) {
+        if (
+          Math.abs(waypoint.jointVelocitiesDegPerSec[joint.id]) >
+          joint.speedDegPerSec + 1e-9
+        ) {
+          throw new CutterGridPlanningError(
+            'trajectory-discontinuity',
+            `${joint.name} exceeds its speed limit after trajectory serialization.`,
+            { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
+          );
+        }
+      }
       const collision = findRobotHeadCollision(
         computeRobotPose(challenge.robotConfig, waypoint.jointAngles),
         challenge.voxelConfig,
@@ -237,6 +339,16 @@ export function validateCutterTrajectoryPlan(
       }
       previousWaypoint = waypoint;
     }
+    for (let index = 1; index < step.waypoints.length; index += 1) {
+      validateSerializedInterval(
+        challenge,
+        step,
+        step.waypoints[index - 1],
+        step.waypoints[index],
+        lineStart,
+        lineEnd,
+      );
+    }
     const finalWaypoint = step.waypoints.at(-1);
     if (
       finalWaypoint &&
@@ -246,6 +358,65 @@ export function validateCutterTrajectoryPlan(
       throw new CutterGridPlanningError(
         'ik-not-converged',
         'Serialized trajectory misses its logical grid coordinate.',
+        { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
+      );
+    }
+  }
+}
+
+function validateSerializedInterval(
+  challenge: Challenge,
+  step: CutterTrajectoryStepV1,
+  start: CutterTrajectoryWaypointV1,
+  end: CutterTrajectoryWaypointV1,
+  lineStart: Vec3Tuple,
+  lineEnd: Vec3Tuple,
+): void {
+  const durationSeconds = Math.max(1e-9, (end.timeMs - start.timeMs) / 1000);
+  for (const joint of challenge.robotConfig.joints) {
+    const maximumSpeed =
+      hermiteMaxDerivative(
+        start.jointAngles[joint.id],
+        end.jointAngles[joint.id],
+        start.jointVelocitiesDegPerSec[joint.id] * durationSeconds,
+        end.jointVelocitiesDegPerSec[joint.id] * durationSeconds,
+      ) / durationSeconds;
+    if (maximumSpeed > joint.speedDegPerSec + 1e-6) {
+      throw new CutterGridPlanningError(
+        'trajectory-discontinuity',
+        `${joint.name} exceeds its synchronized speed limit after serialization.`,
+        { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
+      );
+    }
+  }
+  for (let subdivision = 1; subdivision < 4; subdivision += 1) {
+    const timeMs =
+      start.timeMs + ((end.timeMs - start.timeMs) * subdivision) / 4;
+    const jointAngles = interpolateCutterTrajectoryJointAngles(
+      start,
+      end,
+      timeMs,
+    );
+    const pose = computeRobotPose(challenge.robotConfig, jointAngles);
+    const collision = findRobotHeadCollision(
+      pose,
+      challenge.voxelConfig,
+      challenge.robotConfig.geometry,
+    );
+    if (collision) {
+      throw new CutterGridPlanningError(
+        'head-collision',
+        `${collision.partLabel} collides with the head between serialized waypoints.`,
+        { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
+      );
+    }
+    if (
+      pointSegmentDistance(pose.endEffector, lineStart, lineEnd) >
+      challenge.voxelConfig.size / 16 + 1e-9
+    ) {
+      throw new CutterGridPlanningError(
+        'path-deviation',
+        'Serialized Hermite playback deviates from its fixed-axis cutter path.',
         { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
       );
     }
@@ -302,6 +473,7 @@ export function planCutterGridEntryTrajectory(
       direction: 'right',
       actionIndex: 0,
       durationMs: 0,
+      continuityGroup: 0,
     }),
   );
   assignSynchronizedDurations(challenge, knots, segments);
@@ -340,13 +512,20 @@ function buildMovementKnots(
   const segments: FineSegment[] = [];
   const actionCoords: CutterGridCoord[] = [];
   const actionAngles: Array<Record<JointId, number>> = [];
+  let continuityGroup = 0;
+  let previousDirection: CutterGridDirection | undefined;
+  let breakContinuity = true;
 
   actions.forEach((action, actionIndex) => {
     throwIfCancelled(options);
     if (action.type === 'wait') {
       actionCoords[actionIndex] = coord;
       actionAngles[actionIndex] = angles;
+      breakContinuity = true;
       return;
+    }
+    if (breakContinuity || previousDirection !== action.direction) {
+      continuityGroup += 1;
     }
     const nextCoord = moveCutterGridCoord(coord, action.direction);
     if (!cutterGridBoundsContain(context.bounds, nextCoord)) {
@@ -421,11 +600,14 @@ function buildMovementKnots(
         direction: action.direction,
         actionIndex,
         durationMs: 0,
+        continuityGroup,
       });
     }
     coord = nextCoord;
     actionCoords[actionIndex] = coord;
     actionAngles[actionIndex] = angles;
+    previousDirection = action.direction;
+    breakContinuity = false;
   });
   return { knots, segments, actionCoords, actionAngles, finalCoord: coord };
 }
@@ -440,7 +622,7 @@ function assignSynchronizedDurations(
     let end = start + 1;
     while (
       end < segments.length &&
-      segments[end].direction === segments[start].direction &&
+      segments[end].continuityGroup === segments[start].continuityGroup &&
       segments[end].startKnot === segments[end - 1].endKnot
     ) {
       end += 1;
@@ -479,7 +661,10 @@ function knotTangents(
   return knots.map((knot, index) => {
     const previous = segments[index - 1];
     const next = segments[index];
-    const continuous = previous && next && previous.direction === next.direction;
+    const continuous =
+      previous &&
+      next &&
+      previous.continuityGroup === next.continuityGroup;
     return Object.fromEntries(
       challenge.robotConfig.joints.map((joint) => [
         joint.id,
@@ -594,6 +779,19 @@ function sampleSingleSegment(
         ),
       ]),
     ) as Record<JointId, number>;
+    const durationSeconds = Math.max(1e-9, segment.durationMs / 1000);
+    const jointVelocitiesDegPerSec = Object.fromEntries(
+      challenge.robotConfig.joints.map((joint) => [
+        joint.id,
+        hermiteDerivative(
+          start.angles[joint.id],
+          end.angles[joint.id],
+          tangents[segment.startKnot][joint.id],
+          tangents[segment.endKnot][joint.id],
+          progress,
+        ) / durationSeconds,
+      ]),
+    ) as Record<JointId, number>;
     validateJointLimits(challenge, jointAngles, end);
     const pose = computeRobotPose(challenge.robotConfig, jointAngles);
     const collision = findRobotHeadCollision(
@@ -635,6 +833,7 @@ function sampleSingleSegment(
     return {
       timeMs: (segment.durationMs * index) / count,
       jointAngles,
+      jointVelocitiesDegPerSec,
       endEffector: pose.endEffector,
     };
   });
@@ -698,9 +897,19 @@ function mergeWaitSteps(
       : undefined;
     const waypoints =
       angles && endEffector
-        ? [
-            { timeMs: 0, jointAngles: angles, endEffector },
-            { timeMs: action.type === 'wait' ? action.durationMs : 0, jointAngles: angles, endEffector },
+          ? [
+            {
+              timeMs: 0,
+              jointAngles: angles,
+              jointVelocitiesDegPerSec: zeroVelocities(challenge),
+              endEffector,
+            },
+            {
+              timeMs: action.type === 'wait' ? action.durationMs : 0,
+              jointAngles: angles,
+              jointVelocitiesDegPerSec: zeroVelocities(challenge),
+              endEffector,
+            },
           ]
         : [];
     const coord = actionCoords[index] ?? lastCoord;
@@ -799,6 +1008,28 @@ function hermite(p0: number, p1: number, m0: number, m1: number, t: number): num
   );
 }
 
+function hermiteDerivative(
+  p0: number,
+  p1: number,
+  m0: number,
+  m1: number,
+  t: number,
+): number {
+  const t2 = t * t;
+  return (
+    (6 * t2 - 6 * t) * p0 +
+    (3 * t2 - 4 * t + 1) * m0 +
+    (-6 * t2 + 6 * t) * p1 +
+    (3 * t2 - 2 * t) * m1
+  );
+}
+
+function zeroVelocities(challenge: Challenge): Record<JointId, number> {
+  return Object.fromEntries(
+    challenge.robotConfig.joints.map((joint) => [joint.id, 0]),
+  ) as Record<JointId, number>;
+}
+
 function hermiteMaxDerivative(p0: number, p1: number, m0: number, m1: number): number {
   const a = 6 * p0 + 3 * m0 - 6 * p1 + 3 * m1;
   const b = -6 * p0 - 4 * m0 + 6 * p1 - 2 * m1;
@@ -823,6 +1054,11 @@ function trajectorySignature(
           timeMs: round(waypoint.timeMs, 6),
           jointAngles: Object.fromEntries(
             Object.entries(waypoint.jointAngles).map(([id, value]) => [id, round(value, 9)]),
+          ),
+          jointVelocitiesDegPerSec: Object.fromEntries(
+            Object.entries(waypoint.jointVelocitiesDegPerSec).map(
+              ([id, value]) => [id, round(value, 9)],
+            ),
           ),
           endEffector: waypoint.endEffector.map((value) => round(value, 9)),
         })),

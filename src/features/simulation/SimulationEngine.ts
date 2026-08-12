@@ -5,6 +5,7 @@ import type {
   CutterTrajectoryStepV1,
   CutterTrajectoryWaypointV1,
 } from '../cutter-grid/types';
+import { interpolateCutterTrajectoryJointAngles } from '../cutter-grid/trajectory';
 import { calculateScore, estimateProgramDuration } from '../scoring/scoring';
 import type { RobotPose } from '../robot/kinematics';
 import { RobotController } from '../robot/RobotController';
@@ -541,55 +542,54 @@ export class SimulationEngine {
   }
 
   private tickPositioning(deltaMs: number): void {
-    if (!Number.isFinite(deltaMs) || deltaMs < 0) {
-      this.fail(new Error('Delta must be a finite non-negative number.'));
-      return;
-    }
-    const waypoints = this.positioningWaypoints;
-    const last = waypoints.at(-1);
-    if (!last) {
-      this.fail(new Error('The certified Cutter Grid entry trajectory is empty.'));
-      return;
-    }
-    const targetTime = Math.min(last.timeMs, this.positioningElapsedMs + deltaMs);
-    while (
-      this.positioningWaypointIndex + 1 < waypoints.length &&
-      waypoints[this.positioningWaypointIndex + 1].timeMs <= targetTime
-    ) {
-      this.positioningWaypointIndex += 1;
-      this.robotController.setTrajectoryAngles(
-        waypoints[this.positioningWaypointIndex].jointAngles,
+    try {
+      if (!Number.isFinite(deltaMs) || deltaMs < 0) {
+        throw new Error('Delta must be a finite non-negative number.');
+      }
+      const waypoints = this.positioningWaypoints;
+      const last = waypoints.at(-1);
+      if (!last) {
+        throw new Error('The certified Cutter Grid entry trajectory is empty.');
+      }
+      const targetTime = Math.min(
+        last.timeMs,
+        this.positioningElapsedMs + deltaMs,
       );
-    }
-    const previous = waypoints[this.positioningWaypointIndex];
-    const next = waypoints[this.positioningWaypointIndex + 1];
-    if (previous && next && targetTime > previous.timeMs) {
-      const span = next.timeMs - previous.timeMs;
-      const progress = span <= 0
-        ? 1
-        : Math.min(1, (targetTime - previous.timeMs) / span);
-      this.robotController.setTrajectoryAngles(
-        Object.fromEntries(
-          this.challenge.robotConfig.joints.map((joint) => [
-            joint.id,
-            previous.jointAngles[joint.id] +
-              (next.jointAngles[joint.id] - previous.jointAngles[joint.id]) *
-                progress,
-          ]),
-        ),
-      );
-    }
-    this.positioningElapsedMs = targetTime;
-    this.snapshotElapsedMs += deltaMs;
-    if (targetTime >= last.timeMs) {
-      this.robotController.setTrajectoryAngles(last.jointAngles);
-      this.status = 'idle';
+      while (
+        this.positioningWaypointIndex + 1 < waypoints.length &&
+        waypoints[this.positioningWaypointIndex + 1].timeMs <= targetTime
+      ) {
+        this.positioningWaypointIndex += 1;
+        this.robotController.setTrajectoryAngles(
+          waypoints[this.positioningWaypointIndex].jointAngles,
+        );
+      }
+      const previous = waypoints[this.positioningWaypointIndex];
+      const next = waypoints[this.positioningWaypointIndex + 1];
+      if (previous && next && targetTime > previous.timeMs) {
+        this.robotController.setTrajectoryAngles(
+          interpolateCutterTrajectoryJointAngles(
+            previous,
+            next,
+            targetTime,
+          ),
+        );
+      }
+      this.positioningElapsedMs = targetTime;
+      this.snapshotElapsedMs += deltaMs;
+      if (targetTime >= last.timeMs) {
+        this.robotController.setTrajectoryAngles(last.jointAngles);
+        this.status = 'idle';
+        this.positioningWaypoints = [];
+        this.addLog('system', 'Cutter positioned at the certified grid origin.');
+        this.publish();
+      } else if (this.snapshotElapsedMs >= SNAPSHOT_INTERVAL_MS) {
+        this.snapshotElapsedMs = 0;
+        this.publish();
+      }
+    } catch (error) {
       this.positioningWaypoints = [];
-      this.addLog('system', 'Cutter positioned at the certified grid origin.');
-      this.publish();
-    } else if (this.snapshotElapsedMs >= SNAPSHOT_INTERVAL_MS) {
-      this.snapshotElapsedMs = 0;
-      this.publish();
+      this.fail(error);
     }
   }
 

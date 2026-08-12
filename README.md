@@ -1,8 +1,8 @@
 # HCR Simulator
 
-HCR Simulator is a fully client-side Web 3D programming demo. Users arrange servo-angle commands in Blockly to drive a virtual five-joint robot arm. The end effector removes Hair Voxels on contact, while deterministic geometric constraints prevent the entire mechanism from entering the head. The simulator then scores the result by target-hairstyle completion, program efficiency, and estimated execution time.
+HCR Simulator is a Web 3D programming demo for a virtual five-joint robot arm. Users can program absolute Servo angles or, in certified practice surfaces, move the cutter through a fixed-world 3D grid while a deterministic planner maps the path to synchronized joint motion. The end effector removes Hair Voxels on contact, while geometric constraints prevent the mechanism from entering the head.
 
-> **Current status: Phases 1–6 are complete and the fully client-side demo loop is operational. Phase 7 cross-browser visual acceptance is still pending.**
+> **Current status: the Servo loop and Cutter Grid frontend Phase 0–5 are complete. Automated acceptance covers real Chrome and Edge at 1280×720 and 1920×1080.**
 >
 > Since v0.3 the app also has a **menu, a solo mode and a competitive versus mode**, and can run against the
 > HCR backend in `../hcr-backend`. It still runs entirely offline with no backend configured — see
@@ -47,14 +47,15 @@ The target version includes:
 - A procedural five-joint robot arm, an impenetrable head, and Hair Voxels.
 - A `baseYaw → shoulderRoll → shoulder → elbow → wrist` 3D rotation chain, displayed as **Base Yaw**, **Shoulder Roll**, **Shoulder**, **Elbow**, and **Wrist**.
 - A deterministic collision response that stops at the last safe pose, identifies the source block, and enters a recoverable error state.
+- An optional **Cutter Grid** language in Practice and five dedicated Lessons: six fixed-world directions, integer distances, Wait, Repeat, deterministic compile-time IK, and frozen C1 joint trajectories.
 - Run, Pause, Resume, Step, Stop, Reset, and current-block highlighting.
 - Voxel IoU, program efficiency, estimated execution time, and a weighted final score.
 - A 3D-first desktop workbench for Chrome and Edge at approximately 1280×720 or larger.
 
 ## Using the Demo
 
-1. Start the app and wait for the local Challenge and starter Blockly program to load.
-2. Run the safe starter program, which includes a nonzero **Shoulder Roll**, or edit the absolute joint-angle, Wait, and Repeat blocks in the left panel.
+1. Start the app, choose a mode, and wait for the local Challenge to load.
+2. In Servo mode, arrange absolute joint-angle, Wait, and Repeat blocks. In Practice, select **Cutter Grid** to arrange fixed-axis movement blocks instead.
 3. Select **Run** to execute from the Challenge's initial state. While it is running, you can Pause, Resume, or Stop it.
 4. Select **Step** while idle or paused to complete exactly one atomic command.
 5. Use the right Inspector to view joint angles, end-effector position, voxel counts, command metrics, and scores. The bottom log records important events.
@@ -62,9 +63,11 @@ The target version includes:
 
 ## Game modes
 
-The app opens on a menu with two modes.
+The app opens on a menu with Tutorial, Lessons, Solo Practice, and Versus surfaces.
 
-**Solo Practice** is the workbench described above, untimed.
+**Solo Practice** is the untimed workbench. Servo is the default; the certified default Challenge also offers Cutter Grid. Cutter Grid scores locally and cannot be submitted to a backend yet.
+
+**Lessons** include eight Servo challenges and five Cutter Grid lessons covering fixed axes, distance, Repeat, swept overcuts, and blocked nodes.
 
 **Versus Round** is a competitive round: everyone in the room gets the *same* challenge at the *same*
 moment and has a fixed wall-clock window to submit. Closest to the target wins. No score is visible to
@@ -119,6 +122,9 @@ npm run lint
 npm test
 npm run build
 npm run test:e2e
+npm run test:visual
+npm run cutter-grid:audit
+npm run cutter-grid:profile
 ```
 
 Production builds are written to `dist/`. Do not commit that directory or generated test reports.
@@ -129,7 +135,7 @@ Still out of scope:
 
 - Accounts and workspace persistence.
 - Real ESP or servo integration, WebSerial, or WebBluetooth.
-- Inverse kinematics, a full physics engine, robot self-collision, realistic hair strands, or scissor actuation.
+- Generic runtime inverse kinematics outside the certified Cutter Grid planner, a full physics engine, robot self-collision, realistic hair strands, or scissor actuation.
 - Dedicated mobile support, or production deployment.
 
 Two entries moved off this list and are now delivered by `../hcr-backend` rather than by this app: **a

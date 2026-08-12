@@ -4,7 +4,7 @@
 >
 > 状态：**当前生效的文档基线**。v0.2 保留用于历史追溯；如两者冲突，以 v0.3 为准。
 >
-> 当前仓库阶段：**Servo 主闭环、五关节与头部防穿模已实现；Cutter Grid 可选模式正按 Phase 0–5 实施**。
+> 当前仓库阶段：**Servo 主闭环、五关节与头部防穿模以及 Cutter Grid 可选模式 Phase 0–5 均已实现**。
 >
 > 依据：v0.2、2026-07-30 计划模式确认结果及后续范围说明。
 
@@ -671,7 +671,7 @@ npm run test:e2e
 
 - `CutterGridProgramV1` 是独立、可序列化的玩家 IR，包含 `plannerVersion`、方向、距离、Wait/Repeat 和 `sourceBlockId`；它不扩展或伪装当前后端 Servo Program IR。
 - `CutterGridProfileV1` 的完整签名覆盖关节顺序/范围/初始值/速度/Servo 映射、机械臂和碰撞尺寸、voxel/head 几何、完整初始/目标 Hair、刀头半径、Profile 与规划器版本。
-- `CutterTrajectoryPlanV1` 保存单格同步 waypoints、逻辑坐标、预计剪发集合、预计时间和稳定轨迹签名；角度量化到 `0.1°`、时间为整数毫秒、集合稳定排序。
+- `CutterTrajectoryPlanV1` 保存单格同步 waypoints、每关节同步速度、逻辑坐标、预计剪发集合、预计时间和稳定轨迹签名；角度量化到 `0.1°`，时间使用整数毫秒，速度以六位小数稳定序列化，集合稳定排序。执行器以冻结的角度和速度作 Hermite 回放，不在运行时重新规划。
 - 内部 IK waypoint 不计玩家命令数；预计时间按冻结同步轨迹加 Wait 计算。Cutter Grid 完成后只使用本地评分器。
 
 ### 15.5 启用门禁

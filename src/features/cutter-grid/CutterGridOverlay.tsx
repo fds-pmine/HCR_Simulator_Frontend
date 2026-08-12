@@ -1,4 +1,5 @@
 import type { CutterGridProfileV1, CutterTrajectoryPlanV1 } from './types';
+import { Line } from '@react-three/drei';
 
 export function CutterGridOverlay({
   profile,
@@ -30,6 +31,9 @@ export function CutterGridOverlay({
           .map((waypoint) => ({ waypoint, stepIndex }))
       : [],
   );
+  const movePaths = plan?.steps
+    .map((step, stepIndex) => ({ step, stepIndex }))
+    .filter(({ step }) => step.kind === 'move-cell');
   return (
     <group>
       <mesh position={boundsCenter}>
@@ -45,6 +49,16 @@ export function CutterGridOverlay({
             opacity={node.reachable ? 0.35 : 0.22}
           />
         </mesh>
+      ))}
+      {movePaths?.map(({ step, stepIndex }) => (
+        <Line
+          key={`path-${step.index}`}
+          points={step.waypoints.map((waypoint) => waypoint.endEffector)}
+          color={stepIndex < executedStepCount ? '#38d6ce' : '#f3c75f'}
+          lineWidth={2}
+          transparent
+          opacity={0.82}
+        />
       ))}
       {path?.map(({ waypoint, stepIndex }, index) => (
         <mesh key={index} position={waypoint.endEffector}>
