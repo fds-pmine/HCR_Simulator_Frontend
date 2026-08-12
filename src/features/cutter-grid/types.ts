@@ -89,6 +89,16 @@ export interface CutterGridProfileV1 {
   nodes: CutterGridNodeProfileV1[];
   referenceProgram: CutterGridProgramV1;
   referenceTrajectorySignature: string;
+  certification: CutterGridCertificationV1;
+}
+
+export interface CutterGridCertificationV1 {
+  passed: boolean;
+  entryZeroContact: boolean;
+  referenceCompletion: number;
+  referenceCutVoxels: VoxelKey[];
+  referenceExtraCutVoxels: VoxelKey[];
+  certifiedDirections: CutterGridDirection[];
 }
 
 export interface CutterGridBounds {
@@ -131,3 +141,8 @@ export type CutterGridPlanningErrorCode =
   | 'path-deviation'
   | 'trajectory-discontinuity'
   | 'planning-cancelled';
+
+export interface CutterGridPlanningErrorDetails {
+  sourceBlockId?: string;
+  targetCoord?: CutterGridCoord;
+}

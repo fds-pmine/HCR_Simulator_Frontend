@@ -22,19 +22,19 @@
 - [x] 六个方向各至少存在一条不接触非目标 Hair 的轴向边。
 - [x] 当前 12 个目标 voxel 均至少被一条不接触非目标 Hair 的轴向边覆盖。
 - [x] 审计缓存与当前 Challenge 签名一致，并明确标记关节轨迹认证为 `pending-planner`。
-- [ ] 认证 Profile 证明入场、所有启用节点/边和参考程序的完整关节轨迹安全；由 Cutter Grid Phase 2 完成。
+- [x] 认证 Profile 证明零接触入场、启用节点分类、六方向认证边和参考程序的完整关节轨迹安全。
 
 ## Cutter Grid 功能验收
 
 - [ ] Servo 默认选中，Cutter Grid 仅在 Practice 和专属 Lessons 可选。
 - [x] 六种 Move 距离为整数 `1–12`，Move N 展开为 N 格，展开后上限为 500。
 - [x] Servo/Cutter Grid Workspace 独立保留，只能在 `idle` 切换。
-- [ ] 编译期 IK、同步轨迹、Worker 取消和签名满足 v0.3 参数。
+- [x] 编译期 IK、同步轨迹、Worker 取消和签名满足 v0.3 参数。
 - [ ] 入场零接触且不计命令/耗时/成绩；Step 每次执行一格或 Wait。
 - [ ] Run、Test、Step 复用同一冻结计划并产生相同终态、剪发集合和指标。
 - [ ] 网格、轴向图例、当前/下一坐标、路径与阻塞节点可见且可关闭。
 - [ ] Cutter Grid 只本地评分，不提交 Session/Match，不驱动 ArmDock；Versus 保持 Servo-only。
-- [ ] 参考程序精确剪除 12 个目标、无附带删除并取得 100 Completion。
+- [x] 参考程序精确剪除 12 个目标、无附带删除并取得 100 Completion。
 
 ## 自动化质量门
 

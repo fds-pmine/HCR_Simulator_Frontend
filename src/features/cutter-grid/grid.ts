@@ -84,6 +84,16 @@ export function hairToLogicalCoord(
   ) as unknown as CutterGridCoord;
 }
 
+export function hairBoundsToLogicalBounds(
+  bounds: CutterGridBounds,
+  originHairCoord: CutterGridCoord,
+): CutterGridBounds {
+  return {
+    min: hairToLogicalCoord(bounds.min, originHairCoord),
+    max: hairToLogicalCoord(bounds.max, originHairCoord),
+  };
+}
+
 export function cutterGridCoordToWorld(
   logicalCoord: CutterGridCoord,
   originHairCoord: CutterGridCoord,
