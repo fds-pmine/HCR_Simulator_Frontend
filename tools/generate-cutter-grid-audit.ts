@@ -36,4 +36,3 @@ it('records the default Cutter Grid geometric gate', () => {
   expect(audit.geometricGatePassed).toBe(true);
   expect(audit.trajectoryCertification).toBe('pending-planner');
 });
-

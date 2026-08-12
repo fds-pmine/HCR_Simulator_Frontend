@@ -189,4 +189,3 @@ export function compareOriginCandidates(
     distance(hairCoordToWorld(right, voxelConfig), initialEndEffector);
   return distanceDelta || compareCutterGridCoords(left, right);
 }
-

@@ -36,4 +36,3 @@ export function fnv1a64(input: string): string {
   }
   return value.toString(16).padStart(16, '0');
 }
-
