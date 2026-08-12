@@ -1,7 +1,7 @@
 {
   "name": "hcr-simulator",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "HCR Simulator \u2014 a Blockly and Web 3D robotic haircut simulation",
   "homepage": "https://web.hcr.rs",
