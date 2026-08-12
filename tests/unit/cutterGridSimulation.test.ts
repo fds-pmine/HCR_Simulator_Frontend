@@ -1,0 +1,103 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+import { DEFAULT_CHALLENGE_ID } from '../../src/data/challenges/defaultChallenge';
+import { expandCutterGridProgram } from '../../src/features/cutter-grid/programCompiler';
+import { registeredCutterGridProfile } from '../../src/features/cutter-grid/profileRegistry';
+import { planCutterGridTrajectory } from '../../src/features/cutter-grid/trajectory';
+import type { CutterTrajectoryPlanV1 } from '../../src/features/cutter-grid/types';
+import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
+import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
+import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
+import type { Challenge } from '../../src/types/domain';
+
+describe('Cutter Grid frozen trajectory simulation', () => {
+  let challenge: Challenge;
+  let plan: CutterTrajectoryPlanV1;
+  let sourceBlockCount: number;
+
+  beforeAll(async () => {
+    challenge = await new LocalChallengeProvider().getChallenge(
+      DEFAULT_CHALLENGE_ID,
+    );
+    const profile = registeredCutterGridProfile(challenge);
+    if (!profile) throw new Error('Expected bundled Cutter Grid Profile.');
+    const runtimeActions = expandCutterGridProgram(profile.referenceProgram);
+    sourceBlockCount = profile.referenceProgram.sourceBlockCount;
+    plan = planCutterGridTrajectory(
+      challenge,
+      {
+        program: profile.referenceProgram,
+        runtimeActions,
+        executedCommandCount: runtimeActions.length,
+      },
+      {
+        challengeSignature: profile.challengeSignature,
+        originHairCoord: profile.originHairCoord,
+        bounds: profile.bounds,
+        startJointAngles: profile.entryJointAngles,
+      },
+    );
+  }, 120_000);
+
+  it('replays the same final pose, cuts and metrics for small and large ticks', async () => {
+    const small = createPositionedEngine();
+    const large = createPositionedEngine();
+    small.runCutterGrid(plan, sourceBlockCount);
+    while (small.getSnapshot().status === 'running') small.tick(7);
+    large.runCutterGrid(plan, sourceBlockCount);
+    large.tick(1_000_000);
+    await Promise.all([small.waitForScore(), large.waitForScore()]);
+
+    expect(small.getSnapshot().status).toBe('completed');
+    expect(large.getSnapshot().status).toBe('completed');
+    expect(small.getSnapshot().jointAngles).toEqual(large.getSnapshot().jointAngles);
+    expect(small.getSnapshot().hairVoxels).toEqual(large.getSnapshot().hairVoxels);
+    expect([...small.getSnapshot().hairVoxels].sort()).toEqual(
+      plan.expectedResultVoxels,
+    );
+    expect(small.getSnapshot().metrics).toEqual(large.getSnapshot().metrics);
+    expect(small.getSnapshot().metrics.executedCommandCount).toBe(plan.steps.length);
+    expect(small.getSnapshot().scoreResult?.completionScore).toBe(100);
+  });
+
+  it('executes exactly one grid cell or Wait per Step', async () => {
+    const engine = createPositionedEngine();
+    engine.stepCutterGrid(plan, sourceBlockCount);
+    engine.tick(1_000_000);
+    expect(engine.getSnapshot().status).toBe('paused');
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(1);
+
+    while (engine.getSnapshot().status === 'paused') {
+      engine.stepCutterGrid();
+      engine.tick(1_000_000);
+    }
+    await engine.waitForScore();
+    expect(engine.getSnapshot().status).toBe('completed');
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(plan.steps.length);
+  });
+
+  it('does not cut or score during certified positioning and exposes planning state', () => {
+    const profile = registeredCutterGridProfile(challenge);
+    if (!profile) throw new Error('Expected bundled Profile.');
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    const initialHair = engine.getSnapshot().hairVoxels;
+
+    engine.positionCutterGrid(profile);
+    expect(engine.getSnapshot().status).toBe('idle');
+    expect(engine.getSnapshot().hairVoxels).toEqual(initialHair);
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(0);
+    expect(engine.getSnapshot().scoreResult).toBeUndefined();
+
+    engine.beginPlanning();
+    expect(engine.getSnapshot().status).toBe('planning');
+    engine.cancelPlanning();
+    expect(engine.getSnapshot().status).toBe('idle');
+  });
+
+  function createPositionedEngine(): SimulationEngine {
+    const profile = registeredCutterGridProfile(challenge);
+    if (!profile) throw new Error('Expected bundled Profile.');
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    engine.positionCutterGrid(profile);
+    return engine;
+  }
+});

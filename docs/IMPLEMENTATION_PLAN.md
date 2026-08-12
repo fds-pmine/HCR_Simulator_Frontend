@@ -184,10 +184,10 @@ tests/
 
 ### Cutter Grid Phase 3 — 仿真执行与接触复验
 
-- [ ] 增加 `positioning`、`planning` 状态和同步五关节轨迹执行器。
-- [ ] Step 以单格/Wait 为边界；Run、Test、Step 复用冻结计划。
-- [ ] 复用头部防穿模与 `0.12` 连续扫掠接触，复验终态、剪发集合、耗时和错误。
-- [ ] 保持 Servo 单关节执行链路不变。
+- [x] 增加 `positioning`、`planning` 状态和同步五关节轨迹执行器。
+- [x] Step 以单格/Wait 为边界；Run、Test、Step 复用冻结计划。
+- [x] 复用头部防穿模与 `0.12` 连续扫掠接触，复验终态、剪发集合、耗时和错误。
+- [x] 保持 Servo 单关节执行链路不变。
 
 阶段出口：无 UI 也能确定性回放 Cutter Grid 轨迹并完成本地评分。
 

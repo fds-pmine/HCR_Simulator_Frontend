@@ -167,6 +167,45 @@ export class RobotController {
     return this.activeMove !== undefined;
   }
 
+  /** Apply one pre-certified synchronous trajectory sample. */
+  setTrajectoryAngles(
+    angles: Readonly<Record<JointId, number>>,
+  ): MoveAdvanceResult {
+    if (this.activeMove) {
+      throw new Error('Cannot replay a trajectory while a Servo move is active.');
+    }
+    const previousEndEffector = this.getPose().endEffector;
+    const candidateAngles: Record<JointId, number> = {};
+    for (const [jointId, config] of this.configById) {
+      const angle = angles[jointId];
+      if (
+        !Number.isFinite(angle) ||
+        angle < config.minAngleDeg ||
+        angle > config.maxAngleDeg
+      ) {
+        throw new Error(
+          `Trajectory angle ${angle} is outside the range for "${jointId}".`,
+        );
+      }
+      candidateAngles[jointId] = angle;
+    }
+    const currentPose = computeRobotPose(this.robotConfig, candidateAngles);
+    const collision = this.poseConstraint?.(currentPose);
+    if (collision) {
+      throw new Error(
+        `${collision.partLabel} collides with the head in a certified trajectory.`,
+      );
+    }
+    this.jointAngles = candidateAngles;
+    return {
+      consumedMs: 0,
+      completed: true,
+      moved: !pointsEqual(previousEndEffector, currentPose.endEffector),
+      previousEndEffector,
+      currentEndEffector: currentPose.endEffector,
+    };
+  }
+
   private advanceAngleWithConstraint(
     jointId: JointId,
     startAngleDeg: number,

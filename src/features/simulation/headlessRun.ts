@@ -1,4 +1,5 @@
 import type { CompiledProgram } from '../blockly/programTypes';
+import type { CutterTrajectoryPlanV1 } from '../cutter-grid/types';
 import type { ScoreResult } from '../../types/domain';
 import type { SimulationEngine } from './SimulationEngine';
 
@@ -43,5 +44,20 @@ export async function runHeadless(
     }
   }
 
+  return engine.waitForScore();
+}
+
+export async function runCutterGridHeadless(
+  engine: SimulationEngine,
+  plan: CutterTrajectoryPlanV1,
+  sourceBlockCount: number,
+  budgetMs: number = DEFAULT_BUDGET_MS,
+): Promise<ScoreResult | undefined> {
+  engine.runCutterGrid(plan, sourceBlockCount);
+  const startedAt = performance.now();
+  while (engine.getSnapshot().status === 'running') {
+    engine.tick(HEADLESS_TICK_MS);
+    if (performance.now() - startedAt > budgetMs) break;
+  }
   return engine.waitForScore();
 }

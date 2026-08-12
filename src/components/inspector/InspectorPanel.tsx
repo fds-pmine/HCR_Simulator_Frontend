@@ -11,6 +11,8 @@ interface InspectorPanelProps {
 
 const STATUS_LABELS: Record<SimulationSnapshot['status'], string> = {
   loading: 'Loading',
+  positioning: 'Positioning',
+  planning: 'Planning',
   idle: 'Idle',
   running: 'Running',
   paused: 'Paused',
