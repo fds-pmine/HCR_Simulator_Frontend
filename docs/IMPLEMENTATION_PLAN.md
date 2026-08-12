@@ -1,6 +1,6 @@
 # HCR Simulator Demo 实施计划
 
-> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门，以及 Cutter Grid Phase 0–5 已完成；功能分支待最终发布记录。
+> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门，以及 Cutter Grid Phase 0–5 已完成；功能分支已发布供审查。
 
 ## 1. 实施原则
 
@@ -204,7 +204,7 @@ tests/
 
 - [x] 通过全部自动化质量门和 Chrome/Edge 双视口截图验收。
 - [x] 审计前端范围、后端零改动、构建产物未提交和各阶段独立 commit。
-- [ ] 仅推送 `feat/cutter-grid-control`，不推送或合并 `main`。
+- [x] 仅推送 `feat/cutter-grid-control`，不推送或合并 `main`。
 
 阶段出口：功能分支可供审查，所有适用验收项具有直接证据。
 
