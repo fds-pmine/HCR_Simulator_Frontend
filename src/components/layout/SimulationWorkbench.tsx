@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import * as Blockly from 'blockly/core';
 import {
   Braces,
   ChevronLeft,
@@ -25,9 +26,19 @@ import {
   type ProgrammingMode,
 } from '../../features/blockly/programmingMode';
 import { CutterGridCompilationError } from '../../features/cutter-grid/programCompiler';
+import { CutterGridPlannerClient } from '../../features/cutter-grid/plannerClient';
+import { registeredCutterGridProfile } from '../../features/cutter-grid/profileRegistry';
+import { CutterGridPlanningError } from '../../features/cutter-grid/trajectory';
+import type {
+  CompiledCutterGridProgramV1,
+  CutterTrajectoryPlanV1,
+} from '../../features/cutter-grid/types';
 import { SimulatorCanvas } from '../../features/simulation/SimulatorCanvas';
 import type { SimulationEngine } from '../../features/simulation/SimulationEngine';
-import { runHeadless } from '../../features/simulation/headlessRun';
+import {
+  runCutterGridHeadless,
+  runHeadless,
+} from '../../features/simulation/headlessRun';
 import { useSimulationSnapshot } from '../../features/simulation/useSimulationSnapshot';
 import { useWorkbenchStore } from '../../features/simulation/simulationStore';
 import { SimulationControls } from '../controls/SimulationControls';
@@ -100,9 +111,20 @@ export function SimulationWorkbench({
   initialProgrammingMode = 'servo',
 }: SimulationWorkbenchProps) {
   const editorRef = useRef<BlocklyEditorHandle>(null);
+  const plannerRef = useRef(new CutterGridPlannerClient());
+  const cutterPlanRef = useRef<
+    | {
+        workspaceVersion: number;
+        compiled: CompiledCutterGridProgramV1;
+        plan: CutterTrajectoryPlanV1;
+      }
+    | undefined
+  >(undefined);
+  const workspaceVersionRef = useRef(0);
   const snapshot = useSimulationSnapshot(engine);
   const [compileError, setCompileError] = useState<string>();
   const [testing, setTesting] = useState(false);
+  const [cutterPlan, setCutterPlan] = useState<CutterTrajectoryPlanV1>();
   const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>(() =>
     availableProgrammingModes.includes(initialProgrammingMode)
       ? initialProgrammingMode
@@ -113,13 +135,53 @@ export function SimulationWorkbench({
     rightPanelOpen,
     logOpen,
     showTarget,
+    showCutterGrid,
     toggleLeftPanel,
     toggleRightPanel,
     toggleLog,
     toggleTarget,
+    toggleCutterGrid,
   } = useWorkbenchStore();
+  const cutterProfile =
+    programmingMode === 'cutter-grid'
+      ? registeredCutterGridProfile(challenge)
+      : undefined;
   const editorLocked =
-    snapshot.status === 'running' || snapshot.status === 'paused';
+    snapshot.status === 'running' ||
+    snapshot.status === 'paused' ||
+    snapshot.status === 'planning' ||
+    snapshot.status === 'positioning';
+
+  useEffect(() => {
+    if (
+      programmingMode === 'cutter-grid' &&
+      cutterProfile &&
+      engine.getSnapshot().status === 'idle' &&
+      !engine.getSnapshot().cutterGrid
+    ) {
+      engine.positionCutterGrid(cutterProfile);
+    }
+  }, [cutterProfile, engine, programmingMode]);
+
+  useEffect(() => () => plannerRef.current.cancel(), []);
+
+  useEffect(() => {
+    cutterPlanRef.current = undefined;
+    plannerRef.current.cancel();
+    workspaceVersionRef.current = 0;
+    const workspace = editorRef.current?.getWorkspace();
+    if (!workspace) return;
+    const onWorkspaceChange = (event: Blockly.Events.Abstract) => {
+      if (event.isUiEvent) return;
+      workspaceVersionRef.current += 1;
+      cutterPlanRef.current = undefined;
+      setCutterPlan(undefined);
+      plannerRef.current.cancel();
+      if (engine.getSnapshot().status === 'planning') engine.cancelPlanning();
+    };
+    workspace.addChangeListener(onWorkspaceChange);
+    return () => workspace.removeChangeListener(onWorkspaceChange);
+  }, [challenge, engine, programmingMode]);
 
   useEffect(() => {
     editorRef.current?.highlightBlock(snapshot.currentBlockId);
@@ -187,18 +249,94 @@ export function SimulationWorkbench({
     }
   };
 
-  const handleRun = () => {
-    const compiled = compile();
-    if (compiled) {
-      engine.run(compiled);
+  const compileCutterGrid = (): CompiledCutterGridProgramV1 | undefined => {
+    try {
+      const result = editorRef.current?.compile();
+      if (!result || result.mode !== 'cutter-grid') {
+        throw new Error('The Cutter Grid workspace is not ready.');
+      }
+      setCompileError(undefined);
+      return result.compiled;
+    } catch (error) {
+      setCompileError(
+        error instanceof Error ? error.message : 'Cutter Grid compilation failed.',
+      );
+      if (error instanceof CutterGridCompilationError) {
+        editorRef.current?.locateError(error);
+      }
+      return undefined;
     }
   };
 
-  const handleTest = async () => {
-    const compiled = compile();
-    if (!compiled) {
+  const frozenCutterPlan = async () => {
+    const compiled = compileCutterGrid();
+    const profile = registeredCutterGridProfile(challenge);
+    if (!compiled || !profile) return undefined;
+    const workspaceVersion = workspaceVersionRef.current;
+    const cached = cutterPlanRef.current;
+    if (cached?.workspaceVersion === workspaceVersion) return cached;
+    engine.beginPlanning();
+    try {
+      const plan = await plannerRef.current.plan(challenge, compiled, profile);
+      if (workspaceVersion !== workspaceVersionRef.current) return undefined;
+      const frozen = { workspaceVersion, compiled, plan };
+      cutterPlanRef.current = frozen;
+      setCutterPlan(plan);
+      engine.cancelPlanning();
+      return frozen;
+    } catch (error) {
+      engine.cancelPlanning();
+      if (
+        error instanceof CutterGridPlanningError &&
+        error.code === 'planning-cancelled'
+      ) return undefined;
+      setCompileError(
+        error instanceof Error ? error.message : 'Cutter Grid planning failed.',
+      );
+      if (error instanceof CutterGridPlanningError) {
+        editorRef.current?.locateError({
+          blockId: error.details.sourceBlockId,
+        });
+      }
+      return undefined;
+    }
+  };
+
+  const handleRun = async () => {
+    if (programmingMode === 'cutter-grid') {
+      const frozen = await frozenCutterPlan();
+      if (frozen) {
+        engine.runCutterGrid(
+          frozen.plan,
+          frozen.compiled.program.sourceBlockCount,
+        );
+      }
       return;
     }
+    const compiled = compile();
+    if (compiled) engine.run(compiled);
+  };
+
+  const handleTest = async () => {
+    if (programmingMode === 'cutter-grid') {
+      setTesting(true);
+      try {
+        const frozen = await frozenCutterPlan();
+        if (frozen) {
+          await runCutterGridHeadless(
+            engine,
+            frozen.plan,
+            frozen.compiled.program.sourceBlockCount,
+          );
+          tutorial?.onTested();
+        }
+      } finally {
+        setTesting(false);
+      }
+      return;
+    }
+    const compiled = compile();
+    if (!compiled) return;
     setTesting(true);
     try {
       await runHeadless(engine, compiled);
@@ -215,7 +353,21 @@ export function SimulationWorkbench({
     }
   };
 
-  const handleStep = () => {
+  const handleStep = async () => {
+    if (programmingMode === 'cutter-grid') {
+      if (snapshot.status === 'idle') {
+        const frozen = await frozenCutterPlan();
+        if (frozen) {
+          engine.stepCutterGrid(
+            frozen.plan,
+            frozen.compiled.program.sourceBlockCount,
+          );
+        }
+      } else {
+        engine.stepCutterGrid();
+      }
+      return;
+    }
     if (snapshot.status === 'idle') {
       const compiled = compile();
       if (compiled) {
@@ -229,7 +381,15 @@ export function SimulationWorkbench({
   const handleReset = () => {
     setCompileError(undefined);
     editorRef.current?.highlightBlock();
+    workspaceVersionRef.current += 1;
+    cutterPlanRef.current = undefined;
+    setCutterPlan(undefined);
+    plannerRef.current.cancel();
     engine.reset();
+    if (programmingMode === 'cutter-grid') {
+      const profile = registeredCutterGridProfile(challenge);
+      if (profile) engine.positionCutterGrid(profile);
+    }
   };
 
   const handleProgrammingModeChange = (nextMode: ProgrammingMode) => {
@@ -242,7 +402,14 @@ export function SimulationWorkbench({
     }
     setCompileError(undefined);
     engine.reset();
+    cutterPlanRef.current = undefined;
+    setCutterPlan(undefined);
+    plannerRef.current.cancel();
     setProgrammingMode(nextMode);
+    if (nextMode === 'cutter-grid') {
+      const profile = registeredCutterGridProfile(challenge);
+      if (profile) engine.positionCutterGrid(profile);
+    }
   };
 
   const visibleError = compileError ?? snapshot.errorMessage;
@@ -310,7 +477,21 @@ export function SimulationWorkbench({
       </header>
 
       <section className="stage">
-        <SimulatorCanvas engine={engine} showTarget={showTarget} />
+        <SimulatorCanvas
+          engine={engine}
+          showTarget={showTarget}
+          {...(cutterProfile
+            ? {
+                cutterGrid: {
+                  profile: cutterProfile,
+                  ...(cutterPlan
+                    ? { plan: cutterPlan }
+                    : {}),
+                  visible: showCutterGrid,
+                },
+              }
+            : {})}
+        />
 
         <aside
           className={`side-panel side-panel--left ${
@@ -391,6 +572,18 @@ export function SimulationWorkbench({
             snapshot={snapshot}
             showTarget={showTarget}
             onToggleTarget={toggleTarget}
+            {...(cutterProfile
+              ? {
+                  cutterGrid: {
+                    profile: cutterProfile,
+                    ...(cutterPlan
+                      ? { plan: cutterPlan }
+                      : {}),
+                    visible: showCutterGrid,
+                    onToggle: toggleCutterGrid,
+                  },
+                }
+              : {})}
           />
         </aside>
 
@@ -443,10 +636,10 @@ export function SimulationWorkbench({
 
         <SimulationControls
           status={snapshot.status}
-          onRun={handleRun}
+          onRun={() => void handleRun()}
           onPause={() => engine.pause()}
           onResume={() => engine.resume()}
-          onStep={handleStep}
+          onStep={() => void handleStep()}
           onStop={() => engine.stop()}
           onReset={handleReset}
           onTest={() => void handleTest()}
@@ -455,8 +648,12 @@ export function SimulationWorkbench({
             ? {
                 submit: {
                   onSubmit: handleSubmit,
-                  disabled: !match.canSubmit,
+                  disabled:
+                    programmingMode === 'cutter-grid' || !match.canSubmit,
                   busy: match.submitting,
+                  ...(programmingMode === 'cutter-grid'
+                    ? { title: 'Backend replay not yet supported' }
+                    : {}),
                 },
               }
             : {})}
@@ -467,6 +664,12 @@ export function SimulationWorkbench({
         */}
         {programmingMode === 'servo' ? (
           <ArmDock challenge={challenge} compile={compile} />
+        ) : null}
+
+        {programmingMode === 'cutter-grid' && match ? (
+          <div className="backend-replay-notice" role="status">
+            Backend replay not yet supported. Scoring stays in this browser.
+          </div>
         ) : null}
         <LogDrawer
           logs={snapshot.logs}

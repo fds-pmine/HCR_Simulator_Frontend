@@ -26,14 +26,14 @@
 
 ## Cutter Grid 功能验收
 
-- [ ] Servo 默认选中，Cutter Grid 仅在 Practice 和专属 Lessons 可选。
+- [x] Servo 默认选中，Cutter Grid 仅在 Practice 和专属 Lessons 可选。
 - [x] 六种 Move 距离为整数 `1–12`，Move N 展开为 N 格，展开后上限为 500。
 - [x] Servo/Cutter Grid Workspace 独立保留，只能在 `idle` 切换。
 - [x] 编译期 IK、同步轨迹、Worker 取消和签名满足 v0.3 参数。
 - [x] 入场零接触且不计命令/耗时/成绩；Step 每次执行一格或 Wait。
 - [x] Run、Test、Step 复用同一冻结计划并产生相同终态、剪发集合和指标。
-- [ ] 网格、轴向图例、当前/下一坐标、路径与阻塞节点可见且可关闭。
-- [ ] Cutter Grid 只本地评分，不提交 Session/Match，不驱动 ArmDock；Versus 保持 Servo-only。
+- [x] 网格、轴向图例、当前/下一坐标、路径与阻塞节点可见且可关闭。
+- [x] Cutter Grid 只本地评分，不提交 Session/Match，不驱动 ArmDock；Versus 保持 Servo-only。
 - [x] 参考程序精确剪除 12 个目标、无附带删除并取得 100 Completion。
 
 ## 自动化质量门

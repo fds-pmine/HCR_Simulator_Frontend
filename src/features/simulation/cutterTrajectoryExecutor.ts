@@ -94,6 +94,14 @@ export class CutterTrajectoryExecutor {
     return this.plan?.steps[this.stepIndex];
   }
 
+  getPlan(): CutterTrajectoryPlanV1 | undefined {
+    return this.plan;
+  }
+
+  getElapsedInStepMs(): number {
+    return this.elapsedInStepMs;
+  }
+
   private applyInitialWaypoint(
     step: CutterTrajectoryStepV1,
     hooks: CutterTrajectoryExecutorHooks,

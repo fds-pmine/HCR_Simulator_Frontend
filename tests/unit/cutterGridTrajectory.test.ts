@@ -78,8 +78,14 @@ describe('Cutter Grid trajectory planning', () => {
     const second = planCutterGridTrajectory(challenge, compiled, context);
 
     expect(first.trajectorySignature).toBe(second.trajectorySignature);
-    const serialized = serializeCutterTrajectoryPlan(first);
-    expect(serializeCutterTrajectoryPlan(first)).toEqual(serialized);
+    const serialized = serializeCutterTrajectoryPlan(
+      challenge,
+      originHairCoord,
+      first,
+    );
+    expect(
+      serializeCutterTrajectoryPlan(challenge, originHairCoord, first),
+    ).toEqual(serialized);
     for (const waypoint of serialized.steps.flatMap((step) => step.waypoints)) {
       expect(Number.isInteger(waypoint.timeMs)).toBe(true);
       for (const angle of Object.values(waypoint.jointAngles)) {

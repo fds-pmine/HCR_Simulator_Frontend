@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { LESSONS } from '../../src/data/challenges/lessons';
 import { LessonPicker } from '../../src/features/tutorial/LessonPicker';
 import { LessonGoal } from '../../src/features/tutorial/LessonGoal';
+import { CUTTER_GRID_LESSONS } from '../../src/features/tutorial/cutterGridLessons';
 
 describe('lesson picker', () => {
   it('lists every lesson with its block count', () => {
@@ -34,6 +35,26 @@ describe('lesson picker', () => {
       <LessonPicker completed={new Set([LESSONS[0].id])} onPick={() => {}} onBack={() => {}} />,
     );
     expect(container.querySelectorAll('.lesson-row.is-done')).toHaveLength(1);
+  });
+
+  it('lists and routes all dedicated Cutter Grid lessons', () => {
+    const onPickCutterGrid = vi.fn();
+    render(
+      <LessonPicker
+        completed={new Set()}
+        onPick={() => {}}
+        onPickCutterGrid={onPickCutterGrid}
+        onBack={() => {}}
+      />,
+    );
+
+    expect(document.querySelectorAll('.lesson-row--cutter-grid')).toHaveLength(
+      CUTTER_GRID_LESSONS.length,
+    );
+    fireEvent.click(screen.getByText('Fixed World Axes'));
+    expect(onPickCutterGrid).toHaveBeenCalledWith(
+      CUTTER_GRID_LESSONS[0].id,
+    );
   });
 });
 

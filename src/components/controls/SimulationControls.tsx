@@ -15,6 +15,7 @@ export interface SubmitAction {
   onSubmit: () => void;
   disabled: boolean;
   busy: boolean;
+  title?: string;
 }
 
 interface SimulationControlsProps {
@@ -137,6 +138,7 @@ export function SimulationControls({
             onClick={submit.onSubmit}
             disabled={submit.disabled || submit.busy}
             data-testid="submit-button"
+            title={submit.title}
           >
             {submit.busy ? (
               <LoaderCircle className="spin" size={16} />

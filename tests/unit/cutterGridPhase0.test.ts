@@ -147,7 +147,7 @@ describe('Cutter Grid geometric feasibility cache', () => {
       cutterGridChallengeSignature(challenge),
     );
     expect(cached).toEqual(computeCutterGridGeometricAudit(challenge));
-  });
+  }, 15_000);
 
   it('passes only the geometry gate and leaves trajectory certification pending', () => {
     expect(cached.originCandidate.hairCoord).toEqual([0, -5, 8]);

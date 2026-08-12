@@ -11,6 +11,7 @@ import { withBlankCanvas } from '../blockly/blankCanvas';
 import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import { initialThetaFrom } from './initialTheta';
 import { PracticePanel } from './PracticePanel';
+import { cutterGridAvailableForChallenge } from '../cutter-grid/profileRegistry';
 
 interface PracticeRunProps {
   onExit: () => void;
@@ -230,6 +231,11 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
       engine={engine}
       modeLabel="PRACTICE"
       onExit={onExit}
+      availableProgrammingModes={
+        cutterGridAvailableForChallenge(challenge)
+          ? ['servo', 'cutter-grid']
+          : ['servo']
+      }
       match={{
         hud: (
           <PracticePanel

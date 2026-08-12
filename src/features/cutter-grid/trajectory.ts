@@ -118,32 +118,138 @@ export function planCutterGridTrajectory(
 }
 
 export function serializeCutterTrajectoryPlan(
+  challenge: Challenge,
+  originHairCoord: CutterGridCoord,
   plan: CutterTrajectoryPlanV1,
 ): CutterTrajectoryPlanV1 {
+  const serializedSteps = plan.steps.map((step) => ({
+    ...step,
+    durationMs: Math.round(step.durationMs),
+    expectedCutVoxels: [...step.expectedCutVoxels].sort(),
+    waypoints: step.waypoints.map((waypoint) => {
+      const jointAngles = Object.fromEntries(
+        Object.entries(waypoint.jointAngles).map(([id, value]) => [
+          id,
+          Math.round(value * 10) / 10,
+        ]),
+      );
+      return {
+        timeMs: Math.round(waypoint.timeMs),
+        jointAngles,
+        endEffector: computeRobotPose(
+          challenge.robotConfig,
+          jointAngles,
+        ).endEffector,
+      };
+    }),
+  }));
+  const expectedResultVoxels = computeExpectedContacts(
+    challenge,
+    serializedSteps,
+  );
   const serialized = {
     ...plan,
-    estimatedDurationMs: Math.round(plan.estimatedDurationMs),
-    steps: plan.steps.map((step) => ({
-      ...step,
-      durationMs: Math.round(step.durationMs),
-      expectedCutVoxels: [...step.expectedCutVoxels].sort(),
-      waypoints: step.waypoints.map((waypoint) => ({
-        ...waypoint,
-        timeMs: Math.round(waypoint.timeMs),
-        jointAngles: Object.fromEntries(
-          Object.entries(waypoint.jointAngles).map(([id, value]) => [
-            id,
-            Math.round(value * 10) / 10,
-          ]),
-        ),
-      })),
-    })),
-    expectedResultVoxels: [...plan.expectedResultVoxels].sort(),
+    estimatedDurationMs: serializedSteps.reduce(
+      (sum, step) => sum + step.durationMs,
+      0,
+    ),
+    steps: serializedSteps,
+    expectedResultVoxels,
   };
+  validateCutterTrajectoryPlan(challenge, originHairCoord, serialized);
   return {
     ...serialized,
     trajectorySignature: trajectorySignature(serialized),
   };
+}
+
+export function validateCutterTrajectoryPlan(
+  challenge: Challenge,
+  originHairCoord: CutterGridCoord,
+  plan: Omit<CutterTrajectoryPlanV1, 'trajectorySignature'>,
+): void {
+  let previousWaypoint: CutterTrajectoryWaypointV1 | undefined;
+  for (const step of plan.steps) {
+    const lineStart = cutterGridCoordToWorld(
+      step.startCoord,
+      originHairCoord,
+      challenge.voxelConfig,
+    );
+    const lineEnd = cutterGridCoordToWorld(
+      step.endCoord,
+      originHairCoord,
+      challenge.voxelConfig,
+    );
+    for (const waypoint of step.waypoints) {
+      const knot: Knot = {
+        world: waypoint.endEffector,
+        angles: waypoint.jointAngles,
+        sourceBlockId: step.sourceBlockId,
+        targetCoord: step.endCoord,
+      };
+      validateJointLimits(challenge, waypoint.jointAngles, knot);
+      const collision = findRobotHeadCollision(
+        computeRobotPose(challenge.robotConfig, waypoint.jointAngles),
+        challenge.voxelConfig,
+        challenge.robotConfig.geometry,
+      );
+      if (collision) {
+        throw new CutterGridPlanningError(
+          'head-collision',
+          `${collision.partLabel} collides with the head after trajectory serialization.`,
+          { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
+        );
+      }
+      const pathDeviation = pointSegmentDistance(
+        waypoint.endEffector,
+        lineStart,
+        lineEnd,
+      );
+      if (pathDeviation > challenge.voxelConfig.size / 16 + 1e-9) {
+        throw new CutterGridPlanningError(
+          'path-deviation',
+          `Serialized trajectory deviates from its fixed-axis path (${pathDeviation.toFixed(6)} > ${(challenge.voxelConfig.size / 16).toFixed(6)}).`,
+          { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
+        );
+      }
+      if (previousWaypoint) {
+        const previous = previousWaypoint;
+        const jointDelta = Math.max(
+          ...challenge.robotConfig.joints.map((joint) =>
+            Math.abs(
+              waypoint.jointAngles[joint.id] -
+                previous.jointAngles[joint.id],
+            ),
+          ),
+        );
+        if (
+          jointDelta >
+            CUTTER_GRID_TRAJECTORY_CONFIG.maxJointSampleDeltaDeg + 1e-9 ||
+          distance(waypoint.endEffector, previous.endEffector) >
+            challenge.voxelConfig.size / 4 + 1e-9
+        ) {
+          throw new CutterGridPlanningError(
+            'trajectory-discontinuity',
+            'Serialized trajectory exceeds its joint or cutter resampling limit.',
+            { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
+          );
+        }
+      }
+      previousWaypoint = waypoint;
+    }
+    const finalWaypoint = step.waypoints.at(-1);
+    if (
+      finalWaypoint &&
+      distance(finalWaypoint.endEffector, lineEnd) >
+        challenge.voxelConfig.size / 16 + 1e-9
+    ) {
+      throw new CutterGridPlanningError(
+        'ik-not-converged',
+        'Serialized trajectory misses its logical grid coordinate.',
+        { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord },
+      );
+    }
+  }
 }
 
 export function planCutterGridEntryTrajectory(

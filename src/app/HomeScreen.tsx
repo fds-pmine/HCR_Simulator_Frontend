@@ -70,8 +70,8 @@ export function HomeScreen({
           </span>
           <strong>Lessons</strong>
           <span className="mode-card__body">
-            Eight challenges, one skill each. Every one can be finished perfectly
-            — the targets were built from programs that work.
+            Eight Servo challenges plus five Cutter Grid lessons, one skill
+            each. Learn joint control or fixed-axis cutter movement.
           </span>
           <span className="mode-card__go">Practise →</span>
         </button>

@@ -14,10 +14,17 @@ import { SimulationTicker } from './SimulationTicker';
 import { RobotModel } from '../robot/RobotModel';
 import { VoxelHair } from '../voxel/VoxelHair';
 import { supportsWebGL } from './webglSupport';
+import type { CutterGridProfileV1, CutterTrajectoryPlanV1 } from '../cutter-grid/types';
+import { CutterGridOverlay } from '../cutter-grid/CutterGridOverlay';
 
 interface SimulatorCanvasProps {
   engine: SimulationEngine;
   showTarget: boolean;
+  cutterGrid?: {
+    profile: CutterGridProfileV1;
+    plan?: CutterTrajectoryPlanV1;
+    visible: boolean;
+  };
 }
 
 export type SceneRenderState =
@@ -28,6 +35,7 @@ export type SceneRenderState =
 export function SimulatorCanvas({
   engine,
   showTarget,
+  cutterGrid,
 }: SimulatorCanvasProps) {
   const [webglSupported] = useState(supportsWebGL);
   const [renderState, setRenderState] =
@@ -102,7 +110,11 @@ export function SimulatorCanvas({
           onContextLost={handleContextLost}
           onContextRestored={reinitializeCanvas}
         />
-        <SimulatorScene engine={engine} showTarget={showTarget} />
+        <SimulatorScene
+          engine={engine}
+          showTarget={showTarget}
+          {...(cutterGrid ? { cutterGrid } : {})}
+        />
       </Canvas>
       {renderState !== 'ready' ? (
         <div
@@ -137,6 +149,7 @@ export function SimulatorCanvas({
 function SimulatorScene({
   engine,
   showTarget,
+  cutterGrid,
 }: SimulatorCanvasProps) {
   const snapshot = useSimulationSnapshot(engine);
   const challenge = engine.getChallenge();
@@ -178,6 +191,13 @@ function SimulatorScene({
           voxels={challenge.targetHair.voxels}
           voxelConfig={challenge.voxelConfig}
           variant="target"
+        />
+      ) : null}
+      {cutterGrid?.visible ? (
+        <CutterGridOverlay
+          profile={cutterGrid.profile}
+          executedStepCount={snapshot.cutterGrid?.stepIndex ?? 0}
+          {...(cutterGrid.plan ? { plan: cutterGrid.plan } : {})}
         />
       ) : null}
 

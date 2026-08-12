@@ -17,8 +17,10 @@ worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
         .filter((node) => node.reachable)
         .map((node) => node.coord.join(',')),
     );
-    const plan = serializeCutterTrajectoryPlan(planCutterGridTrajectory(
+    const plan = serializeCutterTrajectoryPlan(
       request.challenge,
+      request.profile.originHairCoord,
+      planCutterGridTrajectory(request.challenge,
       request.compiled,
       {
         challengeSignature: request.profile.challengeSignature,
@@ -27,7 +29,8 @@ worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
         startJointAngles: request.profile.entryJointAngles,
         ...(reachableCoords.size > 0 ? { reachableCoords } : {}),
       },
-    ));
+      ),
+    );
     worker.postMessage({
       type: 'planned',
       requestId: request.requestId,

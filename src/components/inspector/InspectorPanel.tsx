@@ -1,12 +1,22 @@
 import { Eye, EyeOff, Target } from 'lucide-react';
 import type { Challenge } from '../../types/domain';
 import type { SimulationSnapshot } from '../../features/simulation/SimulationEngine';
+import type {
+  CutterGridProfileV1,
+  CutterTrajectoryPlanV1,
+} from '../../features/cutter-grid/types';
 
 interface InspectorPanelProps {
   challenge: Challenge;
   snapshot: SimulationSnapshot;
   showTarget: boolean;
   onToggleTarget: () => void;
+  cutterGrid?: {
+    profile: CutterGridProfileV1;
+    plan?: CutterTrajectoryPlanV1;
+    visible: boolean;
+    onToggle: () => void;
+  };
 }
 
 const STATUS_LABELS: Record<SimulationSnapshot['status'], string> = {
@@ -26,6 +36,7 @@ export function InspectorPanel({
   snapshot,
   showTarget,
   onToggleTarget,
+  cutterGrid,
 }: InspectorPanelProps) {
   const result = snapshot.scoreResult;
 
@@ -54,6 +65,32 @@ export function InspectorPanel({
           <span>{showTarget ? 'ON' : 'OFF'}</span>
         </button>
       </section>
+
+      {cutterGrid ? (
+        <section className="inspector-section cutter-grid-inspector">
+          <div className="section-heading">
+            <span>CUTTER GRID</span>
+            <span>WORLD AXES</span>
+          </div>
+          <button
+            type="button"
+            className={`target-toggle ${cutterGrid.visible ? 'is-active' : ''}`}
+            onClick={cutterGrid.onToggle}
+            aria-pressed={cutterGrid.visible}
+          >
+            {cutterGrid.visible ? <Eye size={15} /> : <EyeOff size={15} />}
+            Grid and planned path
+            <span>{cutterGrid.visible ? 'ON' : 'OFF'}</span>
+          </button>
+          <dl className="cutter-grid-summary">
+            <div><dt>Axes</dt><dd>+X Right · +Y Up · −Z Forward</dd></div>
+            <div><dt>Current</dt><dd>({(snapshot.cutterGrid?.currentCoord ?? [0, 0, 0]).join(', ')})</dd></div>
+            <div><dt>Next</dt><dd>{snapshot.cutterGrid?.nextCoord ? `(${snapshot.cutterGrid.nextCoord.join(', ')})` : '—'}</dd></div>
+            <div><dt>Progress</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : 'Not planned'}</dd></div>
+            <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
+          </dl>
+        </section>
+      ) : null}
 
       <section className="inspector-section">
         <div className="section-heading">

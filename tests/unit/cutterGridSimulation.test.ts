@@ -2,12 +2,16 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_CHALLENGE_ID } from '../../src/data/challenges/defaultChallenge';
 import { expandCutterGridProgram } from '../../src/features/cutter-grid/programCompiler';
 import { registeredCutterGridProfile } from '../../src/features/cutter-grid/profileRegistry';
-import { planCutterGridTrajectory } from '../../src/features/cutter-grid/trajectory';
+import {
+  planCutterGridTrajectory,
+  serializeCutterTrajectoryPlan,
+} from '../../src/features/cutter-grid/trajectory';
 import type { CutterTrajectoryPlanV1 } from '../../src/features/cutter-grid/types';
 import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
 import type { Challenge } from '../../src/types/domain';
+import type { ScoreProvider } from '../../src/services/contracts';
 
 describe('Cutter Grid frozen trajectory simulation', () => {
   let challenge: Challenge;
@@ -22,8 +26,10 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     if (!profile) throw new Error('Expected bundled Cutter Grid Profile.');
     const runtimeActions = expandCutterGridProgram(profile.referenceProgram);
     sourceBlockCount = profile.referenceProgram.sourceBlockCount;
-    plan = planCutterGridTrajectory(
+    plan = serializeCutterTrajectoryPlan(
       challenge,
+      profile.originHairCoord,
+      planCutterGridTrajectory(challenge,
       {
         program: profile.referenceProgram,
         runtimeActions,
@@ -35,6 +41,7 @@ describe('Cutter Grid frozen trajectory simulation', () => {
         bounds: profile.bounds,
         startJointAngles: profile.entryJointAngles,
       },
+      ),
     );
   }, 120_000);
 
@@ -82,6 +89,8 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     const initialHair = engine.getSnapshot().hairVoxels;
 
     engine.positionCutterGrid(profile);
+    expect(engine.getSnapshot().status).toBe('positioning');
+    engine.tick(1_000_000);
     expect(engine.getSnapshot().status).toBe('idle');
     expect(engine.getSnapshot().hairVoxels).toEqual(initialHair);
     expect(engine.getSnapshot().metrics.executedCommandCount).toBe(0);
@@ -93,11 +102,39 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     expect(engine.getSnapshot().status).toBe('idle');
   });
 
+  it('scores Cutter Grid locally without calling the configured provider', async () => {
+    let providerCalls = 0;
+    const remoteLikeProvider: ScoreProvider = {
+      score: async () => {
+        providerCalls += 1;
+        throw new Error('Cutter Grid must not reach the configured provider.');
+      },
+    };
+    const profile = registeredCutterGridProfile(challenge);
+    if (!profile) throw new Error('Expected bundled Profile.');
+    const engine = new SimulationEngine(challenge, remoteLikeProvider);
+    engine.positionCutterGrid(profile);
+    engine.tick(1_000_000);
+    engine.runCutterGrid(plan, sourceBlockCount);
+    engine.tick(1_000_000);
+    const score = await engine.waitForScore();
+
+    expect(providerCalls).toBe(0);
+    expect(score?.completionScore).toBe(100);
+    expect(engine.getSnapshot().cutterGrid).toMatchObject({
+      currentCoord: plan.endCoord,
+      stepIndex: plan.steps.length,
+      totalSteps: plan.steps.length,
+      trajectorySignature: plan.trajectorySignature,
+    });
+  });
+
   function createPositionedEngine(): SimulationEngine {
     const profile = registeredCutterGridProfile(challenge);
     if (!profile) throw new Error('Expected bundled Profile.');
     const engine = new SimulationEngine(challenge, new LocalScoreProvider());
     engine.positionCutterGrid(profile);
+    engine.tick(1_000_000);
     return engine;
   }
 });

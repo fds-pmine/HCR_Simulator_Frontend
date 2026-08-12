@@ -193,10 +193,10 @@ tests/
 
 ### Cutter Grid Phase 4 — UI、课程与 Provider 隔离
 
-- [ ] 增加轻量可关闭网格、轴向图例、坐标/路径/阻塞状态和 Inspector 摘要。
-- [ ] 增加固定轴、距离、Repeat、误剪和不可达课程。
-- [ ] Cutter Grid 强制本地评分并禁用 Session/Match/ArmDock；Versus 保持 Servo-only。
-- [ ] 覆盖模式、Workspace、规划状态、错误定位和提交隔离 E2E。
+- [x] 增加轻量可关闭网格、轴向图例、坐标/路径/阻塞状态和 Inspector 摘要。
+- [x] 增加固定轴、距离、Repeat、误剪和不可达课程。
+- [x] Cutter Grid 强制本地评分并禁用 Session/Match/ArmDock；Versus 保持 Servo-only。
+- [x] 覆盖模式、Workspace、规划状态、错误定位和提交隔离 E2E。
 
 阶段出口：Practice/Lessons 中可完成完整 Cutter Grid 本地闭环，后端和比赛不受污染。
 

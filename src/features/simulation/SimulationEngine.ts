@@ -1,6 +1,11 @@
 import type { CompiledProgram, RobotCommand } from '../blockly/programTypes';
-import type { CutterGridProfileV1, CutterTrajectoryPlanV1, CutterTrajectoryStepV1 } from '../cutter-grid/types';
-import { estimateProgramDuration } from '../scoring/scoring';
+import type {
+  CutterGridProfileV1,
+  CutterTrajectoryPlanV1,
+  CutterTrajectoryStepV1,
+  CutterTrajectoryWaypointV1,
+} from '../cutter-grid/types';
+import { calculateScore, estimateProgramDuration } from '../scoring/scoring';
 import type { RobotPose } from '../robot/kinematics';
 import { RobotController } from '../robot/RobotController';
 import { findRobotHeadCollision } from '../robot/headCollision';
@@ -56,6 +61,14 @@ export interface SimulationSnapshot {
   scoreResult?: ScoreResult;
   logs: readonly SimulationLogEntry[];
   errorMessage?: string;
+  cutterGrid?: {
+    currentCoord: readonly [number, number, number];
+    nextCoord?: readonly [number, number, number];
+    stepIndex: number;
+    totalSteps: number;
+    stepProgress: number;
+    trajectorySignature?: string;
+  };
 }
 
 type Listener = () => void;
@@ -87,6 +100,9 @@ export class SimulationEngine {
   private snapshot: SimulationSnapshot;
   private runGeneration = 0;
   private executionMode: 'servo' | 'cutter-grid' = 'servo';
+  private positioningWaypoints: readonly CutterTrajectoryWaypointV1[] = [];
+  private positioningElapsedMs = 0;
+  private positioningWaypointIndex = 0;
 
   constructor(
     private readonly challenge: Challenge,
@@ -138,11 +154,18 @@ export class SimulationEngine {
     }
     this.executionMode = 'cutter-grid';
     this.status = 'positioning';
-    for (const waypoint of profile.entryTrajectory) {
-      this.robotController.setTrajectoryAngles(waypoint.jointAngles);
+    this.positioningWaypoints = profile.entryTrajectory;
+    this.positioningElapsedMs = 0;
+    this.positioningWaypointIndex = 0;
+    const first = profile.entryTrajectory[0];
+    if (!first) {
+      this.status = 'error';
+      this.errorMessage = 'The certified Cutter Grid entry trajectory is empty.';
+      this.publish();
+      return;
     }
-    this.status = 'idle';
-    this.addLog('system', 'Cutter positioned at the certified grid origin.');
+    this.robotController.setTrajectoryAngles(first.jointAngles);
+    this.addLog('system', 'Positioning cutter at the certified grid origin.');
     this.publish();
   }
 
@@ -167,7 +190,11 @@ export class SimulationEngine {
     plan: CutterTrajectoryPlanV1,
     sourceBlockCount: number,
   ): void {
-    if (this.status !== 'idle' && this.status !== 'planning') {
+    if (
+      !['idle', 'planning', 'completed', 'stopped', 'error'].includes(
+        this.status,
+      )
+    ) {
       throw new Error(`Run is not allowed while status is "${this.status}".`);
     }
     this.prepareCutterGridPlan(plan, sourceBlockCount);
@@ -249,6 +276,10 @@ export class SimulationEngine {
   }
 
   tick(deltaMs: number): void {
+    if (this.status === 'positioning') {
+      this.tickPositioning(deltaMs);
+      return;
+    }
     if (this.status !== 'running') {
       return;
     }
@@ -352,6 +383,9 @@ export class SimulationEngine {
     }
     this.resetState();
     this.executionMode = 'servo';
+    this.positioningWaypoints = [];
+    this.positioningElapsedMs = 0;
+    this.positioningWaypointIndex = 0;
     this.executor.load(compiled.runtimeCommands);
     this.metrics = {
       sourceBlockCount: compiled.program.sourceBlockCount,
@@ -440,7 +474,12 @@ export class SimulationEngine {
     sourceBlockCount: number,
   ): void {
     if (plan.steps.length === 0) throw new Error('Cutter Grid plan contains no actions.');
-    const positionedAngles = this.robotController.getAngles();
+    const startAngles = plan.steps
+      .flatMap((step) => step.waypoints)
+      .at(0)?.jointAngles;
+    if (!startAngles) {
+      throw new Error('Cutter Grid plan contains no trajectory start pose.');
+    }
     this.runGeneration += 1;
     this.executor.reset();
     this.cutterExecutor.reset();
@@ -455,7 +494,7 @@ export class SimulationEngine {
     this.scorePromise = Promise.resolve(undefined);
     this.executionMode = 'cutter-grid';
     this.cutterExecutor.load(plan);
-    this.robotController.setTrajectoryAngles(positionedAngles);
+    this.robotController.setTrajectoryAngles(startAngles);
     this.metrics = {
       sourceBlockCount,
       executedCommandCount: 0,
@@ -501,6 +540,59 @@ export class SimulationEngine {
     }
   }
 
+  private tickPositioning(deltaMs: number): void {
+    if (!Number.isFinite(deltaMs) || deltaMs < 0) {
+      this.fail(new Error('Delta must be a finite non-negative number.'));
+      return;
+    }
+    const waypoints = this.positioningWaypoints;
+    const last = waypoints.at(-1);
+    if (!last) {
+      this.fail(new Error('The certified Cutter Grid entry trajectory is empty.'));
+      return;
+    }
+    const targetTime = Math.min(last.timeMs, this.positioningElapsedMs + deltaMs);
+    while (
+      this.positioningWaypointIndex + 1 < waypoints.length &&
+      waypoints[this.positioningWaypointIndex + 1].timeMs <= targetTime
+    ) {
+      this.positioningWaypointIndex += 1;
+      this.robotController.setTrajectoryAngles(
+        waypoints[this.positioningWaypointIndex].jointAngles,
+      );
+    }
+    const previous = waypoints[this.positioningWaypointIndex];
+    const next = waypoints[this.positioningWaypointIndex + 1];
+    if (previous && next && targetTime > previous.timeMs) {
+      const span = next.timeMs - previous.timeMs;
+      const progress = span <= 0
+        ? 1
+        : Math.min(1, (targetTime - previous.timeMs) / span);
+      this.robotController.setTrajectoryAngles(
+        Object.fromEntries(
+          this.challenge.robotConfig.joints.map((joint) => [
+            joint.id,
+            previous.jointAngles[joint.id] +
+              (next.jointAngles[joint.id] - previous.jointAngles[joint.id]) *
+                progress,
+          ]),
+        ),
+      );
+    }
+    this.positioningElapsedMs = targetTime;
+    this.snapshotElapsedMs += deltaMs;
+    if (targetTime >= last.timeMs) {
+      this.robotController.setTrajectoryAngles(last.jointAngles);
+      this.status = 'idle';
+      this.positioningWaypoints = [];
+      this.addLog('system', 'Cutter positioned at the certified grid origin.');
+      this.publish();
+    } else if (this.snapshotElapsedMs >= SNAPSHOT_INTERVAL_MS) {
+      this.snapshotElapsedMs = 0;
+      this.publish();
+    }
+  }
+
   private handleCutterStepStart(step: CutterTrajectoryStepV1, index: number): void {
     this.addLog(
       'command',
@@ -526,14 +618,18 @@ export class SimulationEngine {
     this.publish();
 
     const scoreGeneration = this.runGeneration;
-    this.scorePromise = this.scoreProvider
-      .score({
+    const scoreInput = {
         initialVoxels: this.challenge.initialHair.voxels,
         targetVoxels: this.challenge.targetHair.voxels,
         resultVoxels: this.hairVoxels,
         programMetrics: this.metrics,
         scoring: this.challenge.scoring,
-      })
+      };
+    // Cutter Grid is deliberately local-only until the backend owns the same
+    // planner and can replay CutterTrajectoryPlanV1 deterministically.
+    this.scorePromise = (this.executionMode === 'cutter-grid'
+      ? Promise.resolve(calculateScore(scoreInput))
+      : this.scoreProvider.score(scoreInput))
       .then((result) => {
         if (scoreGeneration !== this.runGeneration) {
           return result;
@@ -587,6 +683,29 @@ export class SimulationEngine {
   private createSnapshot(): SimulationSnapshot {
     const currentCommand = this.executor.getCurrentCommand();
     const currentCutterStep = this.cutterExecutor.getCurrentStep();
+    const cutterPlan = this.cutterExecutor.getPlan();
+    const cutterGrid =
+      this.executionMode === 'cutter-grid'
+        ? {
+            currentCoord: currentCutterStep?.startCoord ??
+              cutterPlan?.endCoord ?? [0, 0, 0] as const,
+            ...(currentCutterStep
+              ? { nextCoord: currentCutterStep.endCoord }
+              : {}),
+            stepIndex: this.cutterExecutor.getStepIndex(),
+            totalSteps: cutterPlan?.steps.length ?? 0,
+            stepProgress: currentCutterStep?.durationMs
+              ? Math.min(
+                  1,
+                  this.cutterExecutor.getElapsedInStepMs() /
+                    currentCutterStep.durationMs,
+                )
+              : 0,
+            ...(cutterPlan
+              ? { trajectorySignature: cutterPlan.trajectorySignature }
+              : {}),
+          }
+        : undefined;
     return {
       status: this.status,
       jointAngles: this.robotController.getAngles(),
@@ -608,6 +727,7 @@ export class SimulationEngine {
         : undefined,
       logs: this.logs,
       errorMessage: this.errorMessage,
+      ...(cutterGrid ? { cutterGrid } : {}),
     };
   }
 }
