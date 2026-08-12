@@ -1,6 +1,6 @@
 # HCR Simulator Demo 验收清单
 
-> Phase 1–6、五关节/头部防穿模增量和自动化集成已实施。功能项按当前验证结果勾选；Phase 7 的跨浏览器人工视觉验收仍保持未勾选。
+> Servo Phase 1–6、五关节/头部防穿模增量和自动化集成已实施；Cutter Grid 正按 Phase 0–5 实施。功能项只在具有直接验证证据时勾选。
 
 ## 文档基线
 
@@ -10,6 +10,31 @@
 - [x] AGENTS.md 明确文档优先级、模块边界和当前阶段限制。
 - [x] 实施计划包含阶段依赖、出口条件、风险与完成定义。
 - [x] 本清单区分自动化、功能、错误和人工视觉验收。
+- [x] v0.3 独立定义 Cutter Grid 的模式边界、IR/Profile/轨迹契约、规划参数和 fail-closed 语义。
+
+## Cutter Grid Phase 0 门禁
+
+- [x] 功能分支从重新获取的最新 `origin/main` 创建，未在 `main` 落代码。
+- [x] 完整 Challenge 签名覆盖关节、几何、碰撞、voxel/head、初始/目标 Hair、刀头及版本输入。
+- [x] 固定方向为 Right `+X`、Left `-X`、Up `+Y`、Down `-Y`、Forward `-Z`、Backward `+Z`。
+- [x] 默认 Hair 包围盒每轴扩展两格，并包含首选 Hair lattice 起点 `(0,-5,8)`。
+- [x] 首选起点格心以 `0.12` 半径静止检测不接触 Hair。
+- [x] 六个方向各至少存在一条不接触非目标 Hair 的轴向边。
+- [x] 当前 12 个目标 voxel 均至少被一条不接触非目标 Hair 的轴向边覆盖。
+- [x] 审计缓存与当前 Challenge 签名一致，并明确标记关节轨迹认证为 `pending-planner`。
+- [ ] 认证 Profile 证明入场、所有启用节点/边和参考程序的完整关节轨迹安全；由 Cutter Grid Phase 2 完成。
+
+## Cutter Grid 功能验收
+
+- [ ] Servo 默认选中，Cutter Grid 仅在 Practice 和专属 Lessons 可选。
+- [ ] 六种 Move 距离为整数 `1–12`，Move N 展开为 N 格，展开后上限为 500。
+- [ ] Servo/Cutter Grid Workspace 独立保留，只能在 `idle` 切换。
+- [ ] 编译期 IK、同步轨迹、Worker 取消和签名满足 v0.3 参数。
+- [ ] 入场零接触且不计命令/耗时/成绩；Step 每次执行一格或 Wait。
+- [ ] Run、Test、Step 复用同一冻结计划并产生相同终态、剪发集合和指标。
+- [ ] 网格、轴向图例、当前/下一坐标、路径与阻塞节点可见且可关闭。
+- [ ] Cutter Grid 只本地评分，不提交 Session/Match，不驱动 ArmDock；Versus 保持 Servo-only。
+- [ ] 参考程序精确剪除 12 个目标、无附带删除并取得 100 Completion。
 
 ## 自动化质量门
 

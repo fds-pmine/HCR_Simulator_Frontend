@@ -1,6 +1,6 @@
 # HCR Simulator Demo 实施计划
 
-> 本文记录分阶段实施状态。Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门已完成；Phase 7 仅剩跨浏览器人工视觉验收。
+> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门已完成；当前在独立功能分支实施 Cutter Grid Phase 0–5。
 
 ## 1. 实施原则
 
@@ -152,6 +152,61 @@ tests/
 - [x] 确认没有后端、硬件、持久化或部署依赖。
 
 阶段出口：`docs/ACCEPTANCE.md` 全部适用项通过。
+
+### Cutter Grid Phase 0 — 基线、规格与可行性门禁
+
+- [x] 从重新获取的 `origin/main@afad77e` 创建 `feat/cutter-grid-control`，并记录 typecheck、lint、unit、build 和 E2E 全绿基线。
+- [x] 同步 v0.3、实施计划、验收清单和 AGENTS 约束，把 Cutter Grid 编译期 IK 作为受控例外。
+- [x] 增加版本化 Program/Profile/Trajectory 类型与覆盖全部认证输入的 Challenge 签名。
+- [x] 增加固定六方向、有限边界、坐标转换、候选起点排序和几何接触审计纯函数。
+- [x] 缓存默认 Challenge 的几何审计：首选起点不接触 Hair、六方向均存在安全边、12 个目标均被无附带剪除的边覆盖。
+- [x] 明确几何审计不能代替关节轨迹认证；入口在 Phase 2 Profile 完成前保持关闭。
+
+阶段出口：证明网格和 `0.12` 刀头在纯几何层可行，且任何 Challenge 漂移会使缓存失效；不接入玩家入口。
+
+### Cutter Grid Phase 1 — Blockly、独立 IR 与 Workspace 隔离
+
+- [ ] 增加 `servo | cutter-grid` 模式、六种 Move 积木和模式工具箱。
+- [ ] 实现距离/Wait/Repeat 校验、单格展开、500 原子动作限制和错误定位。
+- [ ] 按 Challenge 签名与模式保存独立内存 Workspace，只允许在 `idle` 切换。
+- [ ] 保持 Servo Program IR、编译器和后端序列化完全不变。
+
+阶段出口：两种语言可以独立编辑和编译，但 Cutter Grid 尚不执行 IK。
+
+### Cutter Grid Phase 2 — 确定性 IK、Worker 与认证 Profile
+
+- [ ] 实现版本化 DLS IK、固定备用种子、稳定候选排序、量化和签名。
+- [ ] 实现直线细分、C1 平滑、转角切线切断、同步时间参数化和二次验证。
+- [ ] 实现可取消 Worker、请求版本和过期结果丢弃。
+- [ ] 生成认证 Profile，证明入场零接触、参考程序精确剪除 12 个目标且六方向可用。
+
+阶段出口：Run/Test/Step 可获得同一冻结轨迹，且只有签名匹配的 Challenge 可以启用模式。
+
+### Cutter Grid Phase 3 — 仿真执行与接触复验
+
+- [ ] 增加 `positioning`、`planning` 状态和同步五关节轨迹执行器。
+- [ ] Step 以单格/Wait 为边界；Run、Test、Step 复用冻结计划。
+- [ ] 复用头部防穿模与 `0.12` 连续扫掠接触，复验终态、剪发集合、耗时和错误。
+- [ ] 保持 Servo 单关节执行链路不变。
+
+阶段出口：无 UI 也能确定性回放 Cutter Grid 轨迹并完成本地评分。
+
+### Cutter Grid Phase 4 — UI、课程与 Provider 隔离
+
+- [ ] 增加轻量可关闭网格、轴向图例、坐标/路径/阻塞状态和 Inspector 摘要。
+- [ ] 增加固定轴、距离、Repeat、误剪和不可达课程。
+- [ ] Cutter Grid 强制本地评分并禁用 Session/Match/ArmDock；Versus 保持 Servo-only。
+- [ ] 覆盖模式、Workspace、规划状态、错误定位和提交隔离 E2E。
+
+阶段出口：Practice/Lessons 中可完成完整 Cutter Grid 本地闭环，后端和比赛不受污染。
+
+### Cutter Grid Phase 5 — 验收与分支推送
+
+- [ ] 通过全部自动化质量门和目标视口人工验收。
+- [ ] 审计前端范围、后端零改动、构建产物未提交和各阶段独立 commit。
+- [ ] 仅推送 `feat/cutter-grid-control`，不推送或合并 `main`。
+
+阶段出口：功能分支可供审查，所有适用验收项具有直接证据。
 
 ## 4. 关键实现约定
 

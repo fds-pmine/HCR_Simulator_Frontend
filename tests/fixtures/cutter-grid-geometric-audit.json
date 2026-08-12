@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "challengeSignature": "23641a371c4ae72f",
+  "originCandidate": {
+    "hairCoord": [
+      0,
+      -5,
+      8
+    ],
+    "worldPosition": [
+      1.35,
+      0.7,
+      1.28
+    ],
+    "distanceFromInitialEndEffector": 0.09375264937462277,
+    "hairHits": []
+  },
+  "bounds": {
+    "min": [
+      -6,
+      -5,
+      -6
+    ],
+    "max": [
+      6,
+      7,
+      8
+    ]
+  },
+  "nodeCount": 2535,
+  "directedEdgeCount": 14092,
+  "safeDirectedEdgeCount": 8108,
+  "safeEmptyEdgeCount": 7994,
+  "safeCutEdgeCount": 114,
+  "safeEdgesByDirection": {
+    "right": 1338,
+    "left": 1338,
+    "up": 1349,
+    "down": 1349,
+    "forward": 1367,
+    "backward": 1367
+  },
+  "targetVoxelKeys": [
+    "-2,1,4",
+    "-2,4,-1",
+    "-2,4,-2",
+    "-2,4,0",
+    "-2,4,1",
+    "-2,4,2",
+    "-2,5,-1",
+    "-2,5,0",
+    "-2,5,1",
+    "-3,4,-1",
+    "-3,4,0",
+    "-3,4,1"
+  ],
+  "uncoveredTargetVoxelKeys": [],
+  "directionsWithoutSafeEdge": [],
+  "geometricGatePassed": true,
+  "trajectoryCertification": "pending-planner"
+}
