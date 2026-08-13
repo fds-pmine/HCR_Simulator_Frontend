@@ -1,5 +1,6 @@
 export * from './blockConstants';
 export * from './blockDefinitions';
+export * from './continuousEdge';
 export * from './feasibility';
 export * from './grid';
 export * from './ik';

@@ -1,5 +1,8 @@
 import type { Challenge, JointId, Vec3Tuple } from '../../types/domain';
-import { findRobotHeadCollision } from '../robot/headCollision';
+import {
+  findRobotHeadCollision,
+  measureRobotHeadClearance,
+} from '../robot/headCollision';
 import { computeRobotPose, createInitialJointAngles } from '../robot/kinematics';
 
 export const CUTTER_GRID_IK_CONFIG = Object.freeze({
@@ -15,6 +18,30 @@ export interface CutterGridIkSolution {
   endEffector: Vec3Tuple;
   error: number;
   iterations: number;
+}
+
+export type CutterGridSeedBudget = 24 | 96 | 384;
+
+export interface CutterGridIkCandidate extends CutterGridIkSolution {
+  /** Stable only inside a Challenge/version/layer namespace. */
+  id: string;
+  minimumHeadClearance: number;
+  minimumJointLimitMargin: number;
+}
+
+export interface CutterGridIkEntrySeed {
+  id: string;
+  jointAngles: Readonly<Record<JointId, number>>;
+}
+
+export interface EnumerateCutterGridIkCandidatesOptions {
+  maxError: number;
+  previousLayer?: readonly Pick<CutterGridIkCandidate, 'id' | 'jointAngles'>[];
+  entryOptions?: readonly CutterGridIkEntrySeed[];
+  seedBudget?: CutterGridSeedBudget;
+  candidateLimit?: number;
+  candidateNamespace?: string;
+  shouldCancel?: () => boolean;
 }
 
 export interface CutterGridIkOptions {
@@ -61,6 +88,108 @@ export function solveCutterGridIk(
     compareIkSolutions(left, right, previousAngles, challenge),
   );
   return candidates[0];
+}
+
+/**
+ * Project a single deterministic seed with the existing numerical DLS solver.
+ * The result stays unquantized and unranked so an outer graph can retain every
+ * valid kinematic branch rather than committing to a local best pose.
+ */
+export function projectCutterGridIkSeed(
+  challenge: Challenge,
+  target: Vec3Tuple,
+  seed: Readonly<Record<JointId, number>>,
+  options: Pick<CutterGridIkOptions, 'shouldCancel'> = {},
+): CutterGridIkSolution | undefined {
+  return iterateDls(challenge, target, seed, {
+    maxError: Number.POSITIVE_INFINITY,
+    shouldCancel: options.shouldCancel,
+    quantizeOutput: false,
+  });
+}
+
+/**
+ * Enumerate collision-free, unquantized IK branches from a deterministic,
+ * cumulative seed set.  A 96-seed query contains the 24-seed prefix exactly.
+ */
+export function enumerateCutterGridIkCandidates(
+  challenge: Challenge,
+  target: Vec3Tuple,
+  options: EnumerateCutterGridIkCandidatesOptions,
+): CutterGridIkCandidate[] {
+  const seeds = ladderSeeds(challenge, options, options.seedBudget ?? 24);
+  const candidates = seeds
+    .map((seed) => {
+      if (options.shouldCancel?.()) return undefined;
+      const solution = projectCutterGridIkSeed(challenge, target, seed, options);
+      if (!solution || solution.error > options.maxError) return undefined;
+      const pose = computeRobotPose(challenge.robotConfig, solution.jointAngles);
+      if (
+        findRobotHeadCollision(
+          pose,
+          challenge.voxelConfig,
+          challenge.robotConfig.geometry,
+        )
+      ) return undefined;
+      return {
+        ...solution,
+        id: stableCandidateId(
+          options.candidateNamespace ?? stableTargetNamespace(target),
+          solution.jointAngles,
+          challenge.robotConfig.joints,
+        ),
+        minimumHeadClearance: measureRobotHeadClearance(
+          pose,
+          challenge.voxelConfig,
+          challenge.robotConfig.geometry,
+        ),
+        minimumJointLimitMargin: minimumNormalizedJointLimitMargin(
+          solution.jointAngles,
+          challenge.robotConfig.joints,
+        ),
+      } satisfies CutterGridIkCandidate;
+    })
+    .filter((candidate): candidate is CutterGridIkCandidate => candidate !== undefined);
+
+  const unique = deduplicateCandidates(candidates, challenge);
+  const candidateLimit = options.candidateLimit ?? 128;
+  const lowerBudget = previousSeedBudget(options.seedBudget ?? 24);
+  const anchors = lowerBudget
+    ? enumerateCutterGridIkCandidates(challenge, target, {
+        ...options,
+        seedBudget: lowerBudget,
+        candidateLimit,
+      })
+    : [];
+  return diversifyCandidates(unique, challenge, candidateLimit, anchors);
+}
+
+export function normalizedJointDistance(
+  angles: Readonly<Record<JointId, number>>,
+  reference: Readonly<Record<JointId, number>>,
+  joints: Challenge['robotConfig']['joints'],
+): number {
+  return Math.sqrt(
+    joints.reduce((sum, joint) => {
+      const span = joint.maxAngleDeg - joint.minAngleDeg;
+      return sum + ((angles[joint.id] - reference[joint.id]) / span) ** 2;
+    }, 0),
+  );
+}
+
+export function minimumNormalizedJointLimitMargin(
+  angles: Readonly<Record<JointId, number>>,
+  joints: Challenge['robotConfig']['joints'],
+): number {
+  return Math.min(
+    ...joints.map((joint) => {
+      const span = joint.maxAngleDeg - joint.minAngleDeg;
+      return Math.min(
+        (angles[joint.id] - joint.minAngleDeg) / span,
+        (joint.maxAngleDeg - angles[joint.id]) / span,
+      );
+    }),
+  );
 }
 
 function candidateAtAngles(
@@ -281,6 +410,147 @@ function deterministicSeeds(
   return deduplicateSeeds(seeds, joints);
 }
 
+function ladderSeeds(
+  challenge: Challenge,
+  options: EnumerateCutterGridIkCandidatesOptions,
+  budget: CutterGridSeedBudget,
+): Array<Record<JointId, number>> {
+  const joints = challenge.robotConfig.joints;
+  const previousLayer = [...(options.previousLayer ?? [])].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+  const entryOptions = [...(options.entryOptions ?? [])].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+  const initial = createInitialJointAngles(challenge.robotConfig);
+  const midpoint = Object.fromEntries(
+    joints.map((joint) => [joint.id, (joint.minAngleDeg + joint.maxAngleDeg) / 2]),
+  ) as Record<JointId, number>;
+  const seeds = [
+    ...previousLayer.map((candidate) => copyAngles(candidate.jointAngles, joints)),
+    ...entryOptions.map((entry) => copyAngles(entry.jointAngles, joints)),
+    initial,
+    midpoint,
+  ];
+  const primes = [2, 3, 5, 7, 11];
+  for (let index = 1; index <= budget; index += 1) {
+    seeds.push(
+      Object.fromEntries(
+        joints.map((joint, jointIndex) => [
+          joint.id,
+          joint.minAngleDeg +
+            radicalInverse(index, primes[jointIndex] ?? 13) *
+              (joint.maxAngleDeg - joint.minAngleDeg),
+        ]),
+      ) as Record<JointId, number>,
+    );
+  }
+  return deduplicateSeeds(seeds, joints);
+}
+
+function deduplicateCandidates(
+  candidates: readonly CutterGridIkCandidate[],
+  challenge: Challenge,
+): CutterGridIkCandidate[] {
+  // Keep the earliest candidate in the deterministic seed order.  This makes
+  // a 24-seed result a literal prefix of a 96/384 result; a later budget may
+  // add branches but may never replace one that an earlier planning pass has
+  // already exposed to the graph.
+  const result: CutterGridIkCandidate[] = [];
+  for (const candidate of candidates) {
+    if (
+      result.some(
+        (existing) =>
+          normalizedJointDistance(
+            existing.jointAngles,
+            candidate.jointAngles,
+            challenge.robotConfig.joints,
+          ) <= 0.01,
+      )
+    ) continue;
+    result.push(candidate);
+  }
+  return result;
+}
+
+function diversifyCandidates(
+  candidates: readonly CutterGridIkCandidate[],
+  challenge: Challenge,
+  limit: number,
+  anchors: readonly CutterGridIkCandidate[] = [],
+): CutterGridIkCandidate[] {
+  const ordered = [...candidates].sort((left, right) =>
+    compareCandidateStatic(left, right, challenge),
+  );
+  if (ordered.length <= limit) return ordered;
+  const byId = new Map(ordered.map((candidate) => [candidate.id, candidate]));
+  const selected = anchors
+    .map((candidate) => byId.get(candidate.id))
+    .filter((candidate): candidate is CutterGridIkCandidate => candidate !== undefined)
+    .slice(0, limit);
+  const selectedIds = new Set(selected.map((candidate) => candidate.id));
+  const remaining = ordered.filter((candidate) => !selectedIds.has(candidate.id));
+  if (selected.length === 0 && remaining.length > 0) {
+    selected.push(remaining.shift()!);
+  }
+  while (selected.length < limit && remaining.length > 0) {
+    let bestIndex = 0;
+    let bestDistance = -1;
+    for (let index = 0; index < remaining.length; index += 1) {
+      const distanceToSelected = Math.min(
+        ...selected.map((chosen) =>
+          normalizedJointDistance(
+            remaining[index].jointAngles,
+            chosen.jointAngles,
+            challenge.robotConfig.joints,
+          ),
+        ),
+      );
+      if (distanceToSelected > bestDistance + 1e-12) {
+        bestDistance = distanceToSelected;
+        bestIndex = index;
+      }
+    }
+    selected.push(remaining.splice(bestIndex, 1)[0]);
+  }
+  return selected;
+}
+
+function previousSeedBudget(budget: CutterGridSeedBudget): CutterGridSeedBudget | undefined {
+  if (budget === 384) return 96;
+  if (budget === 96) return 24;
+  return undefined;
+}
+
+function compareCandidateStatic(
+  left: CutterGridIkCandidate,
+  right: CutterGridIkCandidate,
+  challenge: Challenge,
+): number {
+  return (
+    compareNumber(left.error, right.error) ||
+    compareNumber(right.minimumHeadClearance, left.minimumHeadClearance) ||
+    compareNumber(right.minimumJointLimitMargin, left.minimumJointLimitMargin) ||
+    compareNumber(
+      midpointDistance(left.jointAngles, challenge.robotConfig.joints),
+      midpointDistance(right.jointAngles, challenge.robotConfig.joints),
+    ) ||
+    compareAngles(left.jointAngles, right.jointAngles, challenge.robotConfig.joints)
+  );
+}
+
+function stableCandidateId(
+  namespace: string,
+  angles: Readonly<Record<JointId, number>>,
+  joints: Challenge['robotConfig']['joints'],
+): string {
+  return `${namespace}:${joints.map((joint) => angles[joint.id].toFixed(9)).join(',')}`;
+}
+
+function stableTargetNamespace(target: Vec3Tuple): string {
+  return target.map((value) => value.toFixed(9)).join(',');
+}
+
 function radicalInverse(value: number, base: number): number {
   let result = 0;
   let fraction = 1 / base;
@@ -318,12 +588,7 @@ function normalizedDistance(
   reference: Readonly<Record<JointId, number>>,
   joints: Challenge['robotConfig']['joints'],
 ): number {
-  return Math.sqrt(
-    joints.reduce((sum, joint) => {
-      const span = joint.maxAngleDeg - joint.minAngleDeg;
-      return sum + ((angles[joint.id] - reference[joint.id]) / span) ** 2;
-    }, 0),
-  );
+  return normalizedJointDistance(angles, reference, joints);
 }
 
 function midpointDistance(

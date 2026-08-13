@@ -25,7 +25,7 @@ export interface BlockedHeadCollision extends HeadCollision {
   safeAngleDeg: number;
 }
 
-interface CollisionPrimitive {
+export interface RobotHeadCollisionPrimitive {
   part: RobotCollisionPart;
   partLabel: string;
   start: Vec3Tuple;
@@ -38,8 +38,28 @@ export function findRobotHeadCollision(
   voxelConfig: Challenge['voxelConfig'],
   geometry: Challenge['robotConfig']['geometry'],
 ): HeadCollision | undefined {
+  return robotHeadCollisionPrimitives(pose, geometry).find((primitive) =>
+    segmentIntersectsExpandedEllipsoid(
+      primitive.start,
+      primitive.end,
+      voxelConfig.headCenter,
+      voxelConfig.headScale,
+      primitive.radius + geometry.collision.headClearance,
+    ),
+  );
+}
+
+/**
+ * The single source of robot collision primitives.  Clearance metrics and
+ * boolean collision checks must consume this exact list so a planner can never
+ * rank a pose as safe that the runtime would reject.
+ */
+export function robotHeadCollisionPrimitives(
+  pose: RobotPose,
+  geometry: Challenge['robotConfig']['geometry'],
+): RobotHeadCollisionPrimitive[] {
   const { collision } = geometry;
-  const primitives: CollisionPrimitive[] = [
+  return [
     {
       part: 'base',
       partLabel: 'Base',
@@ -97,16 +117,56 @@ export function findRobotHeadCollision(
       radius: geometry.toolRadius,
     },
   ];
+}
 
-  return primitives.find((primitive) =>
-    segmentIntersectsExpandedEllipsoid(
-      primitive.start,
-      primitive.end,
-      voxelConfig.headCenter,
-      voxelConfig.headScale,
-      primitive.radius + collision.headClearance,
-    ),
+/**
+ * Conservative signed world-space clearance to the exact expanded-head test
+ * used by {@link findRobotHeadCollision}.  Positive values are safe, zero is
+ * contact, and negative values overlap the existing safety margin.
+ */
+export function measureRobotHeadClearance(
+  pose: RobotPose,
+  voxelConfig: Challenge['voxelConfig'],
+  geometry: Challenge['robotConfig']['geometry'],
+): number {
+  return Math.min(
+    ...robotHeadCollisionPrimitives(pose, geometry).map((primitive) => {
+      const collisionExpansion = primitive.radius + geometry.collision.headClearance;
+      const contactExpansion = minimumEllipsoidExpansionForSegment(
+        primitive.start,
+        primitive.end,
+        voxelConfig.headCenter,
+        voxelConfig.headScale,
+      );
+      return contactExpansion - collisionExpansion;
+    }),
   );
+}
+
+function minimumEllipsoidExpansionForSegment(
+  start: Vec3Tuple,
+  end: Vec3Tuple,
+  center: Vec3Tuple,
+  scale: Vec3Tuple,
+): number {
+  if (segmentIntersectsExpandedEllipsoid(start, end, center, scale, 0)) {
+    return 0;
+  }
+  let low = 0;
+  let high = Math.max(scale[0], scale[1], scale[2], 1);
+  while (!segmentIntersectsExpandedEllipsoid(start, end, center, scale, high)) {
+    high *= 2;
+    if (high > 1_024) return high;
+  }
+  for (let iteration = 0; iteration < 40; iteration += 1) {
+    const middle = (low + high) / 2;
+    if (segmentIntersectsExpandedEllipsoid(start, end, center, scale, middle)) {
+      high = middle;
+    } else {
+      low = middle;
+    }
+  }
+  return high;
 }
 
 export function segmentIntersectsExpandedEllipsoid(
