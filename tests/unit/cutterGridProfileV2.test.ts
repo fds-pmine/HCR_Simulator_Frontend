@@ -19,7 +19,7 @@ describe('Cutter Grid Profile V2 multi-entry certification', () => {
     challenge = await new LocalChallengeProvider().getChallenge(DEFAULT_CHALLENGE_ID);
   });
 
-  it('certifies deterministic, different zero-contact entries without claiming a V2 reference trajectory', () => {
+  it('certifies deterministic, different zero-contact entries and a V2 reference trajectory', () => {
     const first = generateCutterGridProfileV2(challenge);
     const second = generateCutterGridProfileV2(challenge);
 
@@ -31,7 +31,8 @@ describe('Cutter Grid Profile V2 multi-entry certification', () => {
     expect(first.certification.authenticatedEntryOptionIds).toEqual(
       first.entryOptions.map((entry) => entry.id),
     );
-    expect(first.certification.referenceTrajectoryCertified).toBe(false);
+    expect(first.certification.referenceTrajectoryCertified).toBe(true);
+    expect(first.referenceProgram.plannerVersion).toBe(CUTTER_GRID_LADDER_PLANNER_VERSION);
     for (let index = 0; index < first.entryOptions.length; index += 1) {
       for (let other = index + 1; other < first.entryOptions.length; other += 1) {
         expect(normalizedJointDistance(
@@ -91,7 +92,7 @@ describe('Cutter Grid Profile V2 multi-entry certification', () => {
       node.staticIkStatus === 'no-safe-candidate-found',
     )).toBe(true);
     expect('reachable' in profile.nodes[0]).toBe(false);
-    expect(profile.certification.referenceTrajectoryCertified).toBe(false);
+    expect(profile.certification.referenceTrajectoryCertified).toBe(true);
     expect(registeredCutterGridProfileV2(challenge)).toEqual(profile);
   });
 });

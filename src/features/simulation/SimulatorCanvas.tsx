@@ -14,15 +14,15 @@ import { SimulationTicker } from './SimulationTicker';
 import { RobotModel } from '../robot/RobotModel';
 import { VoxelHair } from '../voxel/VoxelHair';
 import { supportsWebGL } from './webglSupport';
-import type { CutterGridProfileV1, CutterTrajectoryPlanV1 } from '../cutter-grid/types';
+import type { CutterGridProfileV1, CutterGridProfileV2, CutterTrajectoryPlanV1, CutterTrajectoryPlanV2 } from '../cutter-grid/types';
 import { CutterGridOverlay } from '../cutter-grid/CutterGridOverlay';
 
 interface SimulatorCanvasProps {
   engine: SimulationEngine;
   showTarget: boolean;
   cutterGrid?: {
-    profile: CutterGridProfileV1;
-    plan?: CutterTrajectoryPlanV1;
+    profile: CutterGridProfileV1 | CutterGridProfileV2;
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2;
     visible: boolean;
   };
 }

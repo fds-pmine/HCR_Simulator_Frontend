@@ -5,7 +5,7 @@ import {
   CUTTER_GRID_BLOCK_FIELDS,
   cutterGridDirectionForBlock,
 } from './blockConstants';
-import { CUTTER_GRID_PLANNER_VERSION } from './types';
+import { CUTTER_GRID_LADDER_PLANNER_VERSION } from './types';
 import type {
   CompiledCutterGridProgramV1,
   CutterGridAtomicActionV1,
@@ -59,7 +59,7 @@ export function compileCutterGridWorkspace(
   const program: CutterGridProgramV1 = {
     kind: 'cutter-grid',
     version: 1,
-    plannerVersion: CUTTER_GRID_PLANNER_VERSION,
+    plannerVersion: CUTTER_GRID_LADDER_PLANNER_VERSION,
     nodes,
     sourceBlockCount: workspace
       .getAllBlocks(false)

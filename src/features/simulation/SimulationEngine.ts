@@ -1,7 +1,9 @@
 import type { CompiledProgram, RobotCommand } from '../blockly/programTypes';
 import type {
   CutterGridProfileV1,
+  CutterGridPlanningDiagnosticsV2,
   CutterTrajectoryPlanV1,
+  CutterTrajectoryPlanV2,
   CutterTrajectoryStepV1,
   CutterTrajectoryWaypointV1,
 } from '../cutter-grid/types';
@@ -69,6 +71,8 @@ export interface SimulationSnapshot {
     totalSteps: number;
     stepProgress: number;
     trajectorySignature?: string;
+    entryOptionId?: string;
+    diagnostics?: CutterGridPlanningDiagnosticsV2;
   };
 }
 
@@ -104,6 +108,7 @@ export class SimulationEngine {
   private positioningWaypoints: readonly CutterTrajectoryWaypointV1[] = [];
   private positioningElapsedMs = 0;
   private positioningWaypointIndex = 0;
+  private positioningCompletion: 'idle' | 'run' | 'step' = 'idle';
 
   constructor(
     private readonly challenge: Challenge,
@@ -158,6 +163,7 @@ export class SimulationEngine {
     this.positioningWaypoints = profile.entryTrajectory;
     this.positioningElapsedMs = 0;
     this.positioningWaypointIndex = 0;
+    this.positioningCompletion = 'idle';
     const first = profile.entryTrajectory[0];
     if (!first) {
       this.status = 'error';
@@ -188,7 +194,7 @@ export class SimulationEngine {
   }
 
   runCutterGrid(
-    plan: CutterTrajectoryPlanV1,
+    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2,
     sourceBlockCount: number,
   ): void {
     if (
@@ -199,18 +205,29 @@ export class SimulationEngine {
       throw new Error(`Run is not allowed while status is "${this.status}".`);
     }
     this.prepareCutterGridPlan(plan, sourceBlockCount);
-    this.status = 'running';
-    this.addLog('system', 'Cutter Grid program started running.');
+    if (plan.version === 2) {
+      this.beginV2Positioning(plan, 'run');
+      this.addLog('system', 'Positioning cutter for the selected Cutter Grid branch.');
+    } else {
+      this.status = 'running';
+      this.addLog('system', 'Cutter Grid program started running.');
+    }
     this.publish();
   }
 
   stepCutterGrid(
-    plan?: CutterTrajectoryPlanV1,
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2,
     sourceBlockCount = 0,
   ): void {
     if (this.status === 'idle' || this.status === 'planning') {
       if (!plan) throw new Error('A Cutter Grid trajectory is required for the first step.');
       this.prepareCutterGridPlan(plan, sourceBlockCount);
+      if (plan.version === 2) {
+        this.beginV2Positioning(plan, 'step');
+        this.addLog('system', 'Positioning cutter for the selected Cutter Grid branch.');
+        this.publish();
+        return;
+      }
     } else if (this.status !== 'paused' || this.executionMode !== 'cutter-grid') {
       return;
     }
@@ -387,6 +404,7 @@ export class SimulationEngine {
     this.positioningWaypoints = [];
     this.positioningElapsedMs = 0;
     this.positioningWaypointIndex = 0;
+    this.positioningCompletion = 'idle';
     this.executor.load(compiled.runtimeCommands);
     this.metrics = {
       sourceBlockCount: compiled.program.sourceBlockCount,
@@ -422,6 +440,10 @@ export class SimulationEngine {
     this.stepTargetCommandCount = undefined;
     this.errorMessage = undefined;
     this.executionMode = 'servo';
+    this.positioningWaypoints = [];
+    this.positioningElapsedMs = 0;
+    this.positioningWaypointIndex = 0;
+    this.positioningCompletion = 'idle';
     this.scorePromise = Promise.resolve(undefined);
   }
 
@@ -471,7 +493,7 @@ export class SimulationEngine {
   }
 
   private prepareCutterGridPlan(
-    plan: CutterTrajectoryPlanV1,
+    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2,
     sourceBlockCount: number,
   ): void {
     if (plan.steps.length === 0) throw new Error('Cutter Grid plan contains no actions.');
@@ -495,7 +517,7 @@ export class SimulationEngine {
     this.scorePromise = Promise.resolve(undefined);
     this.executionMode = 'cutter-grid';
     this.cutterExecutor.load(plan);
-    this.robotController.setTrajectoryAngles(startAngles);
+    if (plan.version === 1) this.robotController.setTrajectoryAngles(startAngles);
     this.metrics = {
       sourceBlockCount,
       executedCommandCount: 0,
@@ -579,9 +601,16 @@ export class SimulationEngine {
       this.snapshotElapsedMs += deltaMs;
       if (targetTime >= last.timeMs) {
         this.robotController.setTrajectoryAngles(last.jointAngles);
-        this.status = 'idle';
+        const completion = this.positioningCompletion;
+        this.positioningCompletion = 'idle';
+        this.status = completion === 'idle' ? 'idle' : 'running';
+        if (completion === 'step') {
+          this.stepTargetCommandCount = this.cutterExecutor.getStepIndex() + 1;
+        }
         this.positioningWaypoints = [];
-        this.addLog('system', 'Cutter positioned at the certified grid origin.');
+        this.addLog('system', completion === 'idle'
+          ? 'Cutter positioned at the certified grid origin.'
+          : 'Cutter positioned at the selected grid origin.');
         this.publish();
       } else if (this.snapshotElapsedMs >= SNAPSHOT_INTERVAL_MS) {
         this.snapshotElapsedMs = 0;
@@ -591,6 +620,17 @@ export class SimulationEngine {
       this.positioningWaypoints = [];
       this.fail(error);
     }
+  }
+
+  private beginV2Positioning(plan: CutterTrajectoryPlanV2, completion: 'run' | 'step'): void {
+    const first = plan.positioningTrajectory[0];
+    if (!first) throw new Error('The selected Cutter Grid V2 entry trajectory is empty.');
+    this.status = 'positioning';
+    this.positioningWaypoints = plan.positioningTrajectory;
+    this.positioningElapsedMs = 0;
+    this.positioningWaypointIndex = 0;
+    this.positioningCompletion = completion;
+    this.robotController.setTrajectoryAngles(first.jointAngles);
   }
 
   private handleCutterStepStart(step: CutterTrajectoryStepV1, index: number): void {
@@ -703,6 +743,12 @@ export class SimulationEngine {
               : 0,
             ...(cutterPlan
               ? { trajectorySignature: cutterPlan.trajectorySignature }
+              : {}),
+            ...(cutterPlan?.version === 2
+              ? {
+                  entryOptionId: cutterPlan.entryOptionId,
+                  diagnostics: cutterPlan.diagnostics,
+                }
               : {}),
           }
         : undefined;

@@ -3,7 +3,9 @@ import type { Challenge } from '../../types/domain';
 import type { SimulationSnapshot } from '../../features/simulation/SimulationEngine';
 import type {
   CutterGridProfileV1,
+  CutterGridProfileV2,
   CutterTrajectoryPlanV1,
+  CutterTrajectoryPlanV2,
 } from '../../features/cutter-grid/types';
 
 interface InspectorPanelProps {
@@ -12,8 +14,8 @@ interface InspectorPanelProps {
   showTarget: boolean;
   onToggleTarget: () => void;
   cutterGrid?: {
-    profile: CutterGridProfileV1;
-    plan?: CutterTrajectoryPlanV1;
+    profile: CutterGridProfileV1 | CutterGridProfileV2;
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2;
     visible: boolean;
     onToggle: () => void;
   };
@@ -87,11 +89,16 @@ export function InspectorPanel({
             <div><dt>Current</dt><dd>({(snapshot.cutterGrid?.currentCoord ?? [0, 0, 0]).join(', ')})</dd></div>
             <div><dt>Next</dt><dd>{snapshot.cutterGrid?.nextCoord ? `(${snapshot.cutterGrid.nextCoord.join(', ')})` : '—'}</dd></div>
             <div><dt>Progress</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : 'Not planned'}</dd></div>
+            <div><dt>Path state</dt><dd>{snapshot.cutterGrid?.diagnostics ? 'Connected for this program' : 'Static IK map only'}</dd></div>
+            <div><dt>Branch</dt><dd>{snapshot.cutterGrid?.entryOptionId ?? (cutterGrid.plan?.version === 2 ? cutterGrid.plan.entryOptionId : '—')}</dd></div>
+            {snapshot.cutterGrid?.diagnostics ? (
+              <div><dt>Search</dt><dd>{`${snapshot.cutterGrid.diagnostics.seedBudgetUsed} seeds · ${snapshot.cutterGrid.diagnostics.candidateCounts.join('/')} candidates`}</dd></div>
+            ) : null}
             <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
           </dl>
           <div className="cutter-grid-legend" aria-label="Cutter Grid legend">
-            <span><i className="is-reachable" />Reachable</span>
-            <span><i className="is-blocked" />Blocked</span>
+            <span><i className="is-reachable" />Safe IK known</span>
+            <span><i className="is-blocked" />No safe IK found</span>
             <span><i className="is-executed" />Executed</span>
             <span><i className="is-planned" />Planned</span>
           </div>

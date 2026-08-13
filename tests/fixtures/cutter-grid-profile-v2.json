@@ -71278,7 +71278,7 @@
   "referenceProgram": {
     "kind": "cutter-grid",
     "version": 1,
-    "plannerVersion": "cutter-grid-dls-v1",
+    "plannerVersion": "cutter-grid-ladder-v2",
     "nodes": [
       {
         "type": "move",
@@ -71313,7 +71313,7 @@
     ],
     "sourceBlockCount": 5
   },
-  "referenceTrajectorySignature": "590e04bf33110ce0",
+  "referenceTrajectorySignature": "f68490f77ed5204d",
   "certification": {
     "passed": true,
     "entryZeroContact": true,
@@ -71351,6 +71351,6 @@
       "entry-06",
       "entry-07"
     ],
-    "referenceTrajectoryCertified": false
+    "referenceTrajectoryCertified": true
   }
 }

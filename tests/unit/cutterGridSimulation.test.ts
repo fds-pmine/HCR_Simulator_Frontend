@@ -2,11 +2,18 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_CHALLENGE_ID } from '../../src/data/challenges/defaultChallenge';
 import { expandCutterGridProgram } from '../../src/features/cutter-grid/programCompiler';
 import { registeredCutterGridProfile } from '../../src/features/cutter-grid/profileRegistry';
+import { registeredCutterGridProfileV2 } from '../../src/features/cutter-grid/profileRegistry';
 import {
   planCutterGridTrajectory,
   serializeCutterTrajectoryPlan,
 } from '../../src/features/cutter-grid/trajectory';
 import type { CutterTrajectoryPlanV1 } from '../../src/features/cutter-grid/types';
+import { CUTTER_GRID_LADDER_PLANNER_VERSION } from '../../src/features/cutter-grid/types';
+import { planCutterGridLadderTrajectory } from '../../src/features/cutter-grid/ladderPlanner';
+import {
+  CUTTER_GRID_GLOBAL_IK_REGRESSION_PROGRAM,
+  regressionProgramRuntimeActions,
+} from '../../src/features/cutter-grid/ladderDiagnostics';
 import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
@@ -222,6 +229,36 @@ describe('Cutter Grid frozen trajectory simulation', () => {
       trajectorySignature: plan.trajectorySignature,
     });
   });
+
+  it('selects and replays V2 entry positioning without charging it to player metrics', async () => {
+    const profile = registeredCutterGridProfileV2(challenge);
+    if (!profile) throw new Error('Expected bundled V2 Profile.');
+    const plan = planCutterGridLadderTrajectory(challenge, {
+      program: { ...CUTTER_GRID_GLOBAL_IK_REGRESSION_PROGRAM, plannerVersion: CUTTER_GRID_LADDER_PLANNER_VERSION },
+      runtimeActions: regressionProgramRuntimeActions(),
+      executedCommandCount: 11,
+    }, profile);
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    const initialHair = engine.getSnapshot().hairVoxels;
+    engine.stepCutterGrid(plan, 3);
+    expect(engine.getSnapshot().status).toBe('positioning');
+    engine.tick(1_000_000);
+    expect(engine.getSnapshot().status).toBe('running');
+    expect(engine.getSnapshot().hairVoxels).toEqual(initialHair);
+    engine.tick(1_000_000);
+    expect(engine.getSnapshot().status).toBe('paused');
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(1);
+    expect(engine.getSnapshot().metrics.estimatedDurationMs).toBe(plan.estimatedDurationMs);
+
+    while (engine.getSnapshot().status === 'paused') {
+      engine.stepCutterGrid();
+      engine.tick(1_000_000);
+    }
+    await engine.waitForScore();
+    expect(engine.getSnapshot().status).toBe('completed');
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(11);
+    expect(engine.getSnapshot().cutterGrid?.trajectorySignature).toBe(plan.trajectorySignature);
+  }, 240_000);
 
   function createPositionedEngine(): SimulationEngine {
     const profile = registeredCutterGridProfile(challenge);

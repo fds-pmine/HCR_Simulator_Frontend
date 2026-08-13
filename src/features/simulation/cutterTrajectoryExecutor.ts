@@ -1,4 +1,4 @@
-import type { CutterTrajectoryPlanV1, CutterTrajectoryStepV1 } from '../cutter-grid/types';
+import type { CutterTrajectoryPlanV1, CutterTrajectoryPlanV2, CutterTrajectoryStepV1 } from '../cutter-grid/types';
 import { interpolateCutterTrajectoryJointAngles } from '../cutter-grid/trajectory';
 import type { RobotController, MoveAdvanceResult } from '../robot/RobotController';
 
@@ -15,7 +15,7 @@ export interface CutterTrajectoryAdvanceResult {
 }
 
 export class CutterTrajectoryExecutor {
-  private plan: CutterTrajectoryPlanV1 | undefined;
+  private plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | undefined;
   private stepIndex = 0;
   private elapsedInStepMs = 0;
   private waypointIndex = 0;
@@ -23,7 +23,7 @@ export class CutterTrajectoryExecutor {
 
   constructor(private readonly robotController: RobotController) {}
 
-  load(plan: CutterTrajectoryPlanV1): void {
+  load(plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2): void {
     this.plan = plan;
     this.stepIndex = 0;
     this.elapsedInStepMs = 0;
@@ -95,7 +95,7 @@ export class CutterTrajectoryExecutor {
     return this.plan?.steps[this.stepIndex];
   }
 
-  getPlan(): CutterTrajectoryPlanV1 | undefined {
+  getPlan(): CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | undefined {
     return this.plan;
   }
 

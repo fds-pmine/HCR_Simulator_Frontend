@@ -38,6 +38,17 @@ export type CutterGridContinuousEdgeResult =
       sampleProgress: number;
     };
 
+export interface CutterGridHermiteSample {
+  progress: number;
+  angles: Record<JointId, number>;
+  endEffector: Vec3Tuple;
+}
+
+export type CutterGridHermiteTangentPair = {
+  start: Record<JointId, number>;
+  end: Record<JointId, number>;
+};
+
 /**
  * Verifies the exact Hermite segment which a later ladder graph will replay.
  * It deliberately has no maximum normalized joint-change gate: a long, slow
@@ -47,83 +58,92 @@ export function validateCutterGridContinuousEdge(
   challenge: Challenge,
   input: CutterGridHermiteEdgeInput,
 ): CutterGridContinuousEdgeResult {
-  const tangents = edgeTangents(challenge, input);
+  const sampled = sampleCutterGridHermiteEdge(challenge, input);
+  if (!sampled.valid) return sampled;
+  return { valid: true, metrics: sampled.metrics };
+}
+
+/**
+ * Samples exactly the same C1 Hermite curve used for edge certification.
+ * Consumers that serialize a frozen plan must use this rather than recreate a
+ * separate easing curve, otherwise planning and replay could diverge.
+ */
+export function sampleCutterGridHermiteEdge(
+  challenge: Challenge,
+  input: CutterGridHermiteEdgeInput,
+): CutterGridContinuousEdgeResult & { samples?: CutterGridHermiteSample[]; tangents?: CutterGridHermiteTangentPair } {
+  const tangents = cutterGridHermiteTangents(challenge, input);
   const maxEndEffectorDistance =
     challenge.voxelConfig.size / CUTTER_GRID_EDGE_CONFIG.maxEndEffectorSampleDistanceDivisor;
   const maxPathDeviation =
     challenge.voxelConfig.size / CUTTER_GRID_EDGE_CONFIG.maxPathDeviationDivisor;
-  const samples: Array<{ progress: number; angles: Record<JointId, number>; endEffector: Vec3Tuple }> = [];
-  const stack: Array<readonly [number, number]> = [[0, 1]];
-  const endpoints = new Map<number, { angles: Record<JointId, number>; endEffector: Vec3Tuple }>();
-
-  const at = (progress: number) => {
-    const cached = endpoints.get(progress);
-    if (cached) return cached;
-    const angles = interpolateAngles(challenge, input, tangents, progress);
+  // Most cross-branch edges are invalid because their C1 midpoint leaves the
+  // requested Cartesian axis.  Reject those with the same safety predicates
+  // before allocating the denser 0.5° sampling grid below.
+  for (const progress of [0, 0.5, 1]) {
+    const angles = interpolateCutterGridHermiteAngles(challenge, input, tangents, progress);
+    if (!withinJointLimits(challenge, angles)) {
+      return { valid: false, reason: 'joint-limit', sampleProgress: progress };
+    }
     const pose = computeRobotPose(challenge.robotConfig, angles);
-    const result = { angles, endEffector: pose.endEffector };
-    endpoints.set(progress, result);
-    return result;
-  };
-
-  while (stack.length > 0) {
-    const [startProgress, endProgress] = stack.pop()!;
-    const start = at(startProgress);
-    const end = at(endProgress);
-    const midpointProgress = (startProgress + endProgress) / 2;
-    const midpoint = at(midpointProgress);
-    const checkpoint = [
-      [startProgress, start],
-      [midpointProgress, midpoint],
-      [endProgress, end],
-    ] as const;
-    for (const [progress, sample] of checkpoint) {
-      if (!withinJointLimits(challenge, sample.angles)) {
-        return { valid: false, reason: 'joint-limit', sampleProgress: progress };
-      }
-      if (
-        findRobotHeadCollision(
-          computeRobotPose(challenge.robotConfig, sample.angles),
-          challenge.voxelConfig,
-          challenge.robotConfig.geometry,
-        )
-      ) return { valid: false, reason: 'head-collision', sampleProgress: progress };
-      if (pointSegmentDistance(sample.endEffector, input.lineStart, input.lineEnd) > maxPathDeviation + 1e-9) {
-        return { valid: false, reason: 'path-deviation', sampleProgress: progress };
-      }
+    if (findRobotHeadCollision(pose, challenge.voxelConfig, challenge.robotConfig.geometry)) {
+      return { valid: false, reason: 'head-collision', sampleProgress: progress };
     }
-    const maximumJointDelta = Math.max(
-      ...challenge.robotConfig.joints.map((joint) =>
-        Math.abs(end.angles[joint.id] - start.angles[joint.id]),
-      ),
-    );
-    if (
-      maximumJointDelta > CUTTER_GRID_EDGE_CONFIG.maxJointSampleDeltaDeg ||
-      distance(start.endEffector, end.endEffector) > maxEndEffectorDistance
-    ) {
-      if (endProgress - startProgress < 1 / 1_048_576) {
-        return { valid: false, reason: 'sampling-limit', sampleProgress: midpointProgress };
-      }
-      stack.push([midpointProgress, endProgress], [startProgress, midpointProgress]);
-      continue;
+    if (pointSegmentDistance(pose.endEffector, input.lineStart, input.lineEnd) > maxPathDeviation + 1e-9) {
+      return { valid: false, reason: 'path-deviation', sampleProgress: progress };
     }
-    samples.push(
-      { progress: startProgress, ...start },
-      { progress: endProgress, ...end },
-    );
   }
+  // The maximum absolute Hermite derivative is a conservative angular speed
+  // bound.  It lets us directly choose a sampling grid that satisfies the
+  // 0.5° contract, avoiding the repeated midpoint evaluations that made a
+  // dense layered graph impractical in a Web Worker.
+  let sampleCount = Math.max(1, Math.ceil(Math.max(...challenge.robotConfig.joints.map((joint) =>
+    maximumHermiteDerivative(
+      input.startAngles[joint.id],
+      input.endAngles[joint.id],
+      tangents.start[joint.id],
+      tangents.end[joint.id],
+    ) / CUTTER_GRID_EDGE_CONFIG.maxJointSampleDeltaDeg,
+  ))));
 
-  const uniqueSamples = [...new Map(
-    samples.map((sample) => [sample.progress, sample]),
-  ).values()].sort((left, right) => left.progress - right.progress);
-  const metrics = edgeMetrics(challenge, input, uniqueSamples);
-  return { valid: true, metrics };
+  while (sampleCount <= 1_048_576) {
+    const samples = Array.from({ length: sampleCount + 1 }, (_, index) => {
+      const progress = index / sampleCount;
+      const angles = interpolateCutterGridHermiteAngles(challenge, input, tangents, progress);
+      return {
+        progress,
+        angles,
+        endEffector: computeRobotPose(challenge.robotConfig, angles).endEffector,
+      };
+    });
+    for (const sample of samples) {
+      if (!withinJointLimits(challenge, sample.angles)) {
+        return { valid: false, reason: 'joint-limit', sampleProgress: sample.progress };
+      }
+      const pose = computeRobotPose(challenge.robotConfig, sample.angles);
+      if (findRobotHeadCollision(pose, challenge.voxelConfig, challenge.robotConfig.geometry)) {
+        return { valid: false, reason: 'head-collision', sampleProgress: sample.progress };
+      }
+      if (pointSegmentDistance(sample.endEffector, input.lineStart, input.lineEnd) > maxPathDeviation + 1e-9) {
+        return { valid: false, reason: 'path-deviation', sampleProgress: sample.progress };
+      }
+    }
+    const respectsEndEffectorSampling = samples.every((sample, index) =>
+      index === 0 || distance(sample.endEffector, samples[index - 1].endEffector) <= maxEndEffectorDistance + 1e-12,
+    );
+    if (respectsEndEffectorSampling) {
+      const metrics = edgeMetrics(challenge, input, samples);
+      return { valid: true, metrics, samples, tangents };
+    }
+    sampleCount *= 2;
+  }
+  return { valid: false, reason: 'sampling-limit', sampleProgress: 0.5 };
 }
 
-function edgeTangents(
+export function cutterGridHermiteTangents(
   challenge: Challenge,
   input: CutterGridHermiteEdgeInput,
-): { start: Record<JointId, number>; end: Record<JointId, number> } {
+): CutterGridHermiteTangentPair {
   return {
     start: Object.fromEntries(challenge.robotConfig.joints.map((joint) => [
       joint.id,
@@ -146,7 +166,7 @@ function edgeTangents(
   };
 }
 
-function interpolateAngles(
+export function interpolateCutterGridHermiteAngles(
   challenge: Challenge,
   input: CutterGridHermiteEdgeInput,
   tangents: { start: Record<JointId, number>; end: Record<JointId, number> },
@@ -155,6 +175,25 @@ function interpolateAngles(
   return Object.fromEntries(challenge.robotConfig.joints.map((joint) => [
     joint.id,
     hermite(
+      input.startAngles[joint.id],
+      input.endAngles[joint.id],
+      tangents.start[joint.id],
+      tangents.end[joint.id],
+      progress,
+    ),
+  ])) as Record<JointId, number>;
+}
+
+/** Angular derivative with respect to normalized segment progress. */
+export function cutterGridHermiteAngleDerivative(
+  challenge: Challenge,
+  input: CutterGridHermiteEdgeInput,
+  tangents: CutterGridHermiteTangentPair,
+  progress: number,
+): Record<JointId, number> {
+  return Object.fromEntries(challenge.robotConfig.joints.map((joint) => [
+    joint.id,
+    hermiteDerivative(
       input.startAngles[joint.id],
       input.endAngles[joint.id],
       tangents.start[joint.id],
@@ -231,6 +270,25 @@ function hermite(p0: number, p1: number, m0: number, m1: number, t: number): num
     (t3 - 2 * t2 + t) * m0 +
     (-2 * t3 + 3 * t2) * p1 +
     (t3 - t2) * m1;
+}
+
+function hermiteDerivative(p0: number, p1: number, m0: number, m1: number, t: number): number {
+  const t2 = t * t;
+  return (6 * t2 - 6 * t) * p0 +
+    (3 * t2 - 4 * t + 1) * m0 +
+    (-6 * t2 + 6 * t) * p1 +
+    (3 * t2 - 2 * t) * m1;
+}
+
+function maximumHermiteDerivative(p0: number, p1: number, m0: number, m1: number): number {
+  const candidates = [0, 1];
+  const quadratic = 6 * p0 - 6 * p1 + 3 * m0 + 3 * m1;
+  const linear = -6 * p0 + 6 * p1 - 4 * m0 - 2 * m1;
+  if (Math.abs(quadratic) > 1e-12) {
+    const critical = -linear / (2 * quadratic);
+    if (critical > 0 && critical < 1) candidates.push(critical);
+  }
+  return Math.max(...candidates.map((progress) => Math.abs(hermiteDerivative(p0, p1, m0, m1, progress))));
 }
 
 function monotoneTangent(previousDelta: number, nextDelta: number): number {

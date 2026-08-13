@@ -1,4 +1,4 @@
-import type { CutterGridProfileV1, CutterTrajectoryPlanV1 } from './types';
+import type { CutterGridProfileV1, CutterGridProfileV2, CutterTrajectoryPlanV1, CutterTrajectoryPlanV2 } from './types';
 import { Line } from '@react-three/drei';
 
 export function CutterGridOverlay({
@@ -6,8 +6,8 @@ export function CutterGridOverlay({
   plan,
   executedStepCount = 0,
 }: {
-  profile: CutterGridProfileV1;
-  plan?: CutterTrajectoryPlanV1;
+  profile: CutterGridProfileV1 | CutterGridProfileV2;
+  plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2;
   executedStepCount?: number;
 }) {
   const sampledNodes = profile.nodes.filter((_, index) => index % 24 === 0);
@@ -44,9 +44,9 @@ export function CutterGridOverlay({
         <mesh key={node.coord.join(',')} position={node.worldPosition}>
           <sphereGeometry args={[0.012, 5, 4]} />
           <meshBasicMaterial
-            color={node.reachable ? '#38d6ce' : '#ff805d'}
+            color={('reachable' in node ? node.reachable : node.staticIkStatus === 'safe-candidate-known') ? '#38d6ce' : '#ff805d'}
             transparent
-            opacity={node.reachable ? 0.35 : 0.22}
+            opacity={('reachable' in node ? node.reachable : node.staticIkStatus === 'safe-candidate-known') ? 0.35 : 0.22}
           />
         </mesh>
       ))}

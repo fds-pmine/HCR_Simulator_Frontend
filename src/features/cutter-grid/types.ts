@@ -260,3 +260,7 @@ export type CutterGridPlanningErrorCodeV2 =
   | 'no-compatible-entry'
   | 'no-continuous-joint-path'
   | 'planning-search-exhausted';
+
+export type AnyCutterGridPlanningErrorCode =
+  | CutterGridPlanningErrorCode
+  | CutterGridPlanningErrorCodeV2;

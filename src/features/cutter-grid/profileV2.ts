@@ -11,6 +11,8 @@ import {
 } from './grid';
 import { planCertifiedCutterGridEntry } from './entryPlanning';
 import { enumerateCutterGridIkCandidates } from './ik';
+import { planCutterGridLadderTrajectory } from './ladderPlanner';
+import { expandCutterGridProgram } from './programCompiler';
 import { findCutterGridReferenceProgram } from './referenceProgram';
 import { cutterGridChallengeSignatureV2, fnv1a64 } from './signature';
 import {
@@ -29,10 +31,9 @@ export interface CutterGridProfileV2GenerationOptions {
 const DEFAULT_PROFILE_V2_ENTRY_TARGET = 8;
 
 /**
- * Build a fail-closed multi-entry Profile.  During Phase 2 the reference
- * program is certified at the unchanged geometric/contact level; Phase 3
- * replaces that pending marker with a V2 global-plan signature before this
- * profile becomes runtime-selectable.
+ * Build a fail-closed multi-entry Profile.  A profile is usable only after the
+ * exact V2 ladder planner reproduces its reference cut program from one of
+ * the certified entries.
  */
 export function generateCutterGridProfileV2(
   challenge: Challenge,
@@ -80,7 +81,11 @@ export function generateCutterGridProfileV2(
   const nodeMap = options.includeNodeMap
     ? generateNodeMapV2(challenge, originHairCoord, bounds, options)
     : [];
-  return {
+  const referenceProgram = {
+    ...reference.program,
+    plannerVersion: CUTTER_GRID_LADDER_PLANNER_VERSION,
+  };
+  const provisional: CutterGridProfileV2 = {
     version: CUTTER_GRID_PROFILE_V2_VERSION,
     plannerVersion: CUTTER_GRID_LADDER_PLANNER_VERSION,
     challengeSignature,
@@ -89,8 +94,7 @@ export function generateCutterGridProfileV2(
     bounds,
     entryOptions,
     nodes: nodeMap,
-    referenceProgram: reference.program,
-    // Phase 3 replaces this geometry-only guard value with a V2 global-plan signature.
+    referenceProgram,
     referenceTrajectorySignature: geometricReference.signature,
     certification: {
       passed: geometricReference.passed,
@@ -101,6 +105,44 @@ export function generateCutterGridProfileV2(
       certifiedDirections: geometricReference.certifiedDirections,
       authenticatedEntryOptionIds: entryOptions.map((entry) => entry.id),
       referenceTrajectoryCertified: false,
+    },
+  };
+  const runtimeActions = expandCutterGridProgram(referenceProgram);
+  const referencePlan = planCutterGridLadderTrajectory(challenge, {
+    program: referenceProgram,
+    runtimeActions,
+    executedCommandCount: runtimeActions.length,
+  }, provisional);
+  const referenceResult = new Set(referencePlan.expectedResultVoxels);
+  const referenceScore = calculateScore({
+    initialVoxels: challenge.initialHair.voxels,
+    targetVoxels: challenge.targetHair.voxels,
+    resultVoxels: referenceResult,
+    programMetrics: {
+      sourceBlockCount: referenceProgram.sourceBlockCount,
+      executedCommandCount: runtimeActions.length,
+      estimatedDurationMs: referencePlan.estimatedDurationMs,
+    },
+    scoring: challenge.scoring,
+  });
+  const globalCutVoxels = [...challenge.initialHair.voxels]
+    .filter((key) => !referenceResult.has(key))
+    .sort();
+  const globalExtraCuts = globalCutVoxels.filter((key) => !reference.expectedCutVoxels.includes(key));
+  const referenceTrajectoryCertified =
+    referenceScore.completionScore === 100 &&
+    globalExtraCuts.length === 0 &&
+    arraysEqual(globalCutVoxels, [...reference.expectedCutVoxels].sort());
+  return {
+    ...provisional,
+    referenceTrajectorySignature: referencePlan.trajectorySignature,
+    certification: {
+      ...provisional.certification,
+      passed: provisional.certification.passed && referenceTrajectoryCertified,
+      referenceCompletion: referenceScore.completionScore,
+      referenceCutVoxels: globalCutVoxels,
+      referenceExtraCutVoxels: globalExtraCuts,
+      referenceTrajectoryCertified,
     },
   };
 }
@@ -115,7 +157,8 @@ export function cutterGridProfileV2MatchesChallenge(
     profile.challengeSignature === cutterGridChallengeSignatureV2(challenge) &&
     profile.entryOptions.length >= 2 &&
     profile.certification.entryZeroContact &&
-    profile.certification.passed
+    profile.certification.passed &&
+    profile.certification.referenceTrajectoryCertified
   );
 }
 

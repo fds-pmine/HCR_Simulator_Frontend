@@ -27,11 +27,12 @@ import {
 } from '../../features/blockly/programmingMode';
 import { CutterGridCompilationError } from '../../features/cutter-grid/programCompiler';
 import { CutterGridPlannerClient } from '../../features/cutter-grid/plannerClient';
-import { registeredCutterGridProfile } from '../../features/cutter-grid/profileRegistry';
-import { CutterGridPlanningError } from '../../features/cutter-grid/trajectory';
+import { registeredCutterGridProfileV2 } from '../../features/cutter-grid/profileRegistry';
+import { CutterGridLadderPlanningError } from '../../features/cutter-grid/ladderPlanner';
 import type {
   CompiledCutterGridProgramV1,
-  CutterTrajectoryPlanV1,
+  CutterGridPlanningProgressV2,
+  CutterTrajectoryPlanV2,
 } from '../../features/cutter-grid/types';
 import { SimulatorCanvas } from '../../features/simulation/SimulatorCanvas';
 import type { SimulationEngine } from '../../features/simulation/SimulationEngine';
@@ -116,7 +117,7 @@ export function SimulationWorkbench({
     | {
         workspaceVersion: number;
         compiled: CompiledCutterGridProgramV1;
-        plan: CutterTrajectoryPlanV1;
+        plan: CutterTrajectoryPlanV2;
       }
     | undefined
   >(undefined);
@@ -124,7 +125,10 @@ export function SimulationWorkbench({
   const snapshot = useSimulationSnapshot(engine);
   const [compileError, setCompileError] = useState<string>();
   const [testing, setTesting] = useState(false);
-  const [cutterPlan, setCutterPlan] = useState<CutterTrajectoryPlanV1>();
+  const [cutterPlan, setCutterPlan] = useState<CutterTrajectoryPlanV2>();
+  const [planningProgress, setPlanningProgress] = useState<
+    Omit<CutterGridPlanningProgressV2, 'type' | 'requestId'>
+  >();
   const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>(() =>
     availableProgrammingModes.includes(initialProgrammingMode)
       ? initialProgrammingMode
@@ -144,24 +148,13 @@ export function SimulationWorkbench({
   } = useWorkbenchStore();
   const cutterProfile =
     programmingMode === 'cutter-grid'
-      ? registeredCutterGridProfile(challenge)
+      ? registeredCutterGridProfileV2(challenge)
       : undefined;
   const editorLocked =
     snapshot.status === 'running' ||
     snapshot.status === 'paused' ||
     snapshot.status === 'planning' ||
     snapshot.status === 'positioning';
-
-  useEffect(() => {
-    if (
-      programmingMode === 'cutter-grid' &&
-      cutterProfile &&
-      engine.getSnapshot().status === 'idle' &&
-      !engine.getSnapshot().cutterGrid
-    ) {
-      engine.positionCutterGrid(cutterProfile);
-    }
-  }, [cutterProfile, engine, programmingMode]);
 
   useEffect(() => () => plannerRef.current.cancel(), []);
 
@@ -176,6 +169,7 @@ export function SimulationWorkbench({
       workspaceVersionRef.current += 1;
       cutterPlanRef.current = undefined;
       setCutterPlan(undefined);
+      setPlanningProgress(undefined);
       plannerRef.current.cancel();
       if (engine.getSnapshot().status === 'planning') engine.cancelPlanning();
     };
@@ -270,30 +264,33 @@ export function SimulationWorkbench({
 
   const frozenCutterPlan = async () => {
     const compiled = compileCutterGrid();
-    const profile = registeredCutterGridProfile(challenge);
+    const profile = registeredCutterGridProfileV2(challenge);
     if (!compiled || !profile) return undefined;
     const workspaceVersion = workspaceVersionRef.current;
     const cached = cutterPlanRef.current;
     if (cached?.workspaceVersion === workspaceVersion) return cached;
     engine.beginPlanning();
+    setPlanningProgress(undefined);
     try {
-      const plan = await plannerRef.current.plan(challenge, compiled, profile);
+      const plan = await plannerRef.current.planV2(challenge, compiled, profile, setPlanningProgress);
       if (workspaceVersion !== workspaceVersionRef.current) return undefined;
       const frozen = { workspaceVersion, compiled, plan };
       cutterPlanRef.current = frozen;
       setCutterPlan(plan);
       engine.cancelPlanning();
+      setPlanningProgress(undefined);
       return frozen;
     } catch (error) {
       engine.cancelPlanning();
+      setPlanningProgress(undefined);
       if (
-        error instanceof CutterGridPlanningError &&
+        error instanceof CutterGridLadderPlanningError &&
         error.code === 'planning-cancelled'
       ) return undefined;
       setCompileError(
         error instanceof Error ? error.message : 'Cutter Grid planning failed.',
       );
-      if (error instanceof CutterGridPlanningError) {
+      if (error instanceof CutterGridLadderPlanningError) {
         editorRef.current?.locateError({
           blockId: error.details.sourceBlockId,
         });
@@ -382,11 +379,8 @@ export function SimulationWorkbench({
     setCompileError(undefined);
     editorRef.current?.highlightBlock();
     plannerRef.current.cancel();
+    setPlanningProgress(undefined);
     engine.reset();
-    if (programmingMode === 'cutter-grid') {
-      const profile = registeredCutterGridProfile(challenge);
-      if (profile) engine.positionCutterGrid(profile);
-    }
   };
 
   const handleProgrammingModeChange = (nextMode: ProgrammingMode) => {
@@ -402,11 +396,8 @@ export function SimulationWorkbench({
     cutterPlanRef.current = undefined;
     setCutterPlan(undefined);
     plannerRef.current.cancel();
+    setPlanningProgress(undefined);
     setProgrammingMode(nextMode);
-    if (nextMode === 'cutter-grid') {
-      const profile = registeredCutterGridProfile(challenge);
-      if (profile) engine.positionCutterGrid(profile);
-    }
   };
 
   const visibleError = compileError ?? snapshot.errorMessage;
@@ -664,9 +655,16 @@ export function SimulationWorkbench({
         ) : null}
 
         {programmingMode === 'cutter-grid' && match ? (
+          <>
           <div className="backend-replay-notice" role="status">
             Backend replay not yet supported. Scoring stays in this browser.
           </div>
+          {snapshot.status === 'planning' && planningProgress ? (
+            <div className="planning-progress" aria-live="polite">
+              Planning: {planningProgress.phase.replaceAll('-', ' ')} · {planningProgress.completedLayers}/{planningProgress.totalLayers} · {planningProgress.seedBudget} seeds
+            </div>
+          ) : null}
+          </>
         ) : null}
         <LogDrawer
           logs={snapshot.logs}

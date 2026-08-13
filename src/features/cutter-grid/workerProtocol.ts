@@ -1,13 +1,32 @@
 import type { Challenge } from '../../types/domain';
-import type { CompiledCutterGridProgramV1, CutterGridProfileV1, CutterTrajectoryPlanV1 } from './types';
+import type {
+  CompiledCutterGridProgramV1,
+  CutterGridPlanningProgressV2,
+  CutterGridProfileV1,
+  CutterGridProfileV2,
+  CutterTrajectoryPlanV1,
+  CutterTrajectoryPlanV2,
+} from './types';
 
-export interface CutterGridWorkerRequest {
+export interface CutterGridWorkerV1Request {
   type: 'plan';
   requestId: number;
   challenge: Challenge;
   compiled: CompiledCutterGridProgramV1;
   profile: CutterGridProfileV1;
 }
+
+export interface CutterGridWorkerV2Request {
+  type: 'plan-v2';
+  requestId: number;
+  challenge: Challenge;
+  compiled: CompiledCutterGridProgramV1;
+  profile: CutterGridProfileV2;
+}
+
+export type CutterGridWorkerRequest =
+  | CutterGridWorkerV1Request
+  | CutterGridWorkerV2Request;
 
 export type CutterGridWorkerResponse =
   | {
@@ -16,10 +35,21 @@ export type CutterGridWorkerResponse =
       plan: CutterTrajectoryPlanV1;
     }
   | {
+      type: 'planned-v2';
+      requestId: number;
+      plan: CutterTrajectoryPlanV2;
+    }
+  | CutterGridPlanningProgressV2
+  | {
       type: 'failed';
       requestId: number;
       code: string;
       message: string;
       sourceBlockId?: string;
       targetCoord?: readonly [number, number, number];
+      actionIndex?: number;
+      layerIndex?: number;
+      startCoord?: readonly [number, number, number];
+      stage?: 'candidate' | 'entry' | 'edge' | 'serialization';
+      seedBudget?: 24 | 96 | 384;
     };

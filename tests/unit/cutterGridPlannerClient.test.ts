@@ -7,6 +7,7 @@ import {
 import {
   cutterGridAvailableForChallenge,
   registeredCutterGridProfile,
+  registeredCutterGridProfileV2,
 } from '../../src/features/cutter-grid/profileRegistry';
 import { CutterGridPlanningError } from '../../src/features/cutter-grid/trajectory';
 import type {
@@ -123,5 +124,31 @@ describe('Cutter Grid Profile registry and Worker client', () => {
     await pending.catch((error: unknown) =>
       expect(error).toBeInstanceOf(CutterGridPlanningError),
     );
+  });
+
+  it('forwards V2 progress and preserves V2 failure location', async () => {
+    const worker = new FakeWorker();
+    const client = new CutterGridPlannerClient(() => worker);
+    const profile = registeredCutterGridProfileV2(challenge);
+    if (!profile) throw new Error('Expected bundled V2 Profile.');
+    const progress = vi.fn();
+    const pending = client.planV2(
+      challenge,
+      { program: { ...profile.referenceProgram, plannerVersion: profile.plannerVersion }, runtimeActions: [], executedCommandCount: 0 },
+      profile,
+      progress,
+    );
+    worker.onmessage?.({
+      data: { type: 'progress', requestId: 1, phase: 'generating-candidates', completedLayers: 2, totalLayers: 8, seedBudget: 24 },
+    } as unknown as MessageEvent<CutterGridWorkerResponse>);
+    worker.onmessage?.({
+      data: { type: 'failed', requestId: 1, code: 'no-continuous-joint-path', message: 'Disconnected.', sourceBlockId: 'move-2', actionIndex: 2, layerIndex: 9, targetCoord: [1, 2, 3], stage: 'edge', seedBudget: 96 },
+    } as unknown as MessageEvent<CutterGridWorkerResponse>);
+
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ phase: 'generating-candidates', seedBudget: 24 }));
+    await expect(pending).rejects.toMatchObject({
+      code: 'no-continuous-joint-path',
+      details: { sourceBlockId: 'move-2', actionIndex: 2, layerIndex: 9, targetCoord: [1, 2, 3], stage: 'edge', seedBudget: 96 },
+    });
   });
 });
