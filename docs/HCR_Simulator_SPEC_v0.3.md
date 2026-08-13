@@ -4,7 +4,7 @@
 >
 > 状态：**当前生效的文档基线**。v0.2 保留用于历史追溯；如两者冲突，以 v0.3 为准。
 >
-> 当前仓库阶段：**Servo 主闭环、五关节与头部防穿模以及 Cutter Grid 可选模式 Phase 0–5 均已实现**。
+> 当前仓库阶段：**Servo 主闭环、五关节与头部防穿模以及 Cutter Grid 首版 Phase 0–5 已实现；Cutter Grid 全局多分支 IK 修复按独立阶段实施中**。
 >
 > 依据：v0.2、2026-07-30 计划模式确认结果及后续范围说明。
 
@@ -667,12 +667,22 @@ npm run test:e2e
 - 同方向连续段生成 C1 连续同步轨迹；转向格点切断切线。轨迹按关节速度统一拉伸，并以最大 `0.5°` 关节变化和 `voxelSize/4` 末端位移重新采样验证。
 - 任一关节限位、IK 收敛、头部碰撞、路径偏差或连续性失败都在执行前定位首个来源积木并拒绝整段程序；不得执行可行前缀或在运行时重新规划。
 
+### 15.3.1 全局多分支 IK 修复（实施中）
+
+- 首版 `cutter-grid-dls-v1` 的单一前序构型贪心和静态 `reachable` 节点预筛选已知会错误拒绝 `Up 6 → Left 2 → Forward 3`：末端在 `(-2,6,-3)` 的第三个四分层有无碰撞低 Wrist 解，但高 Wrist 局部分支会提前走入死路。静态存在 IK 解不再等价于从任何入场姿态、沿任何程序路径均可达。
+- 新版本为 `cutter-grid-ladder-v2`。它在 Worker 内为每个 Cartesian 分层保留多组无碰撞 IK 候选，并以程序兼容的认证入口作为图第 0 层，在全段路径上选择连续构型链；不得接入 ROS、MoveIt、Tesseract、后端或任意外部规划服务。
+- V2 必须用 `24 → 96 → 384` 的确定性 Halton seed 累计枚举，候选按 `0.01` 归一化关节距离去重，每层以确定性最远点采样最多保留 128 个。内部候选不量化，实际执行计划在最终验证后才量化。
+- V2 不得以固定归一化关节跳变阈值删除分支。相邻候选只由真实平滑插值的关节限位、头部碰撞、末端轴向路径偏差和采样连续性判定；转向、Wait 和程序端点的切线为零。
+- V2 Profile 保存最多 32 个安全原点构型及各自认证的零接触入场轨迹。Run、Test 与 idle 下首次 Step 把所有入口和完整玩家路径一并规划；入场属于冻结计划且不剪发、不计命令、不计玩家耗时或成绩。
+- V2 区分静态 `Safe IK known` / `No safe IK found` 与当前 `Program connected` / `Program disconnected`。候选不存在、入口不兼容、连续边不存在与有限搜索预算耗尽必须分别报告，搜索耗尽不得表述为物理不可达。
+
 ### 15.4 版本化边界
 
 - `CutterGridProgramV1` 是独立、可序列化的玩家 IR，包含 `plannerVersion`、方向、距离、Wait/Repeat 和 `sourceBlockId`；它不扩展或伪装当前后端 Servo Program IR。
 - `CutterGridProfileV1` 的完整签名覆盖关节顺序/范围/初始值/速度/Servo 映射、机械臂和碰撞尺寸、voxel/head 几何、完整初始/目标 Hair、刀头半径、Profile 与规划器版本。
 - `CutterTrajectoryPlanV1` 保存单格同步 waypoints、每关节同步速度、逻辑坐标、预计剪发集合、预计时间和稳定轨迹签名；角度量化到 `0.1°`，时间使用整数毫秒，速度以六位小数稳定序列化，集合稳定排序。执行器以冻结的角度和速度作 Hermite 回放，不在运行时重新规划。
 - 内部 IK waypoint 不计玩家命令数；预计时间按冻结同步轨迹加 Wait 计算。Cutter Grid 完成后只使用本地评分器。
+- 过渡期内 V1 Profile、V1 轨迹和 V1 签名不得被 V2 Worker 接受；V2 运行资产必须使用独立 `CutterGridProfileV2`、`CutterTrajectoryPlanV2`、入口 ID 和覆盖入场的稳定签名。Servo Program IR、后端 wire schema、Session/Match、Versus 和 ArmDock 不变。
 
 ### 15.5 启用门禁
 

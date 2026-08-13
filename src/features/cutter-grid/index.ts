@@ -3,6 +3,7 @@ export * from './blockDefinitions';
 export * from './feasibility';
 export * from './grid';
 export * from './ik';
+export * from './ladderDiagnostics';
 export * from './programCompiler';
 export * from './profile';
 export * from './profileRegistry';

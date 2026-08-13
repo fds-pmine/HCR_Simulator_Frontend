@@ -1,6 +1,6 @@
 # HCR Simulator Demo 实施计划
 
-> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门，以及 Cutter Grid Phase 0–5 已完成；功能分支已发布供审查。
+> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门，以及 Cutter Grid 首版 Phase 0–5 已完成；全局多分支 IK 修复按下列独立阶段实施。
 
 ## 1. 实施原则
 
@@ -207,6 +207,44 @@ tests/
 - [x] 仅推送 `feat/cutter-grid-control`，不推送或合并 `main`。
 
 阶段出口：功能分支可供审查，所有适用验收项具有直接证据。
+
+### Cutter Grid Global IK Repair Phase 0 — 诊断契约与测试向量
+
+- [x] 从最新远端 `feat/cutter-grid-control` fast-forward 基线开始，记录干净前后端工作区。
+- [x] 固化 `Up 6 → Left 2 → Forward 3` 的 11 个原子动作、终点 `(-2,6,-3)`、第三个最终前向四分层 `(1.03,1.66,0.84)`、高/低 Wrist 分支与反向连续低 Wrist 证据。
+- [x] 固化 `0.12` 真实扫掠的 5 格结果及 1 格非目标附带剪除，禁止由规划器改变该基线。
+- [x] 引入不接入 V1 执行器的 V2 Profile、轨迹、进度和错误类型壳，明确 V1/V2 fail-closed 边界。
+
+阶段出口：V2 缺陷、语义和固定回归由纯函数及测试明确表达，且现有首版运行入口不变。
+
+### Cutter Grid Global IK Repair Phase 1 — 多解 IK 与连续边验证
+
+- [ ] 将 DLS 拆分为单 seed 投影器和多 seed 候选枚举器，实现确定性 Halton 扩展、去重、多样性保留和净空度量。
+- [ ] 实现二阶转换所需的自适应 Hermite 边验证；不再以固定最大归一化关节变化作为分支过滤。
+- [ ] 通过候选共存、碰撞/偏差拒绝、确定性和回归测试。
+
+阶段出口：领域层可以产生并验证多条安全 IK 分支，尚不替换 Profile、Worker 或执行器。
+
+### Cutter Grid Global IK Repair Phase 2 — Profile V2 与多入口认证
+
+- [ ] 生成最多 32 个原点构型、直接或确定性 PRM 的零接触入场，并至少认证两个不同入口。
+- [ ] 产出 V2 Profile/签名资产，重认证参考程序、六方向和静态节点语义。
+
+阶段出口：V2 Profile 证明多入口与首版所有认证要求；V1 Profile 被 V2 入口 fail-closed 拒绝。
+
+### Cutter Grid Global IK Repair Phase 3 — 全局图、Worker 与生命周期
+
+- [ ] 实现二阶分层 DAG、渐进搜索、稳定进度/错误、V2 冻结计划与量化失败重选。
+- [ ] 将 Run/Test/Step/Reset 改为整体选择入口与玩家路径、回放同一计划内入场和玩家轨迹。
+
+阶段出口：固定回归与所有运行入口选择相同低 Wrist 连续分支，且执行器不做运行时 IK。
+
+### Cutter Grid Global IK Repair Phase 4 — UI、回归与发布
+
+- [ ] 展示静态 IK 与当前程序连通状态、规划进度和诊断；完成 E2E、质量门与双浏览器视觉验收。
+- [ ] 只推送 `feat/cutter-grid-control`，审计后端零改动、构建产物未提交和阶段独立提交。
+
+阶段出口：V2 全局多分支规划通过全部验收并可供审查。
 
 ## 4. 关键实现约定
 
