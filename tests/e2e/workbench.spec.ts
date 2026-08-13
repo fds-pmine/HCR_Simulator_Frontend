@@ -381,6 +381,8 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.getByTestId('executed-command-count')).toHaveText('1');
     await expect(page.locator('.cutter-grid-summary')).toContainText('1/2');
     await expect(page.locator('.cutter-grid-summary')).toContainText('(1, 0, 0)');
+    await expect(page.locator('.cutter-grid-summary')).toContainText('Connected for this program');
+    await expect(page.locator('.cutter-grid-summary')).toContainText('Branch');
     await expect(page.getByTestId('final-score')).toHaveCount(0);
 
     const trajectoryBeforeReset = await page
@@ -417,7 +419,7 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.getByRole('alert')).toContainText('(4, 0, 0)', {
       timeout: 120_000,
     });
-    await expect(page.getByRole('alert')).toContainText('blocked');
+    await expect(page.getByRole('alert')).toContainText(/exhausted|candidate|entry/i);
     await expect(page.locator('.blocklyHighlighted')).toHaveCount(1);
     await expect(page.getByTestId('executed-command-count')).toHaveText('0');
     await expect(page.getByTestId('final-score')).toHaveCount(0);

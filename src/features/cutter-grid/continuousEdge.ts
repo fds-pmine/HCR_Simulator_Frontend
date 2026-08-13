@@ -255,11 +255,12 @@ function withinJointLimits(
   challenge: Challenge,
   angles: Readonly<Record<JointId, number>>,
 ): boolean {
+  const numericalTolerance = 1e-9;
   return challenge.robotConfig.joints.every(
     (joint) =>
       Number.isFinite(angles[joint.id]) &&
-      angles[joint.id] >= joint.minAngleDeg &&
-      angles[joint.id] <= joint.maxAngleDeg,
+      angles[joint.id] >= joint.minAngleDeg - numericalTolerance &&
+      angles[joint.id] <= joint.maxAngleDeg + numericalTolerance,
   );
 }
 

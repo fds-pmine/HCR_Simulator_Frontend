@@ -517,7 +517,14 @@ export class SimulationEngine {
     this.scorePromise = Promise.resolve(undefined);
     this.executionMode = 'cutter-grid';
     this.cutterExecutor.load(plan);
-    if (plan.version === 1) this.robotController.setTrajectoryAngles(startAngles);
+    if (plan.version === 1) {
+      this.robotController.setTrajectoryAngles(startAngles);
+    } else {
+      // A V2 positioning trajectory is authenticated from Servo's initial
+      // pose.  Reset before replay so Run, Test and Step never inherit an
+      // arbitrary previous cutter configuration.
+      this.robotController.reset();
+    }
     this.metrics = {
       sourceBlockCount,
       executedCommandCount: 0,

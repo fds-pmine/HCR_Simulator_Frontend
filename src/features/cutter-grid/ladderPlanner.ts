@@ -297,7 +297,7 @@ function selectGlobalPath(
     return valid;
   };
   let states: State[] = [];
-  for (const [entryIndex, entry] of profile.entryOptions.entries()) {
+  for (const [entryIndex] of profile.entryOptions.entries()) {
     for (const candidate of candidates[0]) {
       states.push({
         path: { entryIndex, candidates: [candidate], edgeMetrics: [] },
@@ -706,17 +706,6 @@ function hasAnyEntryConnection(
       endTangentZero: layer.directionChangedAfter,
     }).valid,
   ));
-}
-
-function normalizedDistanceBetween(
-  left: CutterGridIkCandidate,
-  right: CutterGridIkCandidate,
-  challenge: Challenge,
-): number {
-  return Math.sqrt(challenge.robotConfig.joints.reduce((sum, joint) => {
-    const span = joint.maxAngleDeg - joint.minAngleDeg;
-    return sum + ((left.jointAngles[joint.id] - right.jointAngles[joint.id]) / span) ** 2;
-  }, 0));
 }
 
 function assertInputs(challenge: Challenge, compiled: CompiledCutterGridProgramV1, profile: CutterGridProfileV2): void {

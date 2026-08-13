@@ -1491,6 +1491,22 @@ input:focus-visible {
   pointer-events: none;
 }
 
+.planning-progress {
+  position: absolute;
+  left: 50%;
+  bottom: 5.25rem;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: min(92vw, 42rem);
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(139, 185, 202, 0.38);
+  border-radius: 0.45rem;
+  background: rgba(10, 20, 29, 0.92);
+  color: #bcd6df;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
 .cutter-grid-summary div {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
