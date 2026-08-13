@@ -227,8 +227,8 @@ tests/
 
 ### Cutter Grid Global IK Repair Phase 2 — Profile V2 与多入口认证
 
-- [ ] 生成最多 32 个原点构型、直接或确定性 PRM 的零接触入场，并至少认证两个不同入口。
-- [ ] 产出 V2 Profile/签名资产，重认证参考程序、六方向和静态节点语义。
+- [x] 生成最多 32 个原点构型、直接或确定性 PRM 的零接触入场，并至少认证两个不同入口。
+- [x] 产出 V2 Profile/签名资产，重认证参考程序、六方向和静态节点语义；完整 V2 参考轨迹签名仍在 Phase 3 全局规划后认证。
 
 阶段出口：V2 Profile 证明多入口与首版所有认证要求；V1 Profile 被 V2 入口 fail-closed 拒绝。
 

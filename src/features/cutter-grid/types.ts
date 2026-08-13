@@ -189,6 +189,8 @@ export interface CutterGridNodeProfileV2 {
 
 export interface CutterGridCertificationV2 extends CutterGridCertificationV1 {
   authenticatedEntryOptionIds: string[];
+  /** Phase 3 can set this only after the V2 global planner certifies it. */
+  referenceTrajectoryCertified: boolean;
 }
 
 export interface CutterGridProfileV2 {

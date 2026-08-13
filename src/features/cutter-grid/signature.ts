@@ -1,14 +1,46 @@
 import type { Challenge } from '../../types/domain';
-import { CUTTER_GRID_PLANNER_VERSION } from './types';
+import {
+  CUTTER_GRID_LADDER_PLANNER_VERSION,
+  CUTTER_GRID_PLANNER_VERSION,
+  CUTTER_GRID_PROFILE_V2_VERSION,
+} from './types';
 
 export const CUTTER_GRID_PROFILE_VERSION = 1;
 
+export const CUTTER_GRID_LADDER_SIGNATURE_CONFIG = Object.freeze({
+  candidateSeedBudgets: [24, 96, 384],
+  candidateDeduplicationDistance: 0.01,
+  candidateLimit: 128,
+  entryOptionLimit: 32,
+  edgeMaximumJointDeltaDeg: 0.5,
+  edgeMaximumEndEffectorDistanceDivisor: 16,
+  entryPrmHaltonNodes: [2048, 8192],
+  entryPrmNeighbors: 24,
+});
+
 export function cutterGridChallengeSignature(challenge: Challenge): string {
+  return cutterGridSignature(challenge, {
+    profileVersion: CUTTER_GRID_PROFILE_VERSION,
+    plannerVersion: CUTTER_GRID_PLANNER_VERSION,
+  });
+}
+
+export function cutterGridChallengeSignatureV2(challenge: Challenge): string {
+  return cutterGridSignature(challenge, {
+    profileVersion: CUTTER_GRID_PROFILE_V2_VERSION,
+    plannerVersion: CUTTER_GRID_LADDER_PLANNER_VERSION,
+    ladder: CUTTER_GRID_LADDER_SIGNATURE_CONFIG,
+  });
+}
+
+function cutterGridSignature(
+  challenge: Challenge,
+  version: Record<string, unknown>,
+): string {
   const { joints, geometry } = challenge.robotConfig;
   return fnv1a64(
     JSON.stringify({
-      profileVersion: CUTTER_GRID_PROFILE_VERSION,
-      plannerVersion: CUTTER_GRID_PLANNER_VERSION,
+      ...version,
       joints: joints.map((joint) => ({
         id: joint.id,
         axis: joint.axis,
