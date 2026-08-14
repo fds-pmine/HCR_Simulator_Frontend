@@ -98,16 +98,39 @@ describe('Blockly program compiler', () => {
 
   it('rejects angles that are invalid for the selected joint', () => {
     const block = workspace.newBlock(BLOCK_TYPES.setJointAngle);
-    // 170° is the full servo throw the wrist has and 20° past what the base
-    // does, so switching the joint leaves an angle the new joint cannot reach.
-    block.setFieldValue('wrist', BLOCK_FIELDS.jointId);
-    block.setFieldValue(170, BLOCK_FIELDS.angle);
     block.setFieldValue('baseYaw', BLOCK_FIELDS.jointId);
+
+    // Written past the field rather than through it, because the field no
+    // longer permits this: the angle is retuned to the selected joint's range
+    // whenever the dropdown changes, so `Set Wrist to 170` becomes
+    // `Set Base Yaw to 150` instead of staying 20° past where the base turns.
+    //
+    // The compiler check stays regardless, and this is what still exercises it.
+    // Blocks do not only come from the editor — they arrive from saved
+    // workspaces, from a challenge's starter, and from a `registerHcrBlocks`
+    // call whose joints came from a different challenge than the one being
+    // compiled against. Any of those can carry an angle the joint cannot reach,
+    // and this is the check that catches it. The backend enforces the same
+    // bound independently (`hcr_sim::SimError::AngleOutOfRange`).
+    forceFieldValue(block, BLOCK_FIELDS.angle, 170);
 
     expectCompilationError(
       () => compileWorkspace(workspace, challenge),
       'INVALID_ANGLE',
     );
+  });
+
+  it('retunes the angle when the joint changes rather than leaving it invalid', () => {
+    const block = workspace.newBlock(BLOCK_TYPES.setJointAngle);
+    block.setFieldValue('wrist', BLOCK_FIELDS.jointId);
+    block.setFieldValue(170, BLOCK_FIELDS.angle);
+
+    block.setFieldValue('baseYaw', BLOCK_FIELDS.jointId);
+
+    // Clamped to the base's maximum, and compiling now rather than failing at
+    // Run time on a block the editor built without complaint.
+    expect(Number(block.getFieldValue(BLOCK_FIELDS.angle))).toBe(150);
+    expect(() => compileWorkspace(workspace, challenge)).not.toThrow();
   });
 
   it('rejects empty repeat bodies', () => {
