@@ -1,6 +1,36 @@
 import { expect, test, type Page } from '@playwright/test';
 import { starterWorkspaceState } from '../../src/data/challenges/starterWorkspace';
 
+const cutterGridRightWorkspaceState: Record<string, unknown> = {
+  blocks: {
+    languageVersion: 0,
+    blocks: [
+      {
+        type: 'hcr_cutter_grid_move_right',
+        id: 'e2e-cutter-grid-right',
+        x: 40,
+        y: 40,
+        fields: { DISTANCE: 2 },
+      },
+    ],
+  },
+};
+
+const cutterGridBlockedWorkspaceState: Record<string, unknown> = {
+  blocks: {
+    languageVersion: 0,
+    blocks: [
+      {
+        type: 'hcr_cutter_grid_move_right',
+        id: 'e2e-cutter-grid-blocked',
+        x: 40,
+        y: 40,
+        fields: { DISTANCE: 4 },
+      },
+    ],
+  },
+};
+
 /** `#rrggbb` as the `rgb(r, g, b)` string `toHaveCSS` compares against. */
 function rgb(hex: string): string {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -151,7 +181,9 @@ test.describe('HCR Simulator workbench', () => {
         .locator('canvas'),
     ).toHaveCSS('background-color', rgb(SCENE_BACKGROUND));
     await expect(
-      page.getByText('Editing is locked while the program is running'),
+      page.getByText(
+        'Editing is locked during positioning, planning, or execution',
+      ),
     ).toBeVisible();
     // `toBeVisible` reports the notice as visible even when Blockly's toolbox
     // (z-index 70) paints over its first 24px, which rendered it as "ing is
@@ -291,6 +323,108 @@ test.describe('HCR Simulator workbench', () => {
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   });
 
+  test('keeps Cutter Grid optional, isolated, local-only and stepwise', async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const servoMode = page.getByRole('button', {
+      name: 'Servo Angles',
+      exact: true,
+    });
+    const cutterMode = page.getByRole('button', {
+      name: 'Cutter Grid',
+      exact: true,
+    });
+    await expect(servoMode).toHaveAttribute('aria-pressed', 'true');
+    await expect(cutterMode).toBeVisible();
+
+    await cutterMode.click();
+    await expect(cutterMode).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText('Cutter Grid Program')).toBeVisible();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
+      timeout: 20_000,
+    });
+    const submit = page.getByTestId('submit-button');
+    await expect(submit).toBeDisabled();
+    await expect(submit).toHaveAttribute(
+      'title',
+      'Backend replay not yet supported',
+    );
+    await expect(
+      page.getByText(/Backend replay not yet supported\. Scoring stays/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /Grid and planned path/ }),
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    await seedWorkspace(page, cutterGridRightWorkspaceState, 1);
+    await servoMode.click();
+    await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
+    await cutterMode.click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
+      timeout: 20_000,
+    });
+    await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(1);
+
+    await page.getByTestId('step-button').click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Planning');
+    await expect(page.getByTestId('blockly-editor')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await expect(page.getByText(/Editing is locked during positioning/)).toBeVisible();
+    await expect(servoMode).toBeDisabled();
+    await expect(cutterMode).toBeDisabled();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Paused', {
+      timeout: 120_000,
+    });
+    await expect(page.getByTestId('executed-command-count')).toHaveText('1');
+    await expect(page.locator('.cutter-grid-summary')).toContainText('1/2');
+    await expect(page.locator('.cutter-grid-summary')).toContainText('(1, 0, 0)');
+    await expect(page.locator('.cutter-grid-summary')).toContainText('Connected for this program');
+    await expect(page.locator('.cutter-grid-summary')).toContainText('Branch');
+    await expect(page.getByTestId('final-score')).toHaveCount(0);
+
+    const trajectoryBeforeReset = await page
+      .locator('.cutter-grid-summary')
+      .locator('dd')
+      .last()
+      .textContent();
+    await page.getByTestId('reset-button').click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
+      timeout: 20_000,
+    });
+    await page.getByTestId('step-button').click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Paused', {
+      timeout: 20_000,
+    });
+    await expect(page.locator('.cutter-grid-summary').locator('dd').last()).toHaveText(
+      trajectoryBeforeReset ?? '',
+    );
+  });
+
+  test('fails an unreachable Cutter Grid command before execution and highlights it', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page
+      .getByRole('button', { name: 'Cutter Grid', exact: true })
+      .click();
+    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
+      timeout: 20_000,
+    });
+    await seedWorkspace(page, cutterGridBlockedWorkspaceState, 1);
+    await page.getByTestId('run-button').click();
+
+    await expect(page.getByRole('alert')).toContainText('(4, 0, 0)', {
+      timeout: 120_000,
+    });
+    await expect(page.getByRole('alert')).toContainText(/exhausted|candidate|entry/i);
+    await expect(page.locator('.blocklyHighlighted')).toHaveCount(1);
+    await expect(page.getByTestId('executed-command-count')).toHaveText('0');
+    await expect(page.getByTestId('final-score')).toHaveCount(0);
+  });
+
   test('shows a local recovery state when WebGL context is lost', async ({
     page,
   }) => {
@@ -373,4 +507,23 @@ async function setBlocklyNumberField(
   await expect(input).toBeVisible();
   await input.fill(String(value));
   await input.press('Enter');
+}
+
+async function seedWorkspace(
+  page: Page,
+  state: Record<string, unknown>,
+  expectedBlockCount: number,
+): Promise<void> {
+  await page.evaluate((serialized) => {
+    const seed = (
+      window as unknown as {
+        __hcrSeedWorkspace?: (s: Record<string, unknown>) => void;
+      }
+    ).__hcrSeedWorkspace;
+    if (!seed) throw new Error('__hcrSeedWorkspace is not available.');
+    seed(serialized);
+  }, state);
+  await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(
+    expectedBlockCount,
+  );
 }

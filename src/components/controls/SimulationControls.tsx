@@ -15,6 +15,7 @@ export interface SubmitAction {
   onSubmit: () => void;
   disabled: boolean;
   busy: boolean;
+  title?: string;
 }
 
 interface SimulationControlsProps {
@@ -101,7 +102,9 @@ export function SimulationControls({
         className="control-button"
         type="button"
         onClick={onStep}
-        disabled={status !== 'idle' && !paused}
+        // Same states `Run` accepts, plus resuming a pause. Finishing a
+        // program should not leave Step greyed out until you press Reset.
+        disabled={!canRun && !paused}
         data-testid="step-button"
       >
         <SkipForward size={16} />
@@ -137,6 +140,7 @@ export function SimulationControls({
             onClick={submit.onSubmit}
             disabled={submit.disabled || submit.busy}
             data-testid="submit-button"
+            title={submit.title}
           >
             {submit.busy ? (
               <LoaderCircle className="spin" size={16} />

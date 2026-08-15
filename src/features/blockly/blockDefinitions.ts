@@ -30,15 +30,17 @@ export function registerHcrBlocks(joints: readonly JointConfig[]): void {
 
   Blockly.Blocks[BLOCK_TYPES.setJointAngle] = {
     init(this: Blockly.Block) {
+      // Tenths of a degree, because that is the resolution the arm has:
+      // `hcr-fw` carries angles as tenths and its parser accepts exactly one
+      // fractional digit. Whole degrees would round 162.5° — a real elbow
+      // limit — to a value the servo cannot be commanded to.
+      const ANGLE_PRECISION_DEG = 0.1;
+
       const angleField = new Blockly.FieldNumber(
         initialJoint.initialAngleDeg,
-        Math.min(...joints.map((joint) => joint.minAngleDeg)),
-        Math.max(...joints.map((joint) => joint.maxAngleDeg)),
-        // Tenths of a degree, because that is the resolution the arm has:
-        // `hcr-fw` carries angles as tenths and its parser accepts exactly one
-        // fractional digit. Whole degrees would round 162.5° — a real elbow
-        // limit — to a value the servo cannot be commanded to.
-        0.1,
+        initialJoint.minAngleDeg,
+        initialJoint.maxAngleDeg,
+        ANGLE_PRECISION_DEG,
         function validateAngle(
           this: Blockly.FieldNumber,
           value: string | number,
@@ -58,10 +60,55 @@ export function registerHcrBlocks(joints: readonly JointConfig[]): void {
         },
       );
 
+      /**
+       * Retune the angle field to whichever joint is now selected.
+       *
+       * The joints do not share a range — `baseYaw` travels 30…150 and `wrist`
+       * 0…180 — so a single set of bounds cannot be right for all of them. The
+       * field used to carry the union of every joint's range, which made every
+       * individual joint's bounds wrong: the spinner offered angles the selected
+       * joint could not reach, and changing the dropdown left the previous
+       * joint's angle sitting under the new one. `Set Wrist to 180` became
+       * `Set Base Yaw to 180`, which is 30° past where the base can turn.
+       *
+       * Nothing unsafe came of it — the compiler re-checks the range and refuses
+       * the program — but the refusal arrived at Run time, pointing at a block
+       * the editor had just built without complaint.
+       *
+       * Clamping rather than resetting keeps as much of the learner's intent as
+       * the joint allows, and the number visibly changing is the signal that it
+       * was adjusted.
+       */
+      const applyJointRange = (jointId: string): void => {
+        const joint = jointById.get(jointId);
+        if (!joint) return;
+        angleField.setConstraints(
+          joint.minAngleDeg,
+          joint.maxAngleDeg,
+          ANGLE_PRECISION_DEG,
+        );
+        const current = Number(angleField.getValue());
+        const clamped = Math.min(
+          joint.maxAngleDeg,
+          Math.max(joint.minAngleDeg, current),
+        );
+        if (clamped !== current) {
+          angleField.setValue(clamped);
+        }
+      };
+
       this.appendDummyInput()
         .appendField('Set')
         .appendField(
-          new Blockly.FieldDropdown(options),
+          new Blockly.FieldDropdown(
+            options,
+            function validateJoint(this: Blockly.FieldDropdown, jointId: string) {
+              // Runs before the dropdown commits, so the new id arrives as an
+              // argument rather than through `getFieldValue`.
+              applyJointRange(jointId);
+              return undefined;
+            },
+          ),
           BLOCK_FIELDS.jointId,
         )
         .appendField('to')

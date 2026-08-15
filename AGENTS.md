@@ -2,11 +2,11 @@
 
 ## 当前阶段
 
-仓库已按用户明确授权完成 `docs/IMPLEMENTATION_PLAN.md` 的 Phase 1–6、五关节升级与确定性头部防穿模。Phase 7 仅剩跨浏览器人工视觉验收；任何部署工作尚未获得本轮授权。
+仓库已按用户明确授权完成原 `docs/IMPLEMENTATION_PLAN.md` 的 Phase 1–6、五关节升级与确定性头部防穿模，以及 Cutter Grid 首版 Phase 0–5；当前在 `feat/cutter-grid-control` 按全局多分支 IK 修复的独立 Phase 0–4 分阶段实施。原 Phase 7 与所有 Cutter Grid 阶段均不包含部署。
 
 - 每个 Phase 开始前重读实施计划与相关规格；
 - 每个 Phase 只实现该阶段范围，完成验证后独立 commit；
-- 不执行 Phase 7 的部署或引入首版非目标能力；
+- 不执行部署；除已在 v0.3 明确授权的 Cutter Grid 编译期 IK 与同步多关节轨迹外，不引入其他首版非目标能力；
 - 遇到跨阶段依赖时优先保持可测试接口，不以越层实现绕过计划。
 
 ## 文档优先级
@@ -41,7 +41,7 @@
 
 ## 首版禁止事项
 
-- 不增加相对角度、Cartesian Move、IK、剪刀开合、物理引擎。
+- 不增加通用相对角度、任意 Cartesian Move、运行时 IK、剪刀开合或物理引擎。Cutter Grid 仅允许规格定义的固定世界轴单格移动、编译期确定性 IK 和冻结同步轨迹。
 - 不增加 ESP、MQTT、WebSerial、WebBluetooth 或真实网络依赖。
 - 不引入外部 GLB/FBX 机械臂或头发资产。
 - 不把 Local Provider 实现直接导入业务 UI。

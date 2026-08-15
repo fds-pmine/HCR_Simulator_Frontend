@@ -1,6 +1,6 @@
 # HCR Simulator Demo 实施计划
 
-> 本文记录分阶段实施状态。Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门已完成；Phase 7 仅剩跨浏览器人工视觉验收。
+> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门，以及 Cutter Grid 首版 Phase 0–5 已完成；全局多分支 IK 修复按下列独立阶段实施。
 
 ## 1. 实施原则
 
@@ -146,12 +146,105 @@ tests/
 ### Phase 7 — 集成测试与交付
 
 - [x] 完成 Playwright 主闭环、错误流程和英文运行时文案断言。
-- [ ] 在 Chrome / Edge 的目标视口人工验收。
+- [x] 在 Chrome / Edge 的目标视口人工验收。
 - [x] 运行全部质量门并修复失败。
 - [x] 按实际工程更新 README 启动说明和验收清单。
 - [x] 确认没有后端、硬件、持久化或部署依赖。
 
 阶段出口：`docs/ACCEPTANCE.md` 全部适用项通过。
+
+### Cutter Grid Phase 0 — 基线、规格与可行性门禁
+
+- [x] 从重新获取的 `origin/main@afad77e` 创建 `feat/cutter-grid-control`，并记录 typecheck、lint、unit、build 和 E2E 全绿基线。
+- [x] 同步 v0.3、实施计划、验收清单和 AGENTS 约束，把 Cutter Grid 编译期 IK 作为受控例外。
+- [x] 增加版本化 Program/Profile/Trajectory 类型与覆盖全部认证输入的 Challenge 签名。
+- [x] 增加固定六方向、有限边界、坐标转换、候选起点排序和几何接触审计纯函数。
+- [x] 缓存默认 Challenge 的几何审计：首选起点不接触 Hair、六方向均存在安全边、12 个目标均被无附带剪除的边覆盖。
+- [x] 明确几何审计不能代替关节轨迹认证；入口在 Phase 2 Profile 完成前保持关闭。
+
+阶段出口：证明网格和 `0.12` 刀头在纯几何层可行，且任何 Challenge 漂移会使缓存失效；不接入玩家入口。
+
+### Cutter Grid Phase 1 — Blockly、独立 IR 与 Workspace 隔离
+
+- [x] 增加 `servo | cutter-grid` 模式、六种 Move 积木和模式工具箱。
+- [x] 实现距离/Wait/Repeat 校验、单格展开、500 原子动作限制和错误定位。
+- [x] 按 Challenge 签名与模式保存独立内存 Workspace，只允许在 `idle` 切换。
+- [x] 保持 Servo Program IR、编译器和后端序列化完全不变。
+
+阶段出口：两种语言可以独立编辑和编译，但 Cutter Grid 尚不执行 IK。
+
+### Cutter Grid Phase 2 — 确定性 IK、Worker 与认证 Profile
+
+- [x] 实现版本化 DLS IK、固定备用种子、稳定候选排序、量化和签名。
+- [x] 实现直线细分、C1 平滑、转角切线切断、同步时间参数化和二次验证。
+- [x] 实现可取消 Worker、请求版本和过期结果丢弃。
+- [x] 生成认证 Profile，证明入场零接触、参考程序精确剪除 12 个目标且六方向可用。
+
+阶段出口：Run/Test/Step 可获得同一冻结轨迹，且只有签名匹配的 Challenge 可以启用模式。
+
+### Cutter Grid Phase 3 — 仿真执行与接触复验
+
+- [x] 增加 `positioning`、`planning` 状态和同步五关节轨迹执行器。
+- [x] Step 以单格/Wait 为边界；Run、Test、Step 复用冻结计划。
+- [x] 复用头部防穿模与 `0.12` 连续扫掠接触，复验终态、剪发集合、耗时和错误。
+- [x] 保持 Servo 单关节执行链路不变。
+
+阶段出口：无 UI 也能确定性回放 Cutter Grid 轨迹并完成本地评分。
+
+### Cutter Grid Phase 4 — UI、课程与 Provider 隔离
+
+- [x] 增加轻量可关闭网格、轴向图例、坐标/路径/阻塞状态和 Inspector 摘要。
+- [x] 增加固定轴、距离、Repeat、误剪和不可达课程。
+- [x] Cutter Grid 强制本地评分并禁用 Session/Match/ArmDock；Versus 保持 Servo-only。
+- [x] 覆盖模式、Workspace、规划状态、错误定位和提交隔离 E2E。
+
+阶段出口：Practice/Lessons 中可完成完整 Cutter Grid 本地闭环，后端和比赛不受污染。
+
+### Cutter Grid Phase 5 — 验收与分支推送
+
+- [x] 通过全部自动化质量门和 Chrome/Edge 双视口截图验收。
+- [x] 审计前端范围、后端零改动、构建产物未提交和各阶段独立 commit。
+- [x] 仅推送 `feat/cutter-grid-control`，不推送或合并 `main`。
+
+阶段出口：功能分支可供审查，所有适用验收项具有直接证据。
+
+### Cutter Grid Global IK Repair Phase 0 — 诊断契约与测试向量
+
+- [x] 从最新远端 `feat/cutter-grid-control` fast-forward 基线开始，记录干净前后端工作区。
+- [x] 固化 `Up 6 → Left 2 → Forward 3` 的 11 个原子动作、终点 `(-2,6,-3)`、第三个最终前向四分层 `(1.03,1.66,0.84)`、高/低 Wrist 分支与反向连续低 Wrist 证据。
+- [x] 固化 `0.12` 真实扫掠的 5 格结果及 1 格非目标附带剪除，禁止由规划器改变该基线。
+- [x] 引入不接入 V1 执行器的 V2 Profile、轨迹、进度和错误类型壳，明确 V1/V2 fail-closed 边界。
+
+阶段出口：V2 缺陷、语义和固定回归由纯函数及测试明确表达，且现有首版运行入口不变。
+
+### Cutter Grid Global IK Repair Phase 1 — 多解 IK 与连续边验证
+
+- [x] 将 DLS 拆分为单 seed 投影器和多 seed 候选枚举器，实现确定性 Halton 扩展、去重、多样性保留和净空度量。
+- [x] 实现二阶转换所需的自适应 Hermite 边验证；不再以固定最大归一化关节变化作为分支过滤。
+- [x] 通过候选共存、碰撞/偏差拒绝、确定性和回归测试。
+
+阶段出口：领域层可以产生并验证多条安全 IK 分支，尚不替换 Profile、Worker 或执行器。
+
+### Cutter Grid Global IK Repair Phase 2 — Profile V2 与多入口认证
+
+- [x] 生成最多 32 个原点构型、直接或确定性 PRM 的零接触入场，并至少认证两个不同入口。
+- [x] 产出 V2 Profile/签名资产，重认证参考程序、六方向和静态节点语义；完整 V2 参考轨迹签名仍在 Phase 3 全局规划后认证。
+
+阶段出口：V2 Profile 证明多入口与首版所有认证要求；V1 Profile 被 V2 入口 fail-closed 拒绝。
+
+### Cutter Grid Global IK Repair Phase 3 — 全局图、Worker 与生命周期
+
+- [ ] 实现二阶分层 DAG、渐进搜索、稳定进度/错误、V2 冻结计划与量化失败重选。
+- [ ] 将 Run/Test/Step/Reset 改为整体选择入口与玩家路径、回放同一计划内入场和玩家轨迹。
+
+阶段出口：固定回归与所有运行入口选择相同低 Wrist 连续分支，且执行器不做运行时 IK。
+
+### Cutter Grid Global IK Repair Phase 4 — UI、回归与发布
+
+- [ ] 展示静态 IK 与当前程序连通状态、规划进度和诊断；完成 E2E、质量门与双浏览器视觉验收。
+- [ ] 只推送 `feat/cutter-grid-control`，审计后端零改动、构建产物未提交和阶段独立提交。
+
+阶段出口：V2 全局多分支规划通过全部验收并可供审查。
 
 ## 4. 关键实现约定
 

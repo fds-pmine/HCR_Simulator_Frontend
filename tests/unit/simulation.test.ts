@@ -13,7 +13,11 @@ import {
 } from '../../src/features/robot/headCollision';
 import { toServoDeg } from '../../src/features/robot/servoMapping';
 import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
-import { clampFrameDeltaMs } from '../../src/features/simulation/frameTiming';
+import {
+  clampFrameDeltaMs,
+  playbackFrameDeltaMs,
+  SIMULATION_PLAYBACK_RATE,
+} from '../../src/features/simulation/frameTiming';
 import {
   findSweptVoxelHits,
   segmentIntersectsAabb,
@@ -40,6 +44,13 @@ describe('render frame timing', () => {
     expect(clampFrameDeltaMs(0.016)).toBe(16);
     expect(clampFrameDeltaMs(0.5)).toBe(100);
     expect(clampFrameDeltaMs(-0.1)).toBe(0);
+  });
+
+  it('plays rendered simulation at the configured accelerated rate without relaxing the frame cap', () => {
+    expect(SIMULATION_PLAYBACK_RATE).toBe(2);
+    expect(playbackFrameDeltaMs(0.016)).toBe(32);
+    expect(playbackFrameDeltaMs(0.5)).toBe(100);
+    expect(playbackFrameDeltaMs(-0.1)).toBe(0);
   });
 });
 

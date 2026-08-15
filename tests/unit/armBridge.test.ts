@@ -11,6 +11,8 @@ import type { RobotCommand } from '../../src/features/blockly/programTypes';
  * requires it lazily, precisely so these checks stay reachable from here.
  */
 import * as arm from '../../electron/arm.cjs';
+import * as sequencer from '../../electron/sequencer.cjs';
+import { MAX_RUNTIME_COMMANDS } from '../../src/features/blockly/programCompiler';
 
 let challenge: Challenge;
 
@@ -120,5 +122,72 @@ describe('buildArmPlan', () => {
       { type: 'wait', durationMs: 250, sourceBlockId: 'w1' },
     ]);
     expect(plan.steps.at(-1)).toEqual({ type: 'wait', durationMs: 250 });
+  });
+});
+
+/**
+ * The two places a simulator-legal program could still be refused by hardware.
+ *
+ * Both failures land in the worst possible place: `sequencer.validatePlan` runs
+ * before anything is sent, so the run is refused whole — but the *prologue* has
+ * already driven the arm to the start pose by then on a previous run, and the
+ * learner is told their program is broken when nothing about it is.
+ */
+describe('every simulator-legal program is also arm-legal', () => {
+  const move = (jointId: string, angleDeg: number): RobotCommand => ({
+    type: 'set-joint-angle',
+    jointId,
+    angleDeg,
+    sourceBlockId: `block-${jointId}-${angleDeg}`,
+  });
+
+  it('keeps each joint inside the servo travel the arm actually has', () => {
+    for (const joint of challenge.robotConfig.joints) {
+      if (!joint.servo) continue;
+      const limits = arm.AXES[joint.servo.axis];
+      expect(limits, `axis ${joint.servo.axis} is missing from AXES`).toBeDefined();
+
+      // Angles on the wire are servo degrees, so these compare directly. The
+      // limits are transcribed from the vendor firmware's own `Min`/`Max`
+      // arrays (`ESP8266.ino`), which is the third copy of that table — the
+      // firmware, the backend's `servo_travel.rs`, and `arm.cjs`. Nothing makes
+      // them agree; this is what notices when they stop.
+      expect(joint.minAngleDeg).toBeGreaterThanOrEqual(limits.min);
+      expect(joint.maxAngleDeg).toBeLessThanOrEqual(limits.max);
+      expect(() => arm.formatAngle(joint.servo!.axis, joint.minAngleDeg)).not.toThrow();
+      expect(() => arm.formatAngle(joint.servo!.axis, joint.maxAngleDeg)).not.toThrow();
+    }
+  });
+
+  it('fits the longest possible program inside the sequencer step budget', () => {
+    // The prologue is one step per mapped joint, then one step per command.
+    const mapped = challenge.robotConfig.joints.filter((joint) => joint.servo).length;
+    const worstCase = mapped + MAX_RUNTIME_COMMANDS;
+
+    expect(worstCase).toBeLessThanOrEqual(sequencer.MAX_STEPS);
+
+    // Stated rather than implied: the margin is eight steps. Raising
+    // MAX_RUNTIME_COMMANDS or giving `shoulderRoll` a servo eats into it, and
+    // the symptom would be a maximal program refused as "the arm accepts at
+    // most 512 steps" with nothing pointing at why.
+    expect(sequencer.MAX_STEPS - worstCase).toBe(8);
+  });
+
+  it('builds a plan the sequencer accepts, for a program at the joint limits', () => {
+    const commands: RobotCommand[] = challenge.robotConfig.joints
+      .filter((joint) => joint.servo)
+      .flatMap((joint) => [
+        move(joint.id, joint.minAngleDeg),
+        move(joint.id, joint.maxAngleDeg),
+      ]);
+
+    const plan = buildArmPlan(challenge, commands);
+    expect(plan.unsupported).toHaveLength(0);
+    // Every emitted value survives the main-process range check.
+    for (const step of plan.steps) {
+      if (step.type === 'move') {
+        expect(() => arm.formatAngle(step.axis, step.value)).not.toThrow();
+      }
+    }
   });
 });

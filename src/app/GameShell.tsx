@@ -10,6 +10,7 @@ import { LESSONS } from '../data/challenges/lessons';
 import { PracticeRun } from '../features/practice/PracticeRun';
 import { LessonPicker } from '../features/tutorial/LessonPicker';
 import { LessonRun } from '../features/tutorial/LessonRun';
+import { CutterGridLessonRun } from '../features/tutorial/CutterGridLessonRun';
 import { HomeScreen } from './HomeScreen';
 import { useServices } from './servicesContext';
 
@@ -26,6 +27,7 @@ export function GameShell() {
   const [screen, setScreen] = useState<Screen>('home');
   const [identity, setIdentity] = useState<PlayerIdentity>(loadIdentity);
   const [lessonId, setLessonId] = useState<string>();
+  const [cutterGridLessonId, setCutterGridLessonId] = useState<string>();
   const [solved, setSolved] = useState<ReadonlySet<string>>(new Set());
 
   const markSolved = useCallback((id: string) => {
@@ -51,6 +53,14 @@ export function GameShell() {
   }
 
   if (screen === 'lessons') {
+    if (cutterGridLessonId) {
+      return (
+        <CutterGridLessonRun
+          lessonId={cutterGridLessonId}
+          onExit={() => setCutterGridLessonId(undefined)}
+        />
+      );
+    }
     const index = LESSONS.findIndex((lesson) => lesson.id === lessonId);
     const next = index >= 0 ? LESSONS[index + 1] : undefined;
     return lessonId ? (
@@ -61,7 +71,12 @@ export function GameShell() {
         onExit={() => setLessonId(undefined)}
       />
     ) : (
-      <LessonPicker completed={solved} onPick={setLessonId} onBack={goHome} />
+      <LessonPicker
+        completed={solved}
+        onPick={setLessonId}
+        onPickCutterGrid={setCutterGridLessonId}
+        onBack={goHome}
+      />
     );
   }
 

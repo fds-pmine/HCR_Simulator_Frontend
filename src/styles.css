@@ -1144,7 +1144,21 @@ input:focus-visible {
   max-height: 100vh;
   flex-direction: column;
   align-items: center;
+  /*
+   * Centred while it fits, top-aligned once it does not.
+   *
+   * A plain `center` on a scrolling flex column centres the *overflow* too, so
+   * the first child ends up above the scroll origin and simply cannot be
+   * reached — scrollTop has no negative side. The lesson list was already long
+   * enough to lose its own heading that way, and gained a section when Cutter
+   * Grid moved to the front.
+   *
+   * `safe` switches to `start` exactly when overflow would otherwise clip.
+   * The unprefixed line stays as the fallback for anything that does not
+   * understand the keyword and would drop the whole declaration.
+   */
   justify-content: center;
+  justify-content: safe center;
   overflow-y: auto;
   padding: clamp(20px, 4vh, 44px) 20px;
   gap: clamp(16px, 3vh, 30px);
@@ -1466,6 +1480,119 @@ input:focus-visible {
   color: #071417;
   background: var(--cyan);
   font-weight: 700;
+}
+
+.cutter-grid-summary {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.backend-replay-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 86px;
+  z-index: 82;
+  max-width: min(420px, calc(100vw - 48px));
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  border: 1px solid rgba(243, 199, 95, 0.44);
+  border-radius: 7px;
+  background: rgba(10, 20, 29, 0.92);
+  color: #f3c75f;
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.planning-progress {
+  position: absolute;
+  left: 50%;
+  bottom: 5.25rem;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: min(92vw, 42rem);
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(139, 185, 202, 0.38);
+  border-radius: 0.45rem;
+  background: rgba(10, 20, 29, 0.92);
+  color: #bcd6df;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.cutter-grid-summary div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.cutter-grid-summary dt {
+  color: var(--muted);
+  font-size: var(--font-xs);
+}
+
+.cutter-grid-summary dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--muted-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cutter-grid-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: var(--font-xs);
+}
+
+.cutter-grid-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cutter-grid-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.cutter-grid-legend .is-reachable,
+.cutter-grid-legend .is-executed {
+  background: #38d6ce;
+}
+
+.cutter-grid-legend .is-blocked {
+  background: #ff805d;
+}
+
+.cutter-grid-legend .is-planned {
+  background: #f3c75f;
+}
+
+.programming-mode-switch {
+  flex: 0 0 auto;
+  margin: 10px 12px 0;
+}
+
+.programming-mode-switch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.cutter-grid-lessons__head {
+  margin-top: 58px;
+}
+
+.lesson-row--cutter-grid .lesson-row__index {
+  color: #071417;
+  background: var(--cyan);
 }
 
 .big-button {

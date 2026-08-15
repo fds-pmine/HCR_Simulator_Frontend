@@ -10,5 +10,11 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "playwright.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "playwright.config.ts",
+    "cutter-grid-audit.config.ts",
+    "reachability.config.ts",
+    "vectors.config.ts"
+  ]
 }

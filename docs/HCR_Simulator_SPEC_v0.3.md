@@ -4,7 +4,7 @@
 >
 > 状态：**当前生效的文档基线**。v0.2 保留用于历史追溯；如两者冲突，以 v0.3 为准。
 >
-> 当前仓库阶段：**Phase 1–6 与五关节/头部防穿模增量已实现；跨浏览器人工视觉验收待执行**。
+> 当前仓库阶段：**Servo 主闭环、五关节与头部防穿模以及 Cutter Grid 首版 Phase 0–5 已实现；Cutter Grid 全局多分支 IK 修复按独立阶段实施中**。
 >
 > 依据：v0.2、2026-07-30 计划模式确认结果及后续范围说明。
 
@@ -53,13 +53,14 @@ HCR Simulator 是一个纯前端可运行的 Web 3D 编程 Demo：用户通过 B
 - ChallengeProvider、ScoreProvider 及 Local 实现。
 - Vitest 核心单元测试与 Playwright 关键 E2E。
 - 运行时用户可见文案统一使用英文，包括 Challenge 数据、Blockly、工作台、日志、错误与无障碍标签。
+- 可选 `Cutter Grid` 前端模式：玩家以固定世界轴的六方向和整数格距控制末端球，系统在执行前使用确定性 IK 生成冻结同步五关节轨迹。
 
 ### 3.2 明确不做
 
 - 后端、账户、数据库、工作区持久化、导入导出。
 - HTTP API 的真实调用或网络作为运行前提。
 - ESP、真实舵机、MQTT、PWM、WebSerial、WebBluetooth。
-- Cartesian Move、逆运动学 IK 或多个舵机并发运动。
+- 通用任意 Cartesian Move、运行时 IK 或 Servo 模式中的多个舵机并发运动。Cutter Grid 只允许本文第 15 节定义的固定轴单格移动、编译期 IK 和冻结同步轨迹。
 - 相对角度、条件、传感器、变量或自定义函数积木。
 - 物理引擎、碰撞反弹/摩擦/滑动、机械臂自碰撞、真实发丝或剪刀开合。
 - 外部 GLB / FBX 机械臂和头发资产。
@@ -639,6 +640,55 @@ npm run test:e2e
 ```
 
 人工验收见 `docs/ACCEPTANCE.md`。
+
+## 15. Cutter Grid 可选控制模式
+
+### 15.1 范围和隔离
+
+- 模式 ID 为 `cutter-grid`，显示名为 `Cutter Grid`；`servo` 始终为默认模式。
+- 首阶段只在 Practice 和专属 Lessons 开放。Versus、后端 Session/Program 提交、远端评分和 Electron Arm Bridge 保持 Servo-only。
+- Servo 与 Cutter Grid 使用独立内存 Workspace；只允许在 `idle` 切换，切换时重置仿真但保留两侧积木内容。
+- Cutter Grid 共享默认 Challenge 的初始 Hair、12 个目标剪除 voxel 及现有评分配置，但不与 Servo 分数作公平性比较。
+- 未匹配已认证 Profile 的 Challenge 必须保持 Servo-only。
+
+### 15.2 坐标和 Blockly
+
+- 网格格距等于 `voxelConfig.size`；边界为初始 Hair 坐标包围盒每轴扩展两格，并包含认证起点。
+- 固定映射为 Right `+X`、Left `-X`、Up `+Y`、Down `-Y`、Forward `-Z`、Backward `+Z`，不随相机或工具姿态变化。
+- 六个 Move 积木分别接受 `1–12` 的整数距离；每格展开为一个原子动作。Wait、Repeat 分别沿用 `0–5000ms`、`1–20` 限制，展开后单格移动与 Wait 上限为 500。
+- 剪发器始终启用，沿实际末端轨迹以现有 `toolRadius = 0.12` 删除全部接触 Hair；系统不绕发、不白名单删除，也不静默缩短移动。
+- Step 每次执行一个单格移动或 Wait；Move N 对 `executedCommandCount` 贡献 N。
+
+### 15.3 入场、规划和轨迹
+
+- 从 Servo 初始姿态进入最近的、已认证零头发接触格心；当前首选 Hair lattice 为 `(0,-5,8)`。入场使用 `positioning` 状态，不剪发、不计时、不计分。
+- Run/Test/Step 前进入 `planning`，在可取消 Web Worker 中对整段程序求解。相同规范化输入只生成一个冻结 `CutterTrajectoryPlanV1`，三个入口不得分别求解。
+- 每格世界轴直线按末端位移不大于 `voxelSize/4` 细分；使用五关节阻尼最小二乘 IK，最大 80 次迭代、`0.1°` 数值 Jacobian、阻尼 `0.05`、单次最大 `2°` 更新、最终 `0.1°` 量化，末端误差不大于 `voxelSize/16`。
+- 同方向连续段生成 C1 连续同步轨迹；转向格点切断切线。轨迹按关节速度统一拉伸，并以最大 `0.5°` 关节变化和 `voxelSize/4` 末端位移重新采样验证。
+- 任一关节限位、IK 收敛、头部碰撞、路径偏差或连续性失败都在执行前定位首个来源积木并拒绝整段程序；不得执行可行前缀或在运行时重新规划。
+
+### 15.3.1 全局多分支 IK 修复（实施中）
+
+- 首版 `cutter-grid-dls-v1` 的单一前序构型贪心和静态 `reachable` 节点预筛选已知会错误拒绝 `Up 6 → Left 2 → Forward 3`：末端在 `(-2,6,-3)` 的第三个四分层有无碰撞低 Wrist 解，但高 Wrist 局部分支会提前走入死路。静态存在 IK 解不再等价于从任何入场姿态、沿任何程序路径均可达。
+- 新版本为 `cutter-grid-ladder-v2`。它在 Worker 内为每个 Cartesian 分层保留多组无碰撞 IK 候选，并以程序兼容的认证入口作为图第 0 层，在全段路径上选择连续构型链；不得接入 ROS、MoveIt、Tesseract、后端或任意外部规划服务。
+- V2 必须用 `24 → 96 → 384` 的确定性 Halton seed 累计枚举，候选按 `0.01` 归一化关节距离去重，每层以确定性最远点采样最多保留 128 个。内部候选不量化，实际执行计划在最终验证后才量化。
+- V2 不得以固定归一化关节跳变阈值删除分支。相邻候选只由真实平滑插值的关节限位、头部碰撞、末端轴向路径偏差和采样连续性判定；转向、Wait 和程序端点的切线为零。
+- V2 Profile 保存最多 32 个安全原点构型及各自认证的零接触入场轨迹。Run、Test 与 idle 下首次 Step 把所有入口和完整玩家路径一并规划；入场属于冻结计划且不剪发、不计命令、不计玩家耗时或成绩。
+- V2 区分静态 `Safe IK known` / `No safe IK found` 与当前 `Program connected` / `Program disconnected`。候选不存在、入口不兼容、连续边不存在与有限搜索预算耗尽必须分别报告，搜索耗尽不得表述为物理不可达。
+
+### 15.4 版本化边界
+
+- `CutterGridProgramV1` 是独立、可序列化的玩家 IR，包含 `plannerVersion`、方向、距离、Wait/Repeat 和 `sourceBlockId`；它不扩展或伪装当前后端 Servo Program IR。
+- `CutterGridProfileV1` 的完整签名覆盖关节顺序/范围/初始值/速度/Servo 映射、机械臂和碰撞尺寸、voxel/head 几何、完整初始/目标 Hair、刀头半径、Profile 与规划器版本。
+- `CutterTrajectoryPlanV1` 保存单格同步 waypoints、每关节同步速度、逻辑坐标、预计剪发集合、预计时间和稳定轨迹签名；角度量化到 `0.1°`，时间使用整数毫秒，速度以六位小数稳定序列化，集合稳定排序。执行器以冻结的角度和速度作 Hermite 回放，不在运行时重新规划。
+- 内部 IK waypoint 不计玩家命令数；预计时间按冻结同步轨迹加 Wait 计算。Cutter Grid 完成后只使用本地评分器。
+- 过渡期内 V1 Profile、V1 轨迹和 V1 签名不得被 V2 Worker 接受；V2 运行资产必须使用独立 `CutterGridProfileV2`、`CutterTrajectoryPlanV2`、入口 ID 和覆盖入场的稳定签名。Servo Program IR、后端 wire schema、Session/Match、Versus 和 ArmDock 不变。
+
+### 15.5 启用门禁
+
+- Phase 0 几何审计只证明有限网格、`0.12` 接触半径、六方向安全边及 12 个目标覆盖不存在直接矛盾；其 `trajectoryCertification` 必须保持 `pending-planner`。
+- 只有后续规划器生成认证起点、零接触入场、可达节点/边和参考程序，并证明参考程序精确剪除 12 个目标、无附带删除且 Completion 为 100，入口才可启用。
+- 任一门禁失败时停止启用，不修改共享 Challenge、刀头半径或安全余量换取通过。
 
 ## 15. 未来扩展 / 仍未决定
 

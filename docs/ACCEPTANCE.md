@@ -1,6 +1,6 @@
 # HCR Simulator Demo 验收清单
 
-> Phase 1–6、五关节/头部防穿模增量和自动化集成已实施。功能项按当前验证结果勾选；Phase 7 的跨浏览器人工视觉验收仍保持未勾选。
+> Servo Phase 1–6、五关节/头部防穿模增量、自动化集成及 Cutter Grid 首版 Phase 0–5 已实施。全局多分支 IK 修复以下列独立门禁继续推进；功能项只在具有直接验证证据时勾选。
 
 ## 文档基线
 
@@ -10,6 +10,41 @@
 - [x] AGENTS.md 明确文档优先级、模块边界和当前阶段限制。
 - [x] 实施计划包含阶段依赖、出口条件、风险与完成定义。
 - [x] 本清单区分自动化、功能、错误和人工视觉验收。
+- [x] v0.3 独立定义 Cutter Grid 的模式边界、IR/Profile/轨迹契约、规划参数和 fail-closed 语义。
+
+## Cutter Grid Phase 0 门禁
+
+- [x] 功能分支从重新获取的最新 `origin/main` 创建，未在 `main` 落代码。
+- [x] 完整 Challenge 签名覆盖关节、几何、碰撞、voxel/head、初始/目标 Hair、刀头及版本输入。
+- [x] 固定方向为 Right `+X`、Left `-X`、Up `+Y`、Down `-Y`、Forward `-Z`、Backward `+Z`。
+- [x] 默认 Hair 包围盒每轴扩展两格，并包含首选 Hair lattice 起点 `(0,-5,8)`。
+- [x] 首选起点格心以 `0.12` 半径静止检测不接触 Hair。
+- [x] 六个方向各至少存在一条不接触非目标 Hair 的轴向边。
+- [x] 当前 12 个目标 voxel 均至少被一条不接触非目标 Hair 的轴向边覆盖。
+- [x] 审计缓存与当前 Challenge 签名一致，并明确标记关节轨迹认证为 `pending-planner`。
+- [x] 认证 Profile 证明零接触入场、启用节点分类、六方向认证边和参考程序的完整关节轨迹安全。
+
+## Cutter Grid 功能验收
+
+- [x] Servo 默认选中，Cutter Grid 仅在 Practice 和专属 Lessons 可选。
+- [x] 六种 Move 距离为整数 `1–12`，Move N 展开为 N 格，展开后上限为 500。
+- [x] Servo/Cutter Grid Workspace 独立保留，只能在 `idle` 切换。
+- [x] 编译期 IK、同步轨迹、Worker 取消和签名满足 v0.3 参数。
+- [x] 入场零接触且不计命令/耗时/成绩；Step 每次执行一格或 Wait。
+- [x] Run、Test、Step 复用同一冻结计划并产生相同终态、剪发集合和指标。
+- [x] 网格、轴向图例、当前/下一坐标、路径与阻塞节点可见且可关闭。
+- [x] Cutter Grid 只本地评分，不提交 Session/Match，不驱动 ArmDock；Versus 保持 Servo-only。
+- [x] 参考程序精确剪除 12 个目标、无附带删除并取得 100 Completion。
+
+## Cutter Grid 全局多分支 IK 修复
+
+- [x] 固定回归程序、失败 Cartesian 层、低 Wrist 静态安全分支、反向连续分支和真实 5 格扫掠基线已有自动化诊断证据。
+- [x] V2 Profile、轨迹、进度和错误接口已与 V1 运行资产隔离，尚未提前切换生产入口。
+- [x] 同层多解 IK、候选去重/多样性、净空与连续边验证通过确定性单元测试。
+- [x] V2 Profile 至少认证两个不同原点构型及零接触入场；参考程序的几何 12 格/0 附带结果、六方向和签名门禁不退化。完整 V2 参考轨迹将在全局图实现后认证。
+- [ ] `Up 6 → Left 2 → Forward 3` 以低 Wrist 分支完成至 `(-2,6,-3)`，无碰撞、无 Cartesian 抄近路，并保留 5 格真实扫掠结果。
+- [ ] Run、Test、Step 选择相同入口和 V2 冻结计划，入场不计分且不同 tick 结果一致。
+- [ ] UI 明确区分静态安全 IK、当前程序连通性、搜索进度和搜索预算耗尽。
 
 ## 自动化质量门
 
@@ -18,6 +53,9 @@
 - [x] `npm test`
 - [x] `npm run build`
 - [x] `npm run test:e2e`
+- [x] `npm run cutter-grid:audit`：114 条安全剪发边、0 个未覆盖目标、0 个缺失方向。
+- [x] `npm run cutter-grid:profile`：2535 个节点、精确剪除 12 格、六方向认证。
+- [x] `npm run test:visual`：实际 Chrome/Edge 的 1280×720 与 1920×1080 共 4 项通过。
 
 ## 英文运行时文案
 
@@ -61,11 +99,13 @@
 
 ## 人工视觉验收
 
-- [ ] Chrome/Edge 1280×720 下核心控制无遮挡。
-- [ ] Chrome/Edge 1920×1080 下布局不过度拉伸。
-- [ ] 3D 主视图、Blockly 与指标层级清楚。
-- [ ] 机械臂、当前头发、目标预览和碰撞工具容易区分。
-- [ ] 非零肩部侧摆具有清晰的三维运动，运行全过程无头部穿模。
+- [x] Chrome/Edge 1280×720 下核心控制无遮挡。
+- [x] Chrome/Edge 1920×1080 下布局不过度拉伸。
+- [x] 3D 主视图、Blockly 与指标层级清楚。
+- [x] 机械臂、当前头发、目标预览、网格和剪发器容易区分。
+- [x] Cutter Grid 单格 Step 的五关节同步姿态、当前/下一坐标和执行/待执行路径清楚，运行全过程受碰撞复验保护。
+
+上述视觉项由 `tests/e2e/visualAcceptance.spec.ts` 在实际 Chrome/Edge 通道生成四张截图并检查视口、溢出和核心控件；2026-08-13 对截图完成肉眼复核。截图位于被忽略的 `test-results/`，不提交构建或验收产物。
 
 ## 关键人工场景
 

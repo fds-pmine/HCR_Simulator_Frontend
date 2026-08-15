@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import * as Blockly from 'blockly/core';
 import {
   Braces,
   ChevronLeft,
@@ -19,9 +20,26 @@ import {
   ProgramCompilationError,
 } from '../../features/blockly/programCompiler';
 import type { CompiledProgram, Program } from '../../features/blockly/programTypes';
+import {
+  PROGRAMMING_MODE_LABEL,
+  canSwitchProgrammingMode,
+  type ProgrammingMode,
+} from '../../features/blockly/programmingMode';
+import { CutterGridCompilationError } from '../../features/cutter-grid/programCompiler';
+import { CutterGridPlannerClient } from '../../features/cutter-grid/plannerClient';
+import { registeredCutterGridProfileV2 } from '../../features/cutter-grid/profileRegistry';
+import { CutterGridLadderPlanningError } from '../../features/cutter-grid/ladderPlanner';
+import type {
+  CompiledCutterGridProgramV1,
+  CutterGridPlanningProgressV2,
+  CutterTrajectoryPlanV2,
+} from '../../features/cutter-grid/types';
 import { SimulatorCanvas } from '../../features/simulation/SimulatorCanvas';
 import type { SimulationEngine } from '../../features/simulation/SimulationEngine';
-import { runHeadless } from '../../features/simulation/headlessRun';
+import {
+  runCutterGridHeadless,
+  runHeadless,
+} from '../../features/simulation/headlessRun';
 import { useSimulationSnapshot } from '../../features/simulation/useSimulationSnapshot';
 import { useWorkbenchStore } from '../../features/simulation/simulationStore';
 import { SimulationControls } from '../controls/SimulationControls';
@@ -70,7 +88,7 @@ export interface WorkbenchTutorial {
   onTested: () => void;
 }
 
-interface SimulationWorkbenchProps {
+export interface SimulationWorkbenchProps {
   challenge: Challenge;
   engine: SimulationEngine;
   /** Shown in the topbar instead of the offline badge. */
@@ -78,6 +96,9 @@ interface SimulationWorkbenchProps {
   onExit?: () => void;
   match?: WorkbenchMatch;
   tutorial?: WorkbenchTutorial;
+  /** Modes certified by the caller for this challenge and product surface. */
+  availableProgrammingModes?: readonly ProgrammingMode[];
+  initialProgrammingMode?: ProgrammingMode;
 }
 
 export function SimulationWorkbench({
@@ -87,23 +108,74 @@ export function SimulationWorkbench({
   onExit,
   match,
   tutorial,
+  availableProgrammingModes = ['servo'],
+  initialProgrammingMode = 'servo',
 }: SimulationWorkbenchProps) {
   const editorRef = useRef<BlocklyEditorHandle>(null);
+  const plannerRef = useRef(new CutterGridPlannerClient());
+  const cutterPlanRef = useRef<
+    | {
+        workspaceVersion: number;
+        compiled: CompiledCutterGridProgramV1;
+        plan: CutterTrajectoryPlanV2;
+      }
+    | undefined
+  >(undefined);
+  const workspaceVersionRef = useRef(0);
   const snapshot = useSimulationSnapshot(engine);
   const [compileError, setCompileError] = useState<string>();
   const [testing, setTesting] = useState(false);
+  const [cutterPlan, setCutterPlan] = useState<CutterTrajectoryPlanV2>();
+  const [planningProgress, setPlanningProgress] = useState<
+    Omit<CutterGridPlanningProgressV2, 'type' | 'requestId'>
+  >();
+  const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>(() =>
+    availableProgrammingModes.includes(initialProgrammingMode)
+      ? initialProgrammingMode
+      : (availableProgrammingModes[0] ?? 'servo'),
+  );
   const {
     leftPanelOpen,
     rightPanelOpen,
     logOpen,
     showTarget,
+    showCutterGrid,
     toggleLeftPanel,
     toggleRightPanel,
     toggleLog,
     toggleTarget,
+    toggleCutterGrid,
   } = useWorkbenchStore();
+  const cutterProfile =
+    programmingMode === 'cutter-grid'
+      ? registeredCutterGridProfileV2(challenge)
+      : undefined;
   const editorLocked =
-    snapshot.status === 'running' || snapshot.status === 'paused';
+    snapshot.status === 'running' ||
+    snapshot.status === 'paused' ||
+    snapshot.status === 'planning' ||
+    snapshot.status === 'positioning';
+
+  useEffect(() => () => plannerRef.current.cancel(), []);
+
+  useEffect(() => {
+    cutterPlanRef.current = undefined;
+    plannerRef.current.cancel();
+    workspaceVersionRef.current = 0;
+    const workspace = editorRef.current?.getWorkspace();
+    if (!workspace) return;
+    const onWorkspaceChange = (event: Blockly.Events.Abstract) => {
+      if (event.isUiEvent) return;
+      workspaceVersionRef.current += 1;
+      cutterPlanRef.current = undefined;
+      setCutterPlan(undefined);
+      setPlanningProgress(undefined);
+      plannerRef.current.cancel();
+      if (engine.getSnapshot().status === 'planning') engine.cancelPlanning();
+    };
+    workspace.addChangeListener(onWorkspaceChange);
+    return () => workspace.removeChangeListener(onWorkspaceChange);
+  }, [challenge, engine, programmingMode]);
 
   useEffect(() => {
     editorRef.current?.highlightBlock(snapshot.currentBlockId);
@@ -125,7 +197,13 @@ export function SimulationWorkbench({
         .getAllBlocks(false)
         .filter((block) => block.isEnabled() && !block.isShadow()).length;
       try {
-        report(editorRef.current?.compile().program, blockCount);
+        const compilation = editorRef.current?.compile();
+        report(
+          compilation?.mode === 'servo'
+            ? compilation.compiled.program
+            : undefined,
+          blockCount,
+        );
       } catch {
         // Half-built programs do not compile, which is the normal state while
         // somebody is dragging blocks around. Report the block count anyway so
@@ -136,7 +214,7 @@ export function SimulationWorkbench({
     publish();
     workspace.addChangeListener(publish);
     return () => workspace.removeChangeListener(publish);
-  }, [report]);
+  }, [programmingMode, report]);
 
   const compile = (): CompiledProgram | undefined => {
     try {
@@ -144,31 +222,118 @@ export function SimulationWorkbench({
       if (!result) {
         throw new Error('The Blockly workspace is not ready.');
       }
+      if (result.mode === 'cutter-grid') {
+        throw new Error(
+          'Cutter Grid trajectory planning is not available until its certified planner is loaded.',
+        );
+      }
       setCompileError(undefined);
-      return result;
+      return result.compiled;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Program compilation failed.';
       setCompileError(message);
-      if (error instanceof ProgramCompilationError) {
+      if (
+        error instanceof ProgramCompilationError ||
+        error instanceof CutterGridCompilationError
+      ) {
         editorRef.current?.locateError(error);
       }
       return undefined;
     }
   };
 
-  const handleRun = () => {
-    const compiled = compile();
-    if (compiled) {
-      engine.run(compiled);
+  const compileCutterGrid = (): CompiledCutterGridProgramV1 | undefined => {
+    try {
+      const result = editorRef.current?.compile();
+      if (!result || result.mode !== 'cutter-grid') {
+        throw new Error('The Cutter Grid workspace is not ready.');
+      }
+      setCompileError(undefined);
+      return result.compiled;
+    } catch (error) {
+      setCompileError(
+        error instanceof Error ? error.message : 'Cutter Grid compilation failed.',
+      );
+      if (error instanceof CutterGridCompilationError) {
+        editorRef.current?.locateError(error);
+      }
+      return undefined;
     }
   };
 
-  const handleTest = async () => {
-    const compiled = compile();
-    if (!compiled) {
+  const frozenCutterPlan = async () => {
+    const compiled = compileCutterGrid();
+    const profile = registeredCutterGridProfileV2(challenge);
+    if (!compiled || !profile) return undefined;
+    const workspaceVersion = workspaceVersionRef.current;
+    const cached = cutterPlanRef.current;
+    if (cached?.workspaceVersion === workspaceVersion) return cached;
+    engine.beginPlanning();
+    setPlanningProgress(undefined);
+    try {
+      const plan = await plannerRef.current.planV2(challenge, compiled, profile, setPlanningProgress);
+      if (workspaceVersion !== workspaceVersionRef.current) return undefined;
+      const frozen = { workspaceVersion, compiled, plan };
+      cutterPlanRef.current = frozen;
+      setCutterPlan(plan);
+      engine.cancelPlanning();
+      setPlanningProgress(undefined);
+      return frozen;
+    } catch (error) {
+      engine.cancelPlanning();
+      setPlanningProgress(undefined);
+      if (
+        error instanceof CutterGridLadderPlanningError &&
+        error.code === 'planning-cancelled'
+      ) return undefined;
+      setCompileError(
+        error instanceof Error ? error.message : 'Cutter Grid planning failed.',
+      );
+      if (error instanceof CutterGridLadderPlanningError) {
+        editorRef.current?.locateError({
+          blockId: error.details.sourceBlockId,
+        });
+      }
+      return undefined;
+    }
+  };
+
+  const handleRun = async () => {
+    if (programmingMode === 'cutter-grid') {
+      const frozen = await frozenCutterPlan();
+      if (frozen) {
+        engine.runCutterGrid(
+          frozen.plan,
+          frozen.compiled.program.sourceBlockCount,
+        );
+      }
       return;
     }
+    const compiled = compile();
+    if (compiled) engine.run(compiled);
+  };
+
+  const handleTest = async () => {
+    if (programmingMode === 'cutter-grid') {
+      setTesting(true);
+      try {
+        const frozen = await frozenCutterPlan();
+        if (frozen) {
+          await runCutterGridHeadless(
+            engine,
+            frozen.plan,
+            frozen.compiled.program.sourceBlockCount,
+          );
+          tutorial?.onTested();
+        }
+      } finally {
+        setTesting(false);
+      }
+      return;
+    }
+    const compiled = compile();
+    if (!compiled) return;
     setTesting(true);
     try {
       await runHeadless(engine, compiled);
@@ -185,21 +350,61 @@ export function SimulationWorkbench({
     }
   };
 
-  const handleStep = () => {
-    if (snapshot.status === 'idle') {
-      const compiled = compile();
-      if (compiled) {
-        engine.step(compiled);
+  const handleStep = async () => {
+    // Only a paused run continues where it left off. Everything else starts a
+    // fresh one and therefore needs the program, including the terminal states
+    // — stepping after a completed run used to be a silent no-op, so the only
+    // way forward was Reset.
+    const resuming = snapshot.status === 'paused';
+
+    if (programmingMode === 'cutter-grid') {
+      if (resuming) {
+        engine.stepCutterGrid();
+        return;
+      }
+      const frozen = await frozenCutterPlan();
+      if (frozen) {
+        engine.stepCutterGrid(
+          frozen.plan,
+          frozen.compiled.program.sourceBlockCount,
+        );
       }
       return;
     }
-    engine.step();
+
+    if (resuming) {
+      engine.step();
+      return;
+    }
+    const compiled = compile();
+    if (compiled) {
+      engine.step(compiled);
+    }
   };
 
   const handleReset = () => {
     setCompileError(undefined);
     editorRef.current?.highlightBlock();
+    plannerRef.current.cancel();
+    setPlanningProgress(undefined);
     engine.reset();
+  };
+
+  const handleProgrammingModeChange = (nextMode: ProgrammingMode) => {
+    if (
+      nextMode === programmingMode ||
+      !availableProgrammingModes.includes(nextMode) ||
+      !canSwitchProgrammingMode(snapshot.status)
+    ) {
+      return;
+    }
+    setCompileError(undefined);
+    engine.reset();
+    cutterPlanRef.current = undefined;
+    setCutterPlan(undefined);
+    plannerRef.current.cancel();
+    setPlanningProgress(undefined);
+    setProgrammingMode(nextMode);
   };
 
   const visibleError = compileError ?? snapshot.errorMessage;
@@ -267,7 +472,21 @@ export function SimulationWorkbench({
       </header>
 
       <section className="stage">
-        <SimulatorCanvas engine={engine} showTarget={showTarget} />
+        <SimulatorCanvas
+          engine={engine}
+          showTarget={showTarget}
+          {...(cutterProfile
+            ? {
+                cutterGrid: {
+                  profile: cutterProfile,
+                  ...(cutterPlan
+                    ? { plan: cutterPlan }
+                    : {}),
+                  visible: showCutterGrid,
+                },
+              }
+            : {})}
+        />
 
         <aside
           className={`side-panel side-panel--left ${
@@ -278,7 +497,7 @@ export function SimulationWorkbench({
           <div className="panel-header">
             <div>
               <span>PROGRAM</span>
-              <strong>Servo Control Program</strong>
+              <strong>{PROGRAMMING_MODE_LABEL[programmingMode]} Program</strong>
             </div>
             <button
               type="button"
@@ -288,11 +507,32 @@ export function SimulationWorkbench({
               <ChevronLeft size={17} />
             </button>
           </div>
+          {availableProgrammingModes.length > 1 ? (
+            <div
+              className="programming-mode-switch segmented"
+              role="group"
+              aria-label="Programming mode"
+            >
+              {availableProgrammingModes.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={mode === programmingMode ? 'is-active' : ''}
+                  aria-pressed={mode === programmingMode}
+                  disabled={!canSwitchProgrammingMode(snapshot.status)}
+                  onClick={() => handleProgrammingModeChange(mode)}
+                >
+                  {PROGRAMMING_MODE_LABEL[mode]}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <BlocklyEditor
             ref={editorRef}
             challenge={challenge}
             locked={editorLocked}
             visible={leftPanelOpen}
+            programmingMode={programmingMode}
           />
           <div className="panel-footer">
             <span>
@@ -327,6 +567,18 @@ export function SimulationWorkbench({
             snapshot={snapshot}
             showTarget={showTarget}
             onToggleTarget={toggleTarget}
+            {...(cutterProfile
+              ? {
+                  cutterGrid: {
+                    profile: cutterProfile,
+                    ...(cutterPlan
+                      ? { plan: cutterPlan }
+                      : {}),
+                    visible: showCutterGrid,
+                    onToggle: toggleCutterGrid,
+                  },
+                }
+              : {})}
           />
         </aside>
 
@@ -379,10 +631,10 @@ export function SimulationWorkbench({
 
         <SimulationControls
           status={snapshot.status}
-          onRun={handleRun}
+          onRun={() => void handleRun()}
           onPause={() => engine.pause()}
           onResume={() => engine.resume()}
-          onStep={handleStep}
+          onStep={() => void handleStep()}
           onStop={() => engine.stop()}
           onReset={handleReset}
           onTest={() => void handleTest()}
@@ -391,8 +643,12 @@ export function SimulationWorkbench({
             ? {
                 submit: {
                   onSubmit: handleSubmit,
-                  disabled: !match.canSubmit,
+                  disabled:
+                    programmingMode === 'cutter-grid' || !match.canSubmit,
                   busy: match.submitting,
+                  ...(programmingMode === 'cutter-grid'
+                    ? { title: 'Backend replay not yet supported' }
+                    : {}),
                 },
               }
             : {})}
@@ -401,7 +657,33 @@ export function SimulationWorkbench({
           Absent in the web build — `ArmDock` returns null when no Electron
           preload has exposed the bridge, which is every browser tab.
         */}
-        <ArmDock challenge={challenge} compile={compile} />
+        {/*
+          Shown in both modes. It used to be servo-only, which meant the dock
+          silently vanished when you switched to Cutter Grid — the arm looked
+          unsupported rather than unable, and there was nowhere to say which.
+          It now explains itself: a Cutter Grid trajectory needs a shoulder-roll
+          servo this arm does not have, and the dock says so with the measured
+          error rather than hiding.
+        */}
+        <ArmDock
+          challenge={challenge}
+          mode={programmingMode}
+          compile={compile}
+          cutterPlan={async () => (await frozenCutterPlan())?.plan}
+        />
+
+        {programmingMode === 'cutter-grid' && match ? (
+          <>
+          <div className="backend-replay-notice" role="status">
+            Backend replay not yet supported. Scoring stays in this browser.
+          </div>
+          {snapshot.status === 'planning' && planningProgress ? (
+            <div className="planning-progress" aria-live="polite">
+              Planning: {planningProgress.phase.replaceAll('-', ' ')} · {planningProgress.completedLayers}/{planningProgress.totalLayers} · {planningProgress.seedBudget} seeds
+            </div>
+          ) : null}
+          </>
+        ) : null}
         <LogDrawer
           logs={snapshot.logs}
           open={logOpen}

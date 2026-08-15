@@ -1,16 +1,30 @@
 import { Eye, EyeOff, Target } from 'lucide-react';
 import type { Challenge } from '../../types/domain';
 import type { SimulationSnapshot } from '../../features/simulation/SimulationEngine';
+import type {
+  CutterGridProfileV1,
+  CutterGridProfileV2,
+  CutterTrajectoryPlanV1,
+  CutterTrajectoryPlanV2,
+} from '../../features/cutter-grid/types';
 
 interface InspectorPanelProps {
   challenge: Challenge;
   snapshot: SimulationSnapshot;
   showTarget: boolean;
   onToggleTarget: () => void;
+  cutterGrid?: {
+    profile: CutterGridProfileV1 | CutterGridProfileV2;
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2;
+    visible: boolean;
+    onToggle: () => void;
+  };
 }
 
 const STATUS_LABELS: Record<SimulationSnapshot['status'], string> = {
   loading: 'Loading',
+  positioning: 'Positioning',
+  planning: 'Planning',
   idle: 'Idle',
   running: 'Running',
   paused: 'Paused',
@@ -24,6 +38,7 @@ export function InspectorPanel({
   snapshot,
   showTarget,
   onToggleTarget,
+  cutterGrid,
 }: InspectorPanelProps) {
   const result = snapshot.scoreResult;
 
@@ -52,6 +67,43 @@ export function InspectorPanel({
           <span>{showTarget ? 'ON' : 'OFF'}</span>
         </button>
       </section>
+
+      {cutterGrid ? (
+        <section className="inspector-section cutter-grid-inspector">
+          <div className="section-heading">
+            <span>CUTTER GRID</span>
+            <span>WORLD AXES</span>
+          </div>
+          <button
+            type="button"
+            className={`target-toggle ${cutterGrid.visible ? 'is-active' : ''}`}
+            onClick={cutterGrid.onToggle}
+            aria-pressed={cutterGrid.visible}
+          >
+            {cutterGrid.visible ? <Eye size={15} /> : <EyeOff size={15} />}
+            Grid and planned path
+            <span>{cutterGrid.visible ? 'ON' : 'OFF'}</span>
+          </button>
+          <dl className="cutter-grid-summary">
+            <div><dt>Axes</dt><dd>+X Right · +Y Up · −Z Forward</dd></div>
+            <div><dt>Current</dt><dd>({(snapshot.cutterGrid?.currentCoord ?? [0, 0, 0]).join(', ')})</dd></div>
+            <div><dt>Next</dt><dd>{snapshot.cutterGrid?.nextCoord ? `(${snapshot.cutterGrid.nextCoord.join(', ')})` : '—'}</dd></div>
+            <div><dt>Progress</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : 'Not planned'}</dd></div>
+            <div><dt>Path state</dt><dd>{snapshot.cutterGrid?.diagnostics ? 'Connected for this program' : 'Static IK map only'}</dd></div>
+            <div><dt>Branch</dt><dd>{snapshot.cutterGrid?.entryOptionId ?? (cutterGrid.plan?.version === 2 ? cutterGrid.plan.entryOptionId : '—')}</dd></div>
+            {snapshot.cutterGrid?.diagnostics ? (
+              <div><dt>Search</dt><dd>{`${snapshot.cutterGrid.diagnostics.seedBudgetUsed} seeds · ${snapshot.cutterGrid.diagnostics.candidateCounts.join('/')} candidates`}</dd></div>
+            ) : null}
+            <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
+          </dl>
+          <div className="cutter-grid-legend" aria-label="Cutter Grid legend">
+            <span><i className="is-reachable" />Safe IK known</span>
+            <span><i className="is-blocked" />No safe IK found</span>
+            <span><i className="is-executed" />Executed</span>
+            <span><i className="is-planned" />Planned</span>
+          </div>
+        </section>
+      ) : null}
 
       <section className="inspector-section">
         <div className="section-heading">

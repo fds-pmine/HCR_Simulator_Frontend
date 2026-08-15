@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
 import type { SimulationEngine } from './SimulationEngine';
-import { clampFrameDeltaMs } from './frameTiming';
+import { playbackFrameDeltaMs } from './frameTiming';
 
 export function SimulationTicker({
   engine,
@@ -8,7 +8,7 @@ export function SimulationTicker({
   engine: SimulationEngine;
 }) {
   useFrame((_, deltaSeconds) => {
-    engine.tick(clampFrameDeltaMs(deltaSeconds));
+    engine.tick(playbackFrameDeltaMs(deltaSeconds));
   });
 
   return null;
