@@ -57,6 +57,27 @@ function validatePlan(plan) {
       arm.formatAngle(axis, Number(step.value))
       return { type: 'move', axis, value: Number(step.value), durationMs }
     }
+    if (step?.type === 'pose') {
+      // Several axes in one write. A Cutter Grid waypoint moves every joint at
+      // once, and one request beats four round trips to an ESP8266.
+      if (!Array.isArray(step.moves) || step.moves.length === 0) {
+        throw new Error(`Step ${index + 1} is a pose with no axes to move.`)
+      }
+      const seen = new Set()
+      const moves = step.moves.map((move) => {
+        const axis = arm.axisName(move?.axis)
+        // The firmware applies duplicate keys in query order, so the last one
+        // would silently win. Refusing is better than a pose that means
+        // something other than it reads.
+        if (seen.has(axis)) {
+          throw new Error(`Step ${index + 1} names axis ${axis} twice.`)
+        }
+        seen.add(axis)
+        arm.formatAngle(axis, Number(move.value))
+        return { axis, value: Number(move.value) }
+      })
+      return { type: 'pose', moves, durationMs }
+    }
     throw new Error(`Step ${index + 1} has unknown type "${step?.type}".`)
   })
 }
@@ -102,6 +123,8 @@ async function run(plan, onProgress) {
       onProgress?.({ phase: 'step', index, total: steps.length, step })
       if (step.type === 'move') {
         await arm.setAngles([{ axis: step.axis, value: step.value }])
+      } else if (step.type === 'pose') {
+        await arm.setAngles(step.moves)
       }
       await sleep(step.durationMs, controller.signal)
       completed = index + 1
@@ -142,4 +165,4 @@ async function shutdown() {
   }
 }
 
-module.exports = { run, abort, isRunning, shutdown, MAX_STEPS }
+module.exports = { run, abort, isRunning, shutdown, validatePlan, MAX_STEPS }

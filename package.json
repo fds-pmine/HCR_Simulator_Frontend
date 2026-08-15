@@ -1,9 +1,9 @@
 {
   "name": "hcr-simulator",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "HCR Simulator \u2014 a Blockly and Web 3D robotic haircut simulation",
+  "description": "HCR Simulator — a Blockly and Web 3D robotic haircut simulation",
   "homepage": "https://web.hcr.rs",
   "//author": "Required, not decorative: electron-builder derives the deb and rpm `maintainer` field from it and refuses to package those formats without one.",
   "author": "JerrySu5379 <jerrysu5379@gmail.com>",

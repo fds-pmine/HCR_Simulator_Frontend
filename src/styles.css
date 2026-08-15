@@ -1144,7 +1144,21 @@ input:focus-visible {
   max-height: 100vh;
   flex-direction: column;
   align-items: center;
+  /*
+   * Centred while it fits, top-aligned once it does not.
+   *
+   * A plain `center` on a scrolling flex column centres the *overflow* too, so
+   * the first child ends up above the scroll origin and simply cannot be
+   * reached — scrollTop has no negative side. The lesson list was already long
+   * enough to lose its own heading that way, and gained a section when Cutter
+   * Grid moved to the front.
+   *
+   * `safe` switches to `start` exactly when overflow would otherwise clip.
+   * The unprefixed line stays as the fallback for anything that does not
+   * understand the keyword and would drop the whole declaration.
+   */
   justify-content: center;
+  justify-content: safe center;
   overflow-y: auto;
   padding: clamp(20px, 4vh, 44px) 20px;
   gap: clamp(16px, 3vh, 30px);

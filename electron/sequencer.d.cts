@@ -9,11 +9,21 @@
  */
 
 export interface ArmStep {
-  type: 'move' | 'wait';
+  type: 'move' | 'pose' | 'wait';
   axis?: string;
   value?: number;
+  /** Set on a `pose`: several axes written in one request. */
+  moves?: { axis: string; value: number }[];
   durationMs: number;
 }
+
+/**
+ * Re-validate a plan without running it.
+ *
+ * Exported so the range and shape checks are reachable from the test runner;
+ * `run` reaches the network, and these are the parts worth asserting.
+ */
+export declare function validatePlan(plan: readonly unknown[]): ArmStep[];
 
 export interface ArmProgress {
   phase: 'step';

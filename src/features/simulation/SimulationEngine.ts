@@ -36,6 +36,21 @@ export type SimulationStatus =
   | 'stopped'
   | 'error';
 
+/**
+ * Statuses a fresh run may start from.
+ *
+ * The terminal three are included deliberately: finishing a program is not a
+ * state you should have to clear before doing anything else. `Run` already
+ * treats them this way — it re-prepares from the top — and `Step` used to not,
+ * which is why stepping after a completed run appeared to do nothing at all.
+ */
+export const RESTARTABLE_STATUSES: readonly SimulationStatus[] = [
+  'idle',
+  'completed',
+  'stopped',
+  'error',
+];
+
 export type SimulationLogType =
   | 'system'
   | 'command'
@@ -219,7 +234,17 @@ export class SimulationEngine {
     plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2,
     sourceBlockCount = 0,
   ): void {
-    if (this.status === 'idle' || this.status === 'planning') {
+    const resumable =
+      this.status === 'paused' && this.executionMode === 'cutter-grid';
+    if (!resumable) {
+      // `planning` joins the restartable set here: the plan has just been
+      // solved and stepping is the natural next action.
+      if (
+        !RESTARTABLE_STATUSES.includes(this.status) &&
+        this.status !== 'planning'
+      ) {
+        return;
+      }
       if (!plan) throw new Error('A Cutter Grid trajectory is required for the first step.');
       this.prepareCutterGridPlan(plan, sourceBlockCount);
       if (plan.version === 2) {
@@ -228,8 +253,6 @@ export class SimulationEngine {
         this.publish();
         return;
       }
-    } else if (this.status !== 'paused' || this.executionMode !== 'cutter-grid') {
-      return;
     }
     this.stepTargetCommandCount = this.cutterExecutor.getStepIndex() + 1;
     this.status = 'running';
@@ -257,13 +280,17 @@ export class SimulationEngine {
   }
 
   step(compiled?: CompiledProgram): void {
-    if (this.status === 'idle') {
+    if (this.status !== 'paused') {
+      // Anything restartable begins a new run, exactly as `run` does. Only
+      // `running`, `loading` and `positioning` fall through to a no-op, because
+      // stepping into a run already in motion is meaningless.
+      if (!RESTARTABLE_STATUSES.includes(this.status)) {
+        return;
+      }
       if (!compiled) {
         throw new Error('A compiled program is required for the first step.');
       }
       this.prepareProgram(compiled);
-    } else if (this.status !== 'paused') {
-      return;
     }
 
     this.stepTargetCommandCount =

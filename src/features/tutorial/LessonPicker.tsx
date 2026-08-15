@@ -25,6 +25,15 @@ export function LessonPicker({
         Menu
       </button>
 
+      {/*
+        Cutter Grid leads.
+
+        It asks the learner to say *where the tool should go*; Servo Angles asks
+        them to work out which joint reaches there, which is the harder question
+        and the one the cutter answers for them. Teaching the harder mode first
+        made the easy one look like a footnote, so the order now matches the
+        difficulty rather than the order the two were built in.
+      */}
       <header className="menu-screen__head">
         <p className="phase-kicker">
           <GraduationCap size={13} />
@@ -32,9 +41,46 @@ export function LessonPicker({
         </p>
         <h1>Learn to drive the arm</h1>
         <p className="menu-screen__lede">
-          Eight Servo challenges and five Cutter Grid lessons, each teaching
-          one thing. The Servo targets were built by running programs that
-          work, not drawn by hand.
+          Start with Cutter Grid — you say where the tool goes and the arm works
+          out how to get there. Then Servo Angles, where you drive each joint
+          yourself. Thirteen lessons, each teaching one thing.
+        </p>
+      </header>
+
+      <header className="menu-screen__head cutter-grid-lessons__head">
+        <p className="phase-kicker">CUTTER GRID</p>
+        <h2>Control the cutter in 3D space</h2>
+        <p className="menu-screen__lede">
+          Five lessons on fixed axes, distance, Repeat, swept cuts, and blocked
+          coordinates.
+        </p>
+      </header>
+      <ol className="lesson-list">
+        {CUTTER_GRID_LESSONS.map((lesson, index) => (
+          <li key={lesson.id}>
+            <button
+              type="button"
+              className="lesson-row lesson-row--cutter-grid"
+              onClick={() => onPickCutterGrid?.(lesson.id)}
+              disabled={!onPickCutterGrid}
+            >
+              <span className="lesson-row__index">G{index + 1}</span>
+              <span className="lesson-row__text">
+                <strong>{lesson.name.replace(/^Grid \d+\s·\s/, '')}</strong>
+                <small>{lesson.description}</small>
+              </span>
+              <span className="lesson-row__meta">Cutter Grid</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      <header className="menu-screen__head cutter-grid-lessons__head">
+        <p className="phase-kicker">SERVO ANGLES</p>
+        <h2>Drive each joint yourself</h2>
+        <p className="menu-screen__lede">
+          Eight challenges on joint control and reach. Every target was built by
+          running a program that works, not drawn by hand.
         </p>
       </header>
 
@@ -67,34 +113,6 @@ export function LessonPicker({
             </li>
           );
         })}
-      </ol>
-
-      <header className="menu-screen__head cutter-grid-lessons__head">
-        <p className="phase-kicker">CUTTER GRID</p>
-        <h2>Control the cutter in 3D space</h2>
-        <p className="menu-screen__lede">
-          Five dedicated lessons for fixed axes, distance, Repeat, swept cuts,
-          and blocked coordinates.
-        </p>
-      </header>
-      <ol className="lesson-list">
-        {CUTTER_GRID_LESSONS.map((lesson, index) => (
-          <li key={lesson.id}>
-            <button
-              type="button"
-              className="lesson-row lesson-row--cutter-grid"
-              onClick={() => onPickCutterGrid?.(lesson.id)}
-              disabled={!onPickCutterGrid}
-            >
-              <span className="lesson-row__index">G{index + 1}</span>
-              <span className="lesson-row__text">
-                <strong>{lesson.name.replace(/^Grid \d+\s·\s/, '')}</strong>
-                <small>{lesson.description}</small>
-              </span>
-              <span className="lesson-row__meta">Cutter Grid</span>
-            </button>
-          </li>
-        ))}
       </ol>
     </main>
   );

@@ -70,8 +70,8 @@ export function HomeScreen({
           </span>
           <strong>Lessons</strong>
           <span className="mode-card__body">
-            Eight Servo challenges plus five Cutter Grid lessons, one skill
-            each. Learn joint control or fixed-axis cutter movement.
+            Five Cutter Grid lessons first — say where the tool goes — then
+            eight Servo challenges driving each joint yourself.
           </span>
           <span className="mode-card__go">Practise →</span>
         </button>

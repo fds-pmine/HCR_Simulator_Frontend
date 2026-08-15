@@ -102,7 +102,9 @@ export function SimulationControls({
         className="control-button"
         type="button"
         onClick={onStep}
-        disabled={status !== 'idle' && !paused}
+        // Same states `Run` accepts, plus resuming a pause. Finishing a
+        // program should not leave Step greyed out until you press Reset.
+        disabled={!canRun && !paused}
         data-testid="step-button"
       >
         <SkipForward size={16} />

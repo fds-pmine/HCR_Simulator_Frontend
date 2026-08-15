@@ -351,28 +351,35 @@ export function SimulationWorkbench({
   };
 
   const handleStep = async () => {
+    // Only a paused run continues where it left off. Everything else starts a
+    // fresh one and therefore needs the program, including the terminal states
+    // — stepping after a completed run used to be a silent no-op, so the only
+    // way forward was Reset.
+    const resuming = snapshot.status === 'paused';
+
     if (programmingMode === 'cutter-grid') {
-      if (snapshot.status === 'idle') {
-        const frozen = await frozenCutterPlan();
-        if (frozen) {
-          engine.stepCutterGrid(
-            frozen.plan,
-            frozen.compiled.program.sourceBlockCount,
-          );
-        }
-      } else {
+      if (resuming) {
         engine.stepCutterGrid();
+        return;
+      }
+      const frozen = await frozenCutterPlan();
+      if (frozen) {
+        engine.stepCutterGrid(
+          frozen.plan,
+          frozen.compiled.program.sourceBlockCount,
+        );
       }
       return;
     }
-    if (snapshot.status === 'idle') {
-      const compiled = compile();
-      if (compiled) {
-        engine.step(compiled);
-      }
+
+    if (resuming) {
+      engine.step();
       return;
     }
-    engine.step();
+    const compiled = compile();
+    if (compiled) {
+      engine.step(compiled);
+    }
   };
 
   const handleReset = () => {
@@ -650,9 +657,20 @@ export function SimulationWorkbench({
           Absent in the web build — `ArmDock` returns null when no Electron
           preload has exposed the bridge, which is every browser tab.
         */}
-        {programmingMode === 'servo' ? (
-          <ArmDock challenge={challenge} compile={compile} />
-        ) : null}
+        {/*
+          Shown in both modes. It used to be servo-only, which meant the dock
+          silently vanished when you switched to Cutter Grid — the arm looked
+          unsupported rather than unable, and there was nowhere to say which.
+          It now explains itself: a Cutter Grid trajectory needs a shoulder-roll
+          servo this arm does not have, and the dock says so with the measured
+          error rather than hiding.
+        */}
+        <ArmDock
+          challenge={challenge}
+          mode={programmingMode}
+          compile={compile}
+          cutterPlan={async () => (await frozenCutterPlan())?.plan}
+        />
 
         {programmingMode === 'cutter-grid' && match ? (
           <>

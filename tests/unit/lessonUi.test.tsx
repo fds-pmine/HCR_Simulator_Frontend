@@ -30,6 +30,41 @@ describe('lesson picker', () => {
     expect(onPick).toHaveBeenCalledWith(LESSONS[0].id);
   });
 
+  /**
+   * Cutter Grid is taught first.
+   *
+   * It asks where the tool should go; Servo Angles asks which joint reaches
+   * there, which is the harder question and the one the cutter answers for the
+   * learner. The order is a teaching decision, so it is pinned here rather than
+   * left to whichever section happens to be rendered first.
+   */
+  it('puts the Cutter Grid lessons before the Servo ones', () => {
+    const { container } = render(
+      <LessonPicker
+        completed={new Set()}
+        onPick={() => {}}
+        onPickCutterGrid={() => {}}
+        onBack={() => {}}
+      />,
+    );
+
+    const rows = [...container.querySelectorAll('.lesson-row')];
+    const isCutter = rows.map((row) =>
+      row.classList.contains('lesson-row--cutter-grid'),
+    );
+    const firstServo = isCutter.indexOf(false);
+    const lastCutter = isCutter.lastIndexOf(true);
+
+    expect(lastCutter).toBeGreaterThanOrEqual(0);
+    expect(firstServo).toBeGreaterThan(lastCutter);
+    expect(rows).toHaveLength(CUTTER_GRID_LESSONS.length + LESSONS.length);
+
+    // The very first thing offered is the first Cutter Grid lesson.
+    expect(rows[0].textContent).toContain(
+      CUTTER_GRID_LESSONS[0].name.replace(/^Grid \d+\s·\s/, ''),
+    );
+  });
+
   it('marks solved lessons', () => {
     const { container } = render(
       <LessonPicker completed={new Set([LESSONS[0].id])} onPick={() => {}} onBack={() => {}} />,

@@ -10,19 +10,47 @@ import {
 } from 'lucide-react';
 import type { Challenge } from '../../types/domain';
 import type { CompiledProgram } from '../../features/blockly/programTypes';
+import type { ProgrammingMode } from '../../features/blockly/programmingMode';
+import type {
+  CutterTrajectoryPlanV1,
+  CutterTrajectoryPlanV2,
+} from '../../features/cutter-grid/types';
 import {
   armCall,
   buildArmPlan,
+  buildCutterArmEndpointPlan,
   isArmAvailable,
   type ArmProgress,
+  type ArmStep,
+  type CutterArmEndpoint,
   type UnsupportedJoint,
 } from '../../features/robot/armBridge';
 
 interface ArmDockProps {
   challenge: Challenge;
+  /** Which editor wrote the program the dock should send. */
+  mode: ProgrammingMode;
   /** Compiles the current workspace, or returns undefined on a program error. */
   compile: () => CompiledProgram | undefined;
+  /**
+   * The frozen Cutter Grid trajectory, planned on demand.
+   *
+   * Async because planning runs in a cancellable Worker and can take seconds —
+   * the same call Run and Test go through, so pressing Send does not re-solve a
+   * program that has already been planned.
+   */
+  cutterPlan?: () => Promise<
+    CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | undefined
+  >;
 }
+
+/**
+ * Mirrors `sequencer.MAX_STEPS`.
+ *
+ * Duplicated rather than imported because the sequencer is CommonJS in the main
+ * process and this is renderer code; `armBridge.test.ts` asserts the two agree.
+ */
+const ARM_STEP_BUDGET = 512;
 
 type Link =
   | { state: 'unknown' }
@@ -37,7 +65,7 @@ type Link =
  * device from an HTTPS page, so there is nothing here to degrade gracefully
  * into — the whole dock is absent rather than present and broken.
  */
-export function ArmDock({ challenge, compile }: ArmDockProps) {
+export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) {
   const [open, setOpen] = useState(false);
   const [address, setAddress] = useState('');
   const [draft, setDraft] = useState('');
@@ -47,6 +75,7 @@ export function ArmDock({ challenge, compile }: ArmDockProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [unsupported, setUnsupported] = useState<UnsupportedJoint[]>([]);
+  const [endpoints, setEndpoints] = useState<CutterArmEndpoint[]>([]);
 
   const available = isArmAvailable();
 
@@ -132,7 +161,53 @@ export function ArmDock({ challenge, compile }: ArmDockProps) {
     await armCall((bridge) => bridge.home());
   });
 
+  const send = async (steps: readonly ArmStep[]) => {
+    setRunning(true);
+    try {
+      const result = await armCall((bridge) => bridge.run(steps));
+      setProgress(undefined);
+      if (result.aborted) {
+        setError(`Stopped after ${result.completed} of ${result.total} steps.`);
+      }
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const handleSend = () => {
+    setEndpoints([]);
+
+    if (mode === 'cutter-grid') {
+      void guard(async () => {
+        const trajectory = await cutterPlan?.();
+        if (!trajectory) {
+          return;
+        }
+        // Endpoints, not the frozen path. The planner's trajectory needs a
+        // shoulder-roll servo this arm does not have, but each block has one
+        // destination and those are reachable without it — and on hardware
+        // there is no hair, so the route between them carries nothing.
+        const plan = buildCutterArmEndpointPlan(challenge, trajectory, {
+          maxSteps: ARM_STEP_BUDGET,
+        });
+        setEndpoints(plan.endpoints);
+        if (plan.unreachable.length > 0) {
+          setError(
+            `The arm cannot reach ${plan.unreachable.length} of ` +
+              `${plan.endpoints.length} destinations without a shoulder-roll ` +
+              'servo, so nothing was sent.',
+          );
+          return;
+        }
+        if (plan.steps.length === 0) {
+          setError('This trajectory has nothing the arm can perform.');
+          return;
+        }
+        await send(plan.steps);
+      });
+      return;
+    }
+
     const compiled = compile();
     if (!compiled) {
       return;
@@ -143,18 +218,7 @@ export function ArmDock({ challenge, compile }: ArmDockProps) {
       setError('This program has nothing the arm can perform.');
       return;
     }
-    setRunning(true);
-    void guard(async () => {
-      try {
-        const result = await armCall((bridge) => bridge.run(plan.steps));
-        setProgress(undefined);
-        if (result.aborted) {
-          setError(`Stopped after ${result.completed} of ${result.total} steps.`);
-        }
-      } finally {
-        setRunning(false);
-      }
-    });
+    void guard(() => send(plan.steps));
   };
 
   const handleAbort = () => void guard(async () => {
@@ -267,9 +331,16 @@ export function ArmDock({ challenge, compile }: ArmDockProps) {
           {progress ? (
             <p className="arm-dock__status">
               Step {progress.index + 1} of {progress.total} —{' '}
-              {progress.step.type === 'move'
-                ? `${progress.step.axis} to ${progress.step.value}°`
-                : `wait ${progress.step.durationMs}ms`}
+              {describeStep(progress.step)}
+            </p>
+          ) : null}
+
+          {endpoints.length > 0 ? (
+            <p className="arm-dock__status">
+              {endpoints.length} destination
+              {endpoints.length === 1 ? '' : 's'} — one per block. The arm
+              solves its own pose for each; the path between them is not the
+              simulated one.
             </p>
           ) : null}
 
@@ -290,4 +361,17 @@ export function ArmDock({ challenge, compile }: ArmDockProps) {
       ) : null}
     </div>
   );
+}
+
+/** One line of progress, for whichever step shape is running. */
+function describeStep(step: ArmStep): string {
+  if (step.type === 'wait') {
+    return `wait ${step.durationMs}ms`;
+  }
+  if (step.type === 'move') {
+    return `${step.axis} to ${step.value}°`;
+  }
+  return step.moves
+    .map((move) => `${move.axis} ${move.value.toFixed(1)}°`)
+    .join('  ');
 }
