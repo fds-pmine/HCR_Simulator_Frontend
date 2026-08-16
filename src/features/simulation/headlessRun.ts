@@ -18,12 +18,13 @@ const DEFAULT_BUDGET_MS = 2_000;
  * Evaluate a program as fast as the CPU allows, with no animation.
  *
  * `SimulationTicker` advances the engine off `useFrame`, so watching a
- * 60-second program takes 60 seconds — and on a stuttering machine, longer,
- * because `clampFrameDeltaMs` discards anything past 100 ms per frame. In a
- * wall-clock round that turns iteration speed into a hardware advantage, which
- * `06-MULTIPLAYER.md` §4 identifies as the real lag disadvantage and this as the
- * fix: the same engine, the same commands, the same score, in a few
- * milliseconds.
+ * 60-second program still costs tens of seconds even at the accelerated
+ * playback rate. In a wall-clock round that turns iteration speed into a
+ * hardware advantage, which `06-MULTIPLAYER.md` §4 identifies as the real lag
+ * disadvantage and this as the fix: the same engine, the same commands, the
+ * same score, in a few milliseconds. (Playback speed itself no longer varies
+ * with frame rate — `playbackFrameStepsMs` sub-steps a slow frame instead of
+ * dropping the time it owes.)
  *
  * The loop is synchronous, so `useFrame` cannot interleave with it. If the
  * budget runs out first the run is simply left where it stands — the animated

@@ -14,8 +14,7 @@ import {
 import { toServoDeg } from '../../src/features/robot/servoMapping';
 import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
 import {
-  clampFrameDeltaMs,
-  playbackFrameDeltaMs,
+  playbackFrameStepsMs,
   SIMULATION_PLAYBACK_RATE,
 } from '../../src/features/simulation/frameTiming';
 import {
@@ -40,17 +39,41 @@ beforeAll(async () => {
 });
 
 describe('render frame timing', () => {
-  it('converts normal frame deltas and clamps long frames', () => {
-    expect(clampFrameDeltaMs(0.016)).toBe(16);
-    expect(clampFrameDeltaMs(0.5)).toBe(100);
-    expect(clampFrameDeltaMs(-0.1)).toBe(0);
+  const totalMs = (steps: number[]): number =>
+    steps.reduce((sum, step) => sum + step, 0);
+
+  it('plays rendered simulation at the configured accelerated rate', () => {
+    expect(SIMULATION_PLAYBACK_RATE).toBe(2);
+    expect(playbackFrameStepsMs(0.016)).toEqual([32]);
+    expect(playbackFrameStepsMs(0)).toEqual([]);
+    expect(playbackFrameStepsMs(-0.1)).toEqual([]);
   });
 
-  it('plays rendered simulation at the configured accelerated rate without relaxing the frame cap', () => {
-    expect(SIMULATION_PLAYBACK_RATE).toBe(2);
-    expect(playbackFrameDeltaMs(0.016)).toBe(32);
-    expect(playbackFrameDeltaMs(0.5)).toBe(100);
-    expect(playbackFrameDeltaMs(-0.1)).toBe(0);
+  it('never advances the engine past the collision sampling cap in one tick', () => {
+    // 250 ms of wall clock is 500 ms of simulated time at rate 2, and the
+    // engine must receive it as slices rather than one jump the cutter could
+    // cross voxels — or the head — inside of.
+    const steps = playbackFrameStepsMs(0.25);
+    expect(totalMs(steps)).toBe(500);
+    expect(Math.max(...steps)).toBeLessThanOrEqual(100);
+  });
+
+  /**
+   * The regression that made CI miss step deadlines a developer's GPU met:
+   * clamping to 100 ms and ticking once dropped the remainder, so playback
+   * silently ran at `fps × 100 ms` per second below 20 fps.
+   */
+  it('delivers the same simulated time per second at any frame rate', () => {
+    for (const fps of [60, 30, 20, 10, 5, 2]) {
+      const perWallSecond = totalMs(playbackFrameStepsMs(1 / fps)) * fps;
+      expect(perWallSecond).toBeCloseTo(1_000 * SIMULATION_PLAYBACK_RATE, 6);
+    }
+  });
+
+  it('drops time past the catch-up ceiling instead of teleporting the arm', () => {
+    const steps = playbackFrameStepsMs(30);
+    expect(totalMs(steps)).toBe(1_000);
+    expect(steps).toHaveLength(10);
   });
 });
 
