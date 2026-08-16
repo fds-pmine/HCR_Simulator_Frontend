@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
 import type { SimulationEngine } from './SimulationEngine';
-import { playbackFrameDeltaMs } from './frameTiming';
+import { playbackFrameStepsMs } from './frameTiming';
 
 export function SimulationTicker({
   engine,
@@ -8,7 +8,12 @@ export function SimulationTicker({
   engine: SimulationEngine;
 }) {
   useFrame((_, deltaSeconds) => {
-    engine.tick(playbackFrameDeltaMs(deltaSeconds));
+    // A slow frame owes several ticks. `tick` is a no-op once the run leaves
+    // `running`/`positioning`, so a pause or completion mid-frame simply ends
+    // the catch-up rather than overshooting past it.
+    for (const stepMs of playbackFrameStepsMs(deltaSeconds)) {
+      engine.tick(stepMs);
+    }
   });
 
   return null;
