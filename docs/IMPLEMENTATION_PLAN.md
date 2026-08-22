@@ -258,6 +258,7 @@ tests/
 ### Cutter Grid Motion Stability V3 Phase 1 — 固定路径限 jerk 轨迹
 
 - [x] 完成本地 Ruckig Community WASM Spike：固定 `v0.19.4`/MIT 与 Emscripten `4.0.20`，五关节离线 state-to-state ABI 在 Chromium/Edge Worker 中通过端点与零外部请求门禁；云客户端源码被排除，当前不替换 V3 运行轨迹。
+- [x] 完成纯领域、保守的 TOPP-RA 风格前向/后向可达传播：从固定 C2 几何输出确定性的路径速度及 `q/v/a` 边界，原子端点保持静止，并以真实全局 IK 回归几何验证速度/加速度限制。它是 Ruckig 输入预备层，尚未接入运行时。
 - [ ] 实现连续角度 unwrap、全局 C2 五次几何样条、pause-safe checkpoint、速度/加速度可达重定时和逐段 `q/v/a` jerk 平滑；所有计算保持纯函数和确定性。
 - [ ] 对全局最小 jerk 样条的限位 overshoot 采用签名可见的确定性单调 C2 约束解，并重新执行完整几何审计；不得放宽限位或回退到 V2 C1 插值。
 - [ ] 对每段实施联合自适应验证：关节 `v/a/j`、头部净空、关节限位、Cartesian 偏差及固定刀头扫掠集合。

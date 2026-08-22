@@ -20,3 +20,4 @@ export * from './referenceProgram';
 export * from './signature';
 export * from './types';
 export * from './trajectory';
+export * from './toppraV3';

@@ -36,7 +36,7 @@ Chromium Worker 探针只观察到本地审计服务器的 `/`、`/hcr_ruckig_lo
 
 替换运行时前必须完成以下事项：
 
-1. 在保持 V2 已选 IK 分支和固定 Cartesian 管道不变的前提下，生成 TOPP-RA 风格的连续 `q/v/a` 边界状态。
+1. 已完成：在保持 V2 已选 IK 分支和固定 Cartesian 管道不变的前提下，纯领域预备层生成确定性的保守 TOPP-RA 风格 path speed 及 `q/v/a` 边界；该输出尚未作为运行时轨迹。
 2. 对每个局部 Ruckig 段传递精确共享边界，按 `1.1x` 时长扩展、局部几何加密和 `50x` 上限处理失败；不得传 intermediate waypoints。
 3. 对完整回放在 `5ms`、`0.5°` 和 `voxelSize/16` 的联合分辨率复验速度、加速度、jerk、头部净空、Cartesian 偏差和扫掠接触集合。
 4. 添加 Worker 取消、确定性签名和 Chrome/Edge 回归。任何失败均 fail closed；不回退到网络 API、渲染滤波或旧 V2 插值。
