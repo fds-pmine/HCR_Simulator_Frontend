@@ -48,6 +48,7 @@
 
 ## Cutter Grid 限 jerk 运动稳定（V3，前端试验）
 
+- [x] 本地 Ruckig Community WASM Spike 已固定 `v0.19.4`/MIT、Emscripten `4.0.20` 和五关节 state-to-state ABI；Chromium/Edge module Worker 只请求本地 JS/WASM，云客户端未编译。该 Spike 尚未成为运行时规划器。
 - [x] V3 Worker 以独立版本化消息报告全局 IK 图搜索、几何平滑、时间参数化、jerk 平滑和播放验证；观察进度不改变候选顺序、冻结轨迹或签名，并显示层数/真实运动段数的正确单位。
 - [x] V3 rAF 回放产生有界只读遥测：每个播放帧的计划/渲染时间、`q/v/a/j`、末端、分支与单格、帧间隔和 `50ms` 长帧统计均可复核；隐藏页重锚不追赶墙钟，Inspector 默认折叠该开发信息，遥测不影响运动语义。
 - [ ] V3 Profile/Plan/诊断、签名和失败结果为纯可序列化领域数据，并有前端—Rust 共享 fixture；成功向量包含全计划签名、原子 checkpoint、接触和诊断摘要，失败向量包含结构化错误。

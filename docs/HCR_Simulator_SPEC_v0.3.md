@@ -686,6 +686,7 @@ npm run test:e2e
 - 固定关节几何路径先经过速度/加速度受限的确定性重定时，再以本地逐段 state-to-state jerk 平滑生成 C2 轨迹。平滑后必须按不超过 `5ms`、`0.5°` 和 `voxelSize/16` 的联合分辨率重新验证关节限制、头部碰撞、Cartesian 管道和接触集合；任一失败均 fail closed。
 - 全局最小 jerk 五次样条若在既有安全 knot 间发生关节限位 overshoot，必须保持相同 knot 序列并切换到签名可见的确定性单调 C2 约束解；不得放宽限位、缩短玩家路径或退回 V2 C1 插值。若该约束解仍不能通过 Cartesian、碰撞或接触审计，规划继续失败关闭。
 - 仅允许本地实现或在 Worker 中固定版本的本地 WASM 调用。禁止 Ruckig Community intermediate-waypoint 云 API、ROS、MoveIt、Tesseract 或任何外部路径规划服务。
+- 当前本地 WASM 可行性门禁固定 Ruckig Community `v0.19.4`（MIT）与 Emscripten `4.0.20`，只暴露五关节离线 state-to-state `q/v/a` ABI，构建时排除 cloud client，并以 Chromium/Edge Worker 的端点和本地请求测试审计。它只是独立 Spike，未完成固定路径的连续边界状态、完整碰撞/接触回归前不得接入运行时规划。
 - 动画提速是规划输入而非渲染时钟倍率：默认请求 `1.25x`，实际速度、加速度和 jerk 分别受 V3 硬上限 clamp，实际时长和比例写入计划并参与计分/签名。禁止把每帧 `delta` 或冻结轨迹时钟直接相乘。
 - 渲染以单调的绝对计划时间采样冻结轨迹；隐藏页、暂停和调试时冻结计划时间，恢复时不追赶墙钟。接触、评分与原子动作事件由计划扫掠区间驱动，不依赖某个中间渲染帧是否出现。
 - V3 前端在每个实际播放 rAF 后以有界、只读的诊断环记录渲染时间、计划时间、阶段/单格、入口分支、解析的五关节 `q/v/a/j`、控制器关节/末端跟踪误差及帧间隔。长帧阈值为 `50ms`；诊断副本不参与 Worker、轨迹签名、碰撞或评分，Inspector 默认折叠显示其摘要。
