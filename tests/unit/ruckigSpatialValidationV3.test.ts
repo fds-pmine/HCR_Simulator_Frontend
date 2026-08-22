@@ -4,9 +4,10 @@ import {
   assertCutterGridRuckigExpectedCutVoxelsV3,
   createCutterGridRuckigMoveSpatialValidatorV3,
   CutterGridRuckigSpatialValidationError,
+  type CutterGridRuckigTimedSpatialSampleV3,
   validateCutterGridRuckigSpatialSamplesV3,
 } from '../../src/features/cutter-grid/ruckigSpatialValidationV3';
-import type { RuckigLocalFiveAxisVector, RuckigLocalTrajectorySample } from '../../src/features/cutter-grid/ruckigLocalWasm';
+import type { RuckigLocalFiveAxisVector } from '../../src/features/cutter-grid/ruckigLocalWasm';
 import { computeRobotPose, createInitialJointAngles } from '../../src/features/robot/kinematics';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge, JointId } from '../../src/types/domain';
@@ -132,12 +133,14 @@ describe('Cutter Grid local Ruckig spatial certification', () => {
       targetCoord: [0, 0, 0],
       actionIndex: 0,
     });
-    const segment = [sample(contactChallenge, initialAngles), sample(contactChallenge, initialAngles)];
+    const segment = [sample(contactChallenge, initialAngles, 0), sample(contactChallenge, initialAngles, 0.005)];
     validator.validateSegment(segment);
     // Re-observing the shared segment endpoint cannot create a duplicate cut.
     validator.validateSegment(segment);
 
-    expect(validator.finalize().cutVoxels).toEqual(['0,0,0']);
+    const summary = validator.finalize();
+    expect(summary.cutVoxels).toEqual(['0,0,0']);
+    expect(summary.contactEvents).toEqual([{ timeSeconds: 0.005, voxelKeys: ['0,0,0'] }]);
 
     const missingContact = createCutterGridRuckigMoveSpatialValidatorV3(contactChallenge, {
       fixedAxisLine: { start: endEffector, end: endEffector },
@@ -151,10 +154,17 @@ describe('Cutter Grid local Ruckig spatial certification', () => {
 function sample(
   challenge: Challenge,
   angles: Readonly<Record<JointId, number>>,
-): RuckigLocalTrajectorySample {
+  timeSeconds?: number,
+): CutterGridRuckigTimedSpatialSampleV3 {
   const position = challenge.robotConfig.joints.map((joint) => angles[joint.id]) as unknown as RuckigLocalFiveAxisVector;
   const zero = [0, 0, 0, 0, 0] as const;
-  return { position, velocity: zero, acceleration: zero, jerk: zero };
+  return {
+    position,
+    velocity: zero,
+    acceleration: zero,
+    jerk: zero,
+    ...(timeSeconds === undefined ? {} : { timeSeconds }),
+  };
 }
 
 function expectSpatialFailure(

@@ -75,6 +75,9 @@ export interface CutterGridRuckigSegmentV3 {
   requestedMinimumDurationSeconds: number;
   durationSeconds: number;
   durationExtensionCount: number;
+  /** Number of dense samples consumed by Worker-side safety certification. */
+  certificationSampleCount: number;
+  /** Exact constant-jerk boundaries required by the runtime evaluator. */
   samples: CutterGridRuckigSampleV3[];
 }
 
@@ -97,6 +100,8 @@ export interface CutterGridRuckigRetimeOptionsV3 {
   validateSegment?: (segment: {
     startParameter: number;
     endParameter: number;
+    /** Absolute time within this local retiming operation. */
+    startTimeSeconds: number;
     samples: readonly CutterGridRuckigSampleV3[];
   }) => void;
   /**
@@ -112,6 +117,7 @@ export interface CutterGridRuckigRetimeOptionsV3 {
   requiresFinerSampling?: (segment: {
     startParameter: number;
     endParameter: number;
+    startTimeSeconds: number;
     samples: readonly CutterGridRuckigSampleV3[];
   }) => boolean;
   /**
@@ -237,7 +243,17 @@ function retimeReachabilityWithProfile(
   for (let index = 1; index < reachability.nodes.length; index += 1) {
     const start = reachability.nodes[index - 1];
     const end = reachability.nodes[index];
-    const segment = solveSegment(challenge, geometry, limits, solver, start, end, boundaryProfile, options);
+    const segment = solveSegment(
+      challenge,
+      geometry,
+      limits,
+      solver,
+      start,
+      end,
+      boundaryProfile,
+      options,
+      segments.reduce((total, candidate) => total + candidate.durationSeconds, 0),
+    );
     segments.push(segment.segment);
     maximumVelocityRatio = Math.max(maximumVelocityRatio, segment.maximumVelocityRatio);
     maximumAccelerationRatio = Math.max(maximumAccelerationRatio, segment.maximumAccelerationRatio);
@@ -276,6 +292,7 @@ function solveSegment(
   end: CutterGridReachabilityNodeV3,
   boundaryProfile: RuckigBoundaryProfile,
   options: CutterGridRuckigRetimeOptionsV3,
+  startTimeSeconds: number,
 ): {
   segment: CutterGridRuckigSegmentV3;
   maximumVelocityRatio: number;
@@ -332,6 +349,7 @@ function solveSegment(
         if (options.requiresFinerSampling?.({
           startParameter: start.parameter,
           endParameter: end.parameter,
+          startTimeSeconds,
           samples,
         })) {
           sampleCount = nextSpatialSampleCount(sampleCount, end.parameter);
@@ -341,6 +359,7 @@ function solveSegment(
           options.validateSegment?.({
             startParameter: start.parameter,
             endParameter: end.parameter,
+            startTimeSeconds,
             samples,
           });
         } catch (error) {
@@ -363,7 +382,8 @@ function solveSegment(
             requestedMinimumDurationSeconds: requestedMinimumDuration,
             durationSeconds: trajectory.durationSeconds,
             durationExtensionCount: extensionCount,
-            samples,
+            certificationSampleCount: samples.length,
+            samples: extractRuckigControlSamples(samples),
           },
           ...validation,
         };
@@ -403,6 +423,44 @@ function solveSegment(
       extensionCount += 1;
     }
   }
+}
+
+/**
+ * The ABI emits a uniform certification grid plus every material jerk switch.
+ * Uniform points prove collision/path/contact safety in the Worker but are
+ * redundant for exact piecewise-constant-jerk playback. Keep only the first,
+ * last, and right-hand jerk changes in the serializable plan.
+ */
+function extractRuckigControlSamples(
+  samples: readonly CutterGridRuckigSampleV3[],
+): CutterGridRuckigSampleV3[] {
+  const first = samples[0];
+  const last = samples.at(-1);
+  if (!first || !last) throw new Error('Local Ruckig returned no control samples.');
+  const control = [first];
+  for (let index = 1; index < samples.length - 1; index += 1) {
+    const previous = samples[index - 1];
+    const current = samples[index];
+    if (!previous || !current) continue;
+    if (hasMaterialJerkChange(previous.jerk, current.jerk)) {
+      control.push(current);
+    }
+  }
+  control.push(last);
+  return control.map((sample) => ({
+    ...sample,
+    position: [...sample.position] as CutterGridRuckigSampleV3['position'],
+    velocity: [...sample.velocity] as CutterGridRuckigSampleV3['velocity'],
+    acceleration: [...sample.acceleration] as CutterGridRuckigSampleV3['acceleration'],
+    jerk: [...sample.jerk] as CutterGridRuckigSampleV3['jerk'],
+  }));
+}
+
+function hasMaterialJerkChange(
+  previous: readonly number[],
+  current: readonly number[],
+): boolean {
+  return previous.some((value, index) => Math.abs(value - (current[index] ?? Number.NaN)) > 1e-9);
 }
 
 function makeRuckigInput(

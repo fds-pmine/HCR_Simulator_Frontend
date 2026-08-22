@@ -330,6 +330,35 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     expect(stepped.getSnapshot().metrics.executedCommandCount).toBe(v3RegressionPlan.executedCommandCount);
   }, 240_000);
 
+  it('replays Worker-certified sparse Ruckig contact events independently of frame cadence', async () => {
+    const sparsePlan = structuredClone(v3RegressionPlan);
+    for (const step of sparsePlan.steps) {
+      if (step.kind === 'wait') continue;
+      step.certifiedContactEvents = step.expectedCutVoxels.length === 0
+        ? []
+        : [{
+          timeMs: step.durationMs / 2,
+          voxelKeys: [...step.expectedCutVoxels],
+        }];
+    }
+    const small = new SimulationEngine(challenge, new LocalScoreProvider());
+    const large = new SimulationEngine(challenge, new LocalScoreProvider());
+
+    small.runCutterGrid(sparsePlan, 3);
+    while (small.getSnapshot().status === 'positioning' || small.getSnapshot().status === 'running') {
+      small.tick(7);
+    }
+    large.runCutterGrid(sparsePlan, 3);
+    large.tick(1_000_000);
+    large.tick(1_000_000);
+    await Promise.all([small.waitForScore(), large.waitForScore()]);
+
+    expect(small.getSnapshot().status).toBe('completed');
+    expect(large.getSnapshot().status).toBe('completed');
+    expect(small.getSnapshot().hairVoxels).toEqual(large.getSnapshot().hairVoxels);
+    expect([...small.getSnapshot().hairVoxels].sort()).toEqual(sparsePlan.expectedResultVoxels);
+  }, 240_000);
+
   it('keeps V3 plan state and cutting invariant at 30–144Hz and across a hidden-tab clock reset', async () => {
     const frameRates = [30, 60, 90, 120, 144] as const;
     const replays = frameRates.map((fps) => replayV3AtFrameRate(fps));

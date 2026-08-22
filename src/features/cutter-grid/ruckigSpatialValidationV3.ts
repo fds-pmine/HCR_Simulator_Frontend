@@ -43,13 +43,34 @@ export interface CutterGridRuckigSpatialValidationSummaryV3 {
   maximumEndEffectorSampleDelta: number;
   maximumCartesianDeviation: number;
   cutVoxels: VoxelKey[];
+  /** Timestamped sweep hits when the caller supplied local sample times. */
+  contactIntervals: CutterGridRuckigCertifiedContactEventV3[];
+}
+
+/** A Worker-side collision/contact sample with its local Ruckig time. */
+export interface CutterGridRuckigTimedSpatialSampleV3 extends RuckigLocalTrajectorySample {
+  timeSeconds?: number;
+}
+
+export interface CutterGridRuckigCertifiedContactEventV3 {
+  timeSeconds: number;
+  voxelKeys: VoxelKey[];
+}
+
+export interface CutterGridRuckigMoveSpatialValidationSummaryV3
+  extends CutterGridRuckigSpatialValidationSummaryV3 {
+  /** First certified occurrence for every cut, grouped by local plan time. */
+  contactEvents: CutterGridRuckigCertifiedContactEventV3[];
 }
 
 export interface CutterGridRuckigMoveSpatialValidatorV3 {
   /** Supply one already time-sampled local Ruckig segment in path order. */
-  validateSegment(samples: readonly RuckigLocalTrajectorySample[]): void;
+  validateSegment(
+    samples: readonly CutterGridRuckigTimedSpatialSampleV3[],
+    startTimeSeconds?: number,
+  ): void;
   /** Close the atomic Move and prove its full swept contact set is unchanged. */
-  finalize(): CutterGridRuckigSpatialValidationSummaryV3;
+  finalize(): CutterGridRuckigMoveSpatialValidationSummaryV3;
 }
 
 /**
@@ -60,7 +81,7 @@ export interface CutterGridRuckigMoveSpatialValidatorV3 {
  */
 export function validateCutterGridRuckigSpatialSamplesV3(
   challenge: Challenge,
-  samples: readonly RuckigLocalTrajectorySample[],
+  samples: readonly CutterGridRuckigTimedSpatialSampleV3[],
   context: CutterGridRuckigSpatialValidationContextV3,
 ): CutterGridRuckigSpatialValidationSummaryV3 {
   if (samples.length < 2) {
@@ -72,6 +93,7 @@ export function validateCutterGridRuckigSpatialSamplesV3(
   let maximumJointSampleDeltaDeg = 0;
   let maximumEndEffectorSampleDelta = 0;
   const cutVoxels = new Set<VoxelKey>();
+  const contactIntervals: CutterGridRuckigCertifiedContactEventV3[] = [];
 
   for (const sample of samples) {
     const jointAngles = jointAnglesFromSample(challenge, sample, context);
@@ -167,6 +189,17 @@ export function validateCutterGridRuckigSpatialSamplesV3(
       }
       cutVoxels.add(key);
     }
+    if (hits.length > 0 && current.timeSeconds !== undefined) {
+      if (
+        previous.timeSeconds === undefined ||
+        !Number.isFinite(current.timeSeconds) ||
+        current.timeSeconds < 0 ||
+        current.timeSeconds <= previous.timeSeconds
+      ) {
+        throw failure('sample-resolution', 'Local Ruckig supplied non-monotonic contact sample times.', context);
+      }
+      contactIntervals.push({ timeSeconds: current.timeSeconds, voxelKeys: [...hits].sort() });
+    }
   }
 
   return {
@@ -174,6 +207,7 @@ export function validateCutterGridRuckigSpatialSamplesV3(
     maximumEndEffectorSampleDelta,
     maximumCartesianDeviation,
     cutVoxels: [...cutVoxels].sort(),
+    contactIntervals,
   };
 }
 
@@ -194,11 +228,15 @@ export function createCutterGridRuckigMoveSpatialValidatorV3(
   let maximumEndEffectorSampleDelta = 0;
   let maximumCartesianDeviation = 0;
   let finalized = false;
+  const firstContactTimeByVoxel = new Map<VoxelKey, number>();
 
   return {
-    validateSegment(samples) {
+    validateSegment(samples, startTimeSeconds = 0) {
       if (finalized) {
         throw failure('unexpected-hair-contact', 'Cannot append a local Ruckig segment after Move validation finished.', context);
+      }
+      if (!Number.isFinite(startTimeSeconds) || startTimeSeconds < 0) {
+        throw failure('sample-resolution', 'Local Ruckig supplied an invalid segment time offset.', context);
       }
       const summary = validateCutterGridRuckigSpatialSamplesV3(challenge, samples, {
         ...context,
@@ -208,6 +246,13 @@ export function createCutterGridRuckigMoveSpatialValidatorV3(
       maximumEndEffectorSampleDelta = Math.max(maximumEndEffectorSampleDelta, summary.maximumEndEffectorSampleDelta);
       maximumCartesianDeviation = Math.max(maximumCartesianDeviation, summary.maximumCartesianDeviation);
       summary.cutVoxels.forEach((key) => aggregateCuts.add(key));
+      for (const interval of summary.contactIntervals) {
+        for (const key of interval.voxelKeys) {
+          if (!firstContactTimeByVoxel.has(key)) {
+            firstContactTimeByVoxel.set(key, startTimeSeconds + interval.timeSeconds);
+          }
+        }
+      }
     },
     finalize() {
       if (finalized) {
@@ -216,11 +261,21 @@ export function createCutterGridRuckigMoveSpatialValidatorV3(
       finalized = true;
       const cutVoxels = [...aggregateCuts].sort();
       assertCutterGridRuckigExpectedCutVoxelsV3(cutVoxels, context.expectedCutVoxels, context);
+      const eventsByTime = new Map<number, VoxelKey[]>();
+      for (const [key, timeSeconds] of firstContactTimeByVoxel) {
+        const existing = eventsByTime.get(timeSeconds);
+        if (existing) existing.push(key);
+        else eventsByTime.set(timeSeconds, [key]);
+      }
       return {
         maximumJointSampleDeltaDeg,
         maximumEndEffectorSampleDelta,
         maximumCartesianDeviation,
         cutVoxels,
+        contactIntervals: [],
+        contactEvents: [...eventsByTime.entries()]
+          .sort(([left], [right]) => left - right)
+          .map(([timeSeconds, voxelKeys]) => ({ timeSeconds, voxelKeys: voxelKeys.sort() })),
       };
     },
   };

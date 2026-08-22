@@ -36,13 +36,13 @@ Chromium Worker 探针只观察到本地审计服务器的 `/`、`/hcr_ruckig_lo
 
 该 Spike 证明固定版本 Ruckig 可被压缩为体积可接受、无云依赖的前端 Worker 子段求解器；不证明其已满足 Cutter Grid 的完整运动契约。当前 V3 的固定 C2 几何与解析回放仍是默认运行路径。`VITE_HCR_CUTTER_GRID_RUCKIG_TRIAL=1` 仅用于显式本地审计：它会使用真实 WASM 预规划，绝不在缺少该开关时改变玩家体验。
 
-2026-08-22 的试运行发现：完整 Move 为了满足 `5ms`、`0.5°` 和 `voxelSize/16` 的认证，会形成较大的全量采样流。将该流连同所有 q/v/a/j 控制点从 Worker 传到主线程会超过当前 Practice 页面可接受的规划预算。因此，升为默认前必须把“用于碰撞/接触认证的密集样本”与“用于回放的稀疏 jerk 控制结点”分离，并以可转移的紧凑二进制布局传输；不得以降低采样、放宽关节/头部/Cartesian/接触门禁或提高播放倍率掩盖该问题。
+2026-08-22 的试运行曾发现：完整 Move 为了满足 `5ms`、`0.5°` 和 `voxelSize/16` 的认证，会形成较大的全量采样流。该问题现已按以下契约修复：密集 `q/v/a/j` 样本只在 Worker 中进行动态、碰撞、Cartesian 管道和扫掠接触认证；传给主线程的计划只保留 Ruckig 的首尾及实际 jerk 切换控制结点，以及按首次命中时间排序的 voxel 剪发事件。控制结点由分段常 jerk 三次式精确回放，剪发事件由冻结时间轴派发，因此不依赖 rAF 帧率，也不会把稀疏控制点之间的末端轨迹误作长弦。稀疏、可序列化的对象数据已在 Chromium Worker 中验证足够小，因而不需要为这个已受控的数据量引入额外二进制协议；不得以降低采样、放宽关节/头部/Cartesian/接触门禁或提高播放倍率掩盖问题。
 
 替换运行时前必须完成以下事项：
 
 1. 已完成：在保持 V2 已选 IK 分支和固定 Cartesian 管道不变的前提下，纯领域预备层生成确定性的保守 TOPP-RA 风格 path speed 及 `q/v/a` 边界；该输出尚未作为运行时轨迹。
 2. 已完成纯领域编排：对每个局部 Ruckig 段传递精确共享边界，按 `1.1x` 最小时长扩展并以 `50x` 上限 fail closed，逐样本检验端点与动态限制；不得传 intermediate waypoints。空间认证回调会把关节限位、头部净空、固定 Cartesian 管道、`0.5°`/`voxelSize/16` 联合采样和零接触/允许接触集作为不可重试的 fail-closed 门禁。它尚未作为 Worker 运行轨迹。
-3. 已完成纯领域完整玩家 Move 的局部段空间结果聚合与冻结接触集合精确比对；真实 WASM 试运行也会使用带 jerk 切换点的分段常 jerk 三次 C2 表示，而非用端点 quintic 近似制造虚假 jerk 峰值。仍须完成“认证样本/回放控制结点”分离后，才可在 Worker 的实际 WASM 输出上以 `5ms`、`0.5°` 和 `voxelSize/16` 联合分辨率复验完整回放的速度、加速度、jerk、头部净空、Cartesian 偏差和扫掠接触集合。
-4. 添加 Worker 取消、确定性签名、紧凑传输及 Chrome/Edge 回归。任何失败均 fail closed；不回退到网络 API、渲染滤波或旧 V2 插值。
+3. 已完成纯领域完整玩家 Move 的局部段空间结果聚合、冻结接触集合精确比对，以及“密集认证样本 / 稀疏回放控制结点 / 时间戳剪发事件”分离；真实 WASM 使用带 jerk 切换点的分段常 jerk 三次 C2 表示，而非用端点 quintic 近似制造虚假 jerk 峰值。Chromium 实测通过双格 Practice Step（约 20 秒全流程）和 `Up 6 → Left 2 → Forward 3` 全局 IK 回归的完整预规划及首个 Step 边界（约 2.1 分钟）。
+4. 尚未完成：Worker 的主动取消、生产级默认启用的性能基线与 Chrome/Edge 双浏览器完整回归。因此 Ruckig 仍由 `VITE_HCR_CUTTER_GRID_RUCKIG_TRIAL=1` 显式开启；默认 Cutter Grid 继续使用已认证的解析 V3 轨迹。任何失败均 fail closed；不回退到网络 API、渲染滤波或旧 V2 插值。
 
 完成这些前，Rust 后端迁移继续延后，且 Cutter Grid 的后端提交、Session、Match 和 ArmDock 均保持不变。

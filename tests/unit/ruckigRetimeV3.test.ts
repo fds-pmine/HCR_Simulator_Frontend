@@ -52,7 +52,7 @@ describe('Cutter Grid V3 local Ruckig segment retiming', () => {
     })) as CutterGridRuckigMotionLimitsV3;
   }, 240_000);
 
-  it('passes shared q/v/a nodes to deterministic local segments at 5ms-or-finer resolution', () => {
+  it('keeps dense certification samples Worker-local while preserving shared q/v/a control boundaries', () => {
     const solver = new DeterministicRuckigSolver();
     const retimed = retimeCutterGridGeometryWithRuckigV3(challenge, geometry, limits, solver, 8);
 
@@ -65,10 +65,12 @@ describe('Cutter Grid V3 local Ruckig segment retiming', () => {
     for (const [index, segment] of retimed.segments.entries()) {
       expect(segment.durationSeconds).toBeGreaterThanOrEqual(segment.requestedMinimumDurationSeconds);
       // The local ABI reserves deterministic capacity for all exact jerk
-      // switches in addition to the 5ms base grid.
-      expect(segment.samples.length).toBeGreaterThanOrEqual(
+      // switches in addition to the 5ms base grid. Those samples certify the
+      // path but must not become render-thread control points.
+      expect(segment.certificationSampleCount).toBeGreaterThanOrEqual(
         Math.ceil(segment.durationSeconds / 0.005) + 1 + 45,
       );
+      expect(segment.samples).toHaveLength(2);
       if (index > 0) {
         const previous = retimed.segments[index - 1];
         expectVectorsNear(segment.samples[0]?.position, previous.samples.at(-1)?.position);

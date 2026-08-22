@@ -586,6 +586,23 @@ export class SimulationEngine {
     );
   }
 
+  /**
+   * Sparse local-Ruckig plans carry the cut times certified from their dense
+   * Worker-side sweep. Applying those events avoids inventing a long chord
+   * between exact jerk-control boundaries on a dropped render frame.
+   */
+  private handleCertifiedCutterContacts(voxelKeys: readonly VoxelKey[]): void {
+    const present = voxelKeys.filter((key) => this.hairVoxels.has(key));
+    if (present.length === 0) return;
+    const nextHair = new Set(this.hairVoxels);
+    present.forEach((key) => nextHair.delete(key));
+    this.hairVoxels = nextHair;
+    this.addLog(
+      'collision',
+      `Removed ${present.length} hair voxel${present.length === 1 ? '' : 's'}.`,
+    );
+  }
+
   private prepareCutterGridPlan(
     plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
     sourceBlockCount: number,
@@ -643,6 +660,7 @@ export class SimulationEngine {
             movement.previousEndEffector,
             movement.currentEndEffector,
           ),
+        onCertifiedContacts: (voxelKeys) => this.handleCertifiedCutterContacts(voxelKeys),
       },
       maxSteps,
     );

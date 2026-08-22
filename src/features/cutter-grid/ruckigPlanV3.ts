@@ -4,7 +4,7 @@ import {
   CutterGridMotionV3Error,
   finalizeCutterGridTrajectoryPlanV3,
 } from './motionV3';
-import type { RuckigLocalFiveAxisVector, RuckigLocalTrajectorySample } from './ruckigLocalWasm';
+import type { RuckigLocalFiveAxisVector } from './ruckigLocalWasm';
 import {
   CutterGridRuckigRetimingError,
   retimeCutterGridGeometryWithRuckigV3,
@@ -15,6 +15,7 @@ import {
 import {
   createCutterGridRuckigMoveSpatialValidatorV3,
   type CutterGridRuckigMoveSpatialValidatorV3,
+  type CutterGridRuckigMoveSpatialValidationSummaryV3,
 } from './ruckigSpatialValidationV3';
 import type {
   CutterGridMotionLimitsV3,
@@ -130,6 +131,7 @@ function retimePlayerMove(
     targetCoord: step.endCoord,
     actionIndex: step.index,
   };
+  let spatialSummary: CutterGridRuckigMoveSpatialValidationSummaryV3 | undefined;
   const retiming = retimeGeometry(
     challenge,
     geometry,
@@ -139,14 +141,21 @@ function retimePlayerMove(
     options,
     validationContext,
     true,
+    (summary) => { spatialSummary = summary; },
   );
-  const waypoints = certifyRuckigWaypoints(
+  const waypoints = certifyRuckigControlWaypoints(
     challenge,
     flattenRuckigWaypoints(challenge, retiming),
     limits,
-    createCutterGridRuckigMoveSpatialValidatorV3(challenge, validationContext),
     validationContext,
   );
+  if (!spatialSummary) {
+    throw new CutterGridMotionV3Error(
+      'trajectory-smoothing-search-exhausted',
+      'Local Ruckig did not produce a final Worker-side spatial certification summary.',
+      validationContext,
+    );
+  }
   const motion = sampledMotion(step.motion, waypoints);
   return {
     step: {
@@ -154,13 +163,20 @@ function retimePlayerMove(
       durationMs: motion.durationMs,
       waypoints,
       motion,
+      certifiedContactEvents: spatialSummary.contactEvents.map((event) => ({
+        timeMs: event.timeSeconds * 1_000,
+        voxelKeys: [...event.voxelKeys],
+      })),
     },
     expectedCutVoxels: step.expectedCutVoxels,
     maximumVelocityRatio: retiming.maximumVelocityRatio,
     maximumAccelerationRatio: retiming.maximumAccelerationRatio,
     maximumJerkRatio: retiming.maximumJerkRatio,
-    maximumCartesianDeviation: maximumCartesianDeviation(challenge, waypoints, fixedAxisLine),
-    validationSampleCount: waypoints.length,
+    maximumCartesianDeviation: spatialSummary.maximumCartesianDeviation,
+    validationSampleCount: retiming.segments.reduce(
+      (total, segment) => total + segment.certificationSampleCount,
+      0,
+    ),
   };
 }
 
@@ -173,6 +189,7 @@ function retimeGeometry(
   options: CutterGridRuckigPlanOptionsV3,
   details: { sourceBlockId?: string; targetCoord?: readonly [number, number, number]; actionIndex?: number },
   retryBoundaryProfilesOnSpatialFailure = false,
+  onValidated?: (summary: CutterGridRuckigMoveSpatialValidationSummaryV3) => void,
 ): CutterGridRuckigRetimingV3 {
   try {
     return retimeCutterGridGeometryWithRuckigV3(
@@ -185,8 +202,8 @@ function retimeGeometry(
         validationPassFactory: () => {
           const validator = createValidator();
           return {
-            validateSegment: ({ samples }) => validator.validateSegment(samples),
-            finalizeSpatialValidation: () => { validator.finalize(); },
+            validateSegment: ({ samples, startTimeSeconds }) => validator.validateSegment(samples, startTimeSeconds),
+            finalizeSpatialValidation: () => { onValidated?.(validator.finalize()); },
           };
         },
         retryBoundaryProfilesOnSpatialFailure,
@@ -241,21 +258,17 @@ function flattenRuckigWaypoints(
   return waypoints;
 }
 
-function certifyRuckigWaypoints(
+function certifyRuckigControlWaypoints(
   challenge: Challenge,
-  rawWaypoints: readonly CutterTrajectoryWaypointV3[],
+  controlWaypoints: readonly CutterTrajectoryWaypointV3[],
   limits: CutterGridRuckigMotionLimitsV3,
-  validator: CutterGridRuckigMoveSpatialValidatorV3,
   details: { sourceBlockId?: string; targetCoord?: readonly [number, number, number]; actionIndex?: number },
 ): CutterTrajectoryWaypointV3[] {
-  // ABI v3 emits every material jerk switch. Between two neighbouring raw
-  // points the player integrates the same constant jerk cubic that Ruckig
-  // solved, so q/v/a are C2 at their shared boundary and checking those
-  // states plus the constant jerk proves the dynamic bound for the complete
-  // interval. The raw sample stream is already spatially dense enough for
-  // collision, tube and swept-contact certification; duplicating midpoints
-  // only enlarged the immutable plan without adding a safety observation.
-  const certified = rawWaypoints.map((waypoint) => ({
+  // The Worker has already checked the complete 5ms collision/path/contact
+  // stream. The serializable plan retains only exact jerk boundaries: a
+  // constant-jerk span has bounded q/v/a/j by construction, while returning
+  // every certification sample makes main-thread playback unstable.
+  const certified = controlWaypoints.map((waypoint) => ({
     ...waypoint,
     jointAngles: { ...waypoint.jointAngles },
     jointVelocitiesDegPerSec: { ...waypoint.jointVelocitiesDegPerSec },
@@ -264,19 +277,6 @@ function certifyRuckigWaypoints(
     endEffector: [...waypoint.endEffector] as [number, number, number],
   }));
   assertDynamicLimits(challenge, certified, limits, details);
-  try {
-    validator.validateSegment(certified.map(sampleFromWaypoint));
-    validator.finalize();
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new CutterGridMotionV3Error(
-        'trajectory-smoothing-path-deviation',
-        `Frozen local Ruckig C2 replay failed: ${error.message}`,
-        details,
-      );
-    }
-    throw error;
-  }
   return certified;
 }
 
@@ -317,19 +317,6 @@ function waypointFromSample(
     jointJerksDegPerSec3: recordFromVector(challenge, sample.jerk),
     endEffector: computeRobotPose(challenge.robotConfig, jointAngles).endEffector,
   };
-}
-
-function sampleFromWaypoint(waypoint: CutterTrajectoryWaypointV3): RuckigLocalTrajectorySample {
-  return {
-    position: vectorFromRecord(waypoint.jointAngles),
-    velocity: vectorFromRecord(waypoint.jointVelocitiesDegPerSec),
-    acceleration: vectorFromRecord(waypoint.jointAccelerationsDegPerSec2),
-    jerk: vectorFromRecord(waypoint.jointJerksDegPerSec3),
-  };
-}
-
-function vectorFromRecord(record: Readonly<Record<JointId, number>>): RuckigLocalFiveAxisVector {
-  return [record.baseYaw, record.shoulderRoll, record.shoulder, record.elbow, record.wrist];
 }
 
 function recordFromVector(
@@ -420,29 +407,6 @@ function fixedAxisLineFor(step: CutterTrajectoryStepV3): { start: [number, numbe
     );
   }
   return { start: [...start], end: [...end] };
-}
-
-function maximumCartesianDeviation(
-  challenge: Challenge,
-  waypoints: readonly CutterTrajectoryWaypointV3[],
-  line: { start: readonly number[]; end: readonly number[] },
-): number {
-  return Math.max(...waypoints.map((waypoint) => pointSegmentDistance(waypoint.endEffector, line.start, line.end)));
-}
-
-function pointSegmentDistance(point: readonly number[], start: readonly number[], end: readonly number[]): number {
-  const direction = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
-  const lengthSquared = direction[0] ** 2 + direction[1] ** 2 + direction[2] ** 2;
-  const progress = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0, (
-    (point[0] - start[0]) * direction[0] +
-    (point[1] - start[1]) * direction[1] +
-    (point[2] - start[2]) * direction[2]
-  ) / lengthSquared));
-  return Math.hypot(
-    point[0] - (start[0] + direction[0] * progress),
-    point[1] - (start[1] + direction[1] * progress),
-    point[2] - (start[2] + direction[2] * progress),
-  );
 }
 
 function cloneWait(step: CutterTrajectoryStepV3): CutterTrajectoryStepV3 {

@@ -351,10 +351,9 @@ export interface CutterTrajectoryGeometryV3 {
  */
 export interface CutterTrajectoryStepMotionV3 {
   /**
-   * `ruckig-local-sampled` retains Ruckig's q/v/a boundary samples. The
-   * player reconstructs each neighbouring sample pair as a quintic Hermite
-   * span, so arbitrary rAF timestamps remain C2 rather than snapping to a
-   * five-millisecond lookup table.
+   * `ruckig-local-sampled` retains only Ruckig's exact constant-jerk control
+   * boundaries. Dense five-millisecond samples are consumed in the Worker
+   * for certification and are deliberately not sent to the render thread.
    */
   interpolation: 'global-c2-quintic-time-law' | 'ruckig-local-sampled' | 'hold';
   durationMs: number;
@@ -362,9 +361,22 @@ export interface CutterTrajectoryStepMotionV3 {
   geometry?: CutterTrajectoryGeometryV3;
 }
 
+/**
+ * A hair-contact event proven by dense Worker-side replay of a sparse Ruckig
+ * control trajectory. Runtime delivery is timestamp based, so cut semantics
+ * do not depend on rAF cadence or on a long Cartesian chord between control
+ * boundaries.
+ */
+export interface CutterTrajectoryContactEventV3 {
+  timeMs: number;
+  voxelKeys: VoxelKey[];
+}
+
 export interface CutterTrajectoryStepV3 extends Omit<CutterTrajectoryStepV1, 'waypoints'> {
   waypoints: CutterTrajectoryWaypointV3[];
   motion: CutterTrajectoryStepMotionV3;
+  /** Present only when a local Ruckig move uses sparse control boundaries. */
+  certifiedContactEvents?: CutterTrajectoryContactEventV3[];
 }
 
 /**
