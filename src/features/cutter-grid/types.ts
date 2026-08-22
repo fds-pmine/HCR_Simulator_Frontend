@@ -317,6 +317,18 @@ export interface CutterTrajectoryStepV3 extends Omit<CutterTrajectoryStepV1, 'wa
   motion: CutterTrajectoryStepMotionV3;
 }
 
+/**
+ * The system-only route from the Servo initial pose to the selected Grid
+ * origin.  It is deliberately separate from player steps: its duration,
+ * motion, and signature are safety-relevant, but it never contributes to
+ * player commands, score time, or hair contact.
+ */
+export interface CutterGridPositioningMotionV3 {
+  durationMs: number;
+  waypoints: CutterTrajectoryWaypointV3[];
+  motion: CutterTrajectoryStepMotionV3;
+}
+
 export interface CutterGridPlanningDiagnosticsV3 extends CutterGridPlanningDiagnosticsV2 {
   requestedSpeedScale: number;
   actualSpeedScale: number;
@@ -333,8 +345,10 @@ export interface CutterTrajectoryPlanV3 {
   plannerVersion: typeof CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION;
   challengeSignature: string;
   entryOptionId: string;
-  /** V2 entry geometry is retimed under the same V3 limits in a later phase. */
+  /** Immutable source geometry selected by the V2 global entry search. */
   positioningTrajectory: CutterTrajectoryWaypointV2[];
+  /** V3 timing for the system-only entry geometry, covered by the plan signature. */
+  positioningMotion: CutterGridPositioningMotionV3;
   startCoord: CutterGridCoord;
   endCoord: CutterGridCoord;
   steps: CutterTrajectoryStepV3[];

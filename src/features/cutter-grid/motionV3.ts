@@ -9,6 +9,7 @@ import {
   type CutterGridMotionLimitsV3,
   type CutterGridPlanningDiagnosticsV3,
   type CutterGridPlanningErrorCodeV3,
+  type CutterGridPositioningMotionV3,
   type CutterTrajectoryPlanV2,
   type CutterTrajectoryPlanV3,
   type CutterTrajectoryStepMotionV3,
@@ -60,6 +61,21 @@ interface ValidationResult {
   maximumCartesianDeviation: number;
 }
 
+interface MotionValidationOptions {
+  verifyCartesianPipe: boolean;
+  requireZeroHairContact: boolean;
+}
+
+const PLAYER_MOTION_VALIDATION: MotionValidationOptions = {
+  verifyCartesianPipe: true,
+  requireZeroHairContact: false,
+};
+
+const POSITIONING_MOTION_VALIDATION: MotionValidationOptions = {
+  verifyCartesianPipe: false,
+  requireZeroHairContact: true,
+};
+
 /**
  * Retimes a V2 globally-selected geometry path without selecting a new IK
  * branch.  Geometry remains cubic Hermite in its path parameter while a
@@ -79,6 +95,20 @@ export function retimeCutterGridTrajectoryV3(
   let maximumJerkRatio = 0;
   let maximumCartesianDeviation = 0;
   let validationSampleCount = 0;
+
+  // Positioning is a system operation, but it is still real arm motion.  Do
+  // not let a V2 interpolation create a visible jerk immediately before the
+  // first player action.
+  const positioning = retimeCutterGridPositioningV3(
+    challenge,
+    plan.positioningTrajectory,
+    motionLimits,
+    effective,
+  );
+  maximumVelocityRatio = Math.max(maximumVelocityRatio, positioning.maximumVelocityRatio);
+  maximumAccelerationRatio = Math.max(maximumAccelerationRatio, positioning.maximumAccelerationRatio);
+  maximumJerkRatio = Math.max(maximumJerkRatio, positioning.maximumJerkRatio);
+  validationSampleCount += positioning.validationSampleCount;
 
   const steps = plan.steps.map((step) => {
     if (step.kind === 'wait') {
@@ -139,6 +169,7 @@ export function retimeCutterGridTrajectoryV3(
     challengeSignature: plan.challengeSignature,
     entryOptionId: plan.entryOptionId,
     positioningTrajectory: cloneGeometryWaypoints(plan.positioningTrajectory),
+    positioningMotion: positioning.motion,
     startCoord: plan.startCoord,
     endCoord: plan.endCoord,
     steps,
@@ -155,6 +186,49 @@ export function retimeCutterGridTrajectoryV3(
   };
 }
 
+function retimeCutterGridPositioningV3(
+  challenge: Challenge,
+  geometryWaypoints: readonly CutterTrajectoryWaypointV2[],
+  motionLimits: CutterGridMotionLimitsV3,
+  effective: EffectiveMotionLimits,
+): {
+  motion: CutterGridPositioningMotionV3;
+  maximumVelocityRatio: number;
+  maximumAccelerationRatio: number;
+  maximumJerkRatio: number;
+  validationSampleCount: number;
+} {
+  const last = geometryWaypoints.at(-1);
+  const positioningStep: CutterTrajectoryStepV2 = {
+    index: -1,
+    kind: 'move-cell',
+    sourceBlockId: 'system-positioning',
+    startCoord: [0, 0, 0],
+    endCoord: [0, 0, 0],
+    durationMs: last?.timeMs ?? 0,
+    waypoints: cloneGeometryWaypoints(geometryWaypoints),
+    expectedCutVoxels: [],
+  };
+  const { motion, validation } = validateWithDurationExpansion(
+    challenge,
+    positioningStep,
+    motionForStep(challenge, positioningStep, effective),
+    effective,
+    POSITIONING_MOTION_VALIDATION,
+  );
+  return {
+    motion: {
+      durationMs: motion.durationMs,
+      waypoints: validation.waypoints,
+      motion,
+    },
+    maximumVelocityRatio: validation.maximumVelocityRatio,
+    maximumAccelerationRatio: validation.maximumAccelerationRatio,
+    maximumJerkRatio: validation.maximumJerkRatio,
+    validationSampleCount: validation.waypoints.length,
+  };
+}
+
 /** Evaluate a V3 move without using a frame delta or mutable executor state. */
 export function evaluateCutterTrajectoryStepV3At(
   challenge: Challenge,
@@ -168,6 +242,19 @@ export function evaluateCutterTrajectoryStepV3At(
     challenge,
     step.motion,
     clamp(targetTimeMs, 0, step.motion.durationMs),
+  ).waypoint;
+}
+
+/** Evaluate the system-only V3 entry using the same absolute-time law. */
+export function evaluateCutterGridPositioningV3At(
+  challenge: Challenge,
+  positioning: CutterGridPositioningMotionV3,
+  targetTimeMs: number,
+): CutterTrajectoryWaypointV3 {
+  return evaluateStepMotionAt(
+    challenge,
+    positioning.motion,
+    clamp(targetTimeMs, 0, positioning.durationMs),
   ).waypoint;
 }
 
@@ -259,13 +346,21 @@ function validateStepMotion(
   step: CutterTrajectoryStepV2,
   motion: CutterTrajectoryStepMotionV3,
   limits: EffectiveMotionLimits,
+  validationOptions: MotionValidationOptions,
 ): ValidationResult {
   let sampleCount = Math.max(
     1,
     Math.ceil(motion.durationMs / CUTTER_GRID_MOTION_V3_CONFIG.maxValidationIntervalMs),
   );
   for (;;) {
-    const result = validateStepAtSampleCount(challenge, step, motion, limits, sampleCount);
+    const result = validateStepAtSampleCount(
+      challenge,
+      step,
+      motion,
+      limits,
+      sampleCount,
+      validationOptions,
+    );
     if (samplesMeetSpatialResolution(challenge, result.waypoints)) return result;
     sampleCount *= 2;
     if (sampleCount > 65_536) {
@@ -288,12 +383,16 @@ function validateWithDurationExpansion(
   step: CutterTrajectoryStepV2,
   initialMotion: CutterTrajectoryStepMotionV3,
   limits: EffectiveMotionLimits,
+  validationOptions: MotionValidationOptions = PLAYER_MOTION_VALIDATION,
 ): { motion: CutterTrajectoryStepMotionV3; validation: ValidationResult } {
   let motion = initialMotion;
   const maximumDurationMs = initialMotion.durationMs * 50;
   for (;;) {
     try {
-      return { motion, validation: validateStepMotion(challenge, step, motion, limits) };
+      return {
+        motion,
+        validation: validateStepMotion(challenge, step, motion, limits, validationOptions),
+      };
     } catch (error) {
       if (
         !(error instanceof CutterGridMotionV3Error) ||
@@ -320,6 +419,7 @@ function validateStepAtSampleCount(
   motion: CutterTrajectoryStepMotionV3,
   limits: EffectiveMotionLimits,
   sampleCount: number,
+  validationOptions: MotionValidationOptions,
 ): ValidationResult {
   const waypoints: CutterTrajectoryWaypointV3[] = [];
   let maximumVelocityRatio = 0;
@@ -358,7 +458,7 @@ function validateStepAtSampleCount(
         { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord, actionIndex: step.index },
       );
     }
-    if (lineStart && lineEnd) {
+    if (validationOptions.verifyCartesianPipe && lineStart && lineEnd) {
       const deviation = pointSegmentDistance(waypoint.endEffector, lineStart, lineEnd);
       maximumCartesianDeviation = Math.max(maximumCartesianDeviation, deviation);
       if (deviation > challenge.voxelConfig.size / 16 + 1e-9) {
@@ -367,6 +467,24 @@ function validateStepAtSampleCount(
           'Cutter Grid V3 motion leaves the fixed-axis Cartesian path.',
           { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord, actionIndex: step.index },
         );
+      }
+    }
+    if (validationOptions.requireZeroHairContact && index > 0) {
+      const previous = waypoints.at(-1);
+      if (previous) {
+        const hits = findSweptVoxelHits(
+          previous.endEffector,
+          waypoint.endEffector,
+          challenge.initialHair.voxels,
+          challenge.voxelConfig,
+          challenge.robotConfig.geometry.toolRadius,
+        );
+        if (hits.length > 0) {
+          throw new CutterGridMotionV3Error(
+            'trajectory-smoothing-path-deviation',
+            'Cutter Grid V3 system positioning would contact hair.',
+          );
+        }
       }
     }
     maximumVelocityRatio = Math.max(maximumVelocityRatio, evaluation.velocityRatio);
@@ -618,18 +736,26 @@ function cloneGeometryWaypoints(
 function motionTrajectorySignature(plan: Omit<CutterTrajectoryPlanV3, 'trajectorySignature'>): string {
   return fnv1a64(JSON.stringify({
     ...plan,
+    positioningMotion: {
+      ...plan.positioningMotion,
+      waypoints: plan.positioningMotion.waypoints.map(signatureWaypoint),
+    },
     steps: plan.steps.map((step) => ({
       ...step,
-      waypoints: step.waypoints.map((waypoint) => ({
-        timeMs: round(waypoint.timeMs, 6),
-        jointAngles: roundRecord(waypoint.jointAngles),
-        jointVelocitiesDegPerSec: roundRecord(waypoint.jointVelocitiesDegPerSec),
-        jointAccelerationsDegPerSec2: roundRecord(waypoint.jointAccelerationsDegPerSec2),
-        jointJerksDegPerSec3: roundRecord(waypoint.jointJerksDegPerSec3),
-        endEffector: waypoint.endEffector.map((value) => round(value, 9)),
-      })),
+      waypoints: step.waypoints.map(signatureWaypoint),
     })),
   }));
+}
+
+function signatureWaypoint(waypoint: CutterTrajectoryWaypointV3): Record<string, unknown> {
+  return {
+    timeMs: round(waypoint.timeMs, 6),
+    jointAngles: roundRecord(waypoint.jointAngles),
+    jointVelocitiesDegPerSec: roundRecord(waypoint.jointVelocitiesDegPerSec),
+    jointAccelerationsDegPerSec2: roundRecord(waypoint.jointAccelerationsDegPerSec2),
+    jointJerksDegPerSec3: roundRecord(waypoint.jointJerksDegPerSec3),
+    endEffector: waypoint.endEffector.map((value) => round(value, 9)),
+  };
 }
 
 function roundRecord(record: Readonly<Record<string, number>>): Record<string, number> {

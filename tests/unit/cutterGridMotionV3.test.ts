@@ -7,6 +7,7 @@ import {
 import { planCutterGridLadderTrajectory } from '../../src/features/cutter-grid/ladderPlanner';
 import {
   CutterGridMotionV3Error,
+  evaluateCutterGridPositioningV3At,
   evaluateCutterTrajectoryStepV3At,
   retimeCutterGridTrajectoryV3,
 } from '../../src/features/cutter-grid/motionV3';
@@ -59,6 +60,25 @@ describe('Cutter Grid V3 jerk-limited retiming', () => {
     expect(first.diagnostics.maximumCartesianDeviation).toBeLessThanOrEqual(
       challenge.voxelConfig.size / 16 + 1e-9,
     );
+
+    const entryStart = evaluateCutterGridPositioningV3At(
+      challenge,
+      first.positioningMotion,
+      0,
+    );
+    const entryEnd = evaluateCutterGridPositioningV3At(
+      challenge,
+      first.positioningMotion,
+      first.positioningMotion.durationMs,
+    );
+    expect(entryStart.jointAngles).toEqual(first.positioningMotion.waypoints[0]?.jointAngles);
+    expect(entryEnd.jointAngles).toEqual(first.positioningMotion.waypoints.at(-1)?.jointAngles);
+    for (const joint of challenge.robotConfig.joints) {
+      expect(entryStart.jointVelocitiesDegPerSec[joint.id]).toBeCloseTo(0, 9);
+      expect(entryEnd.jointVelocitiesDegPerSec[joint.id]).toBeCloseTo(0, 9);
+      expect(entryStart.jointAccelerationsDegPerSec2[joint.id]).toBeCloseTo(0, 9);
+      expect(entryEnd.jointAccelerationsDegPerSec2[joint.id]).toBeCloseTo(0, 9);
+    }
 
     for (const step of first.steps) {
       if (step.kind === 'wait') continue;

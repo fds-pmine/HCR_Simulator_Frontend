@@ -10,7 +10,10 @@ import {
 import type { CutterTrajectoryPlanV1, CutterTrajectoryPlanV3 } from '../../src/features/cutter-grid/types';
 import { CUTTER_GRID_LADDER_PLANNER_VERSION } from '../../src/features/cutter-grid/types';
 import { planCutterGridLadderTrajectory } from '../../src/features/cutter-grid/ladderPlanner';
-import { retimeCutterGridTrajectoryV3 } from '../../src/features/cutter-grid/motionV3';
+import {
+  evaluateCutterGridPositioningV3At,
+  retimeCutterGridTrajectoryV3,
+} from '../../src/features/cutter-grid/motionV3';
 import {
   CUTTER_GRID_GLOBAL_IK_REGRESSION_PROGRAM,
   regressionProgramRuntimeActions,
@@ -344,6 +347,24 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     }
     expect([...baseline.hairVoxels].sort()).toEqual(v3RegressionPlan.expectedResultVoxels);
   }, 240_000);
+
+  it('uses the frozen V3 entry time law before any player action', () => {
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    const entryTimeMs = v3RegressionPlan.positioningMotion.durationMs / 2;
+    const expected = evaluateCutterGridPositioningV3At(
+      challenge,
+      v3RegressionPlan.positioningMotion,
+      entryTimeMs,
+    );
+
+    engine.runCutterGrid(v3RegressionPlan, 3);
+    engine.tick(entryTimeMs);
+
+    expect(engine.getSnapshot().status).toBe('positioning');
+    expect(engine.getSnapshot().jointAngles).toEqual(expected.jointAngles);
+    expect(engine.getSnapshot().hairVoxels).toEqual(new Set(challenge.initialHair.voxels));
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(0);
+  });
 
   function replayV3AtFrameRate(frameRate: number, resetClockMidRun = false): SimulationEngine {
     const engine = new SimulationEngine(challenge, new LocalScoreProvider());

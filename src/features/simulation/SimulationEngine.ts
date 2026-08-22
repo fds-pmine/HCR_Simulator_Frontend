@@ -1,6 +1,7 @@
 import type { CompiledProgram, RobotCommand } from '../blockly/programTypes';
 import type {
   CutterGridProfileV1,
+  CutterGridPositioningMotionV3,
   CutterGridPlanningDiagnosticsV2,
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
@@ -9,6 +10,7 @@ import type {
   CutterTrajectoryWaypointV1,
 } from '../cutter-grid/types';
 import { interpolateCutterTrajectoryJointAngles } from '../cutter-grid/trajectory';
+import { evaluateCutterGridPositioningV3At } from '../cutter-grid/motionV3';
 import { calculateScore, estimateProgramDuration } from '../scoring/scoring';
 import type { RobotPose } from '../robot/kinematics';
 import { RobotController } from '../robot/RobotController';
@@ -122,6 +124,7 @@ export class SimulationEngine {
   private runGeneration = 0;
   private executionMode: 'servo' | 'cutter-grid' = 'servo';
   private positioningWaypoints: readonly CutterTrajectoryWaypointV1[] = [];
+  private positioningMotionV3: CutterGridPositioningMotionV3 | undefined;
   private positioningElapsedMs = 0;
   private positioningWaypointIndex = 0;
   private positioningCompletion: 'idle' | 'run' | 'step' = 'idle';
@@ -179,6 +182,7 @@ export class SimulationEngine {
     this.executionMode = 'cutter-grid';
     this.status = 'positioning';
     this.positioningWaypoints = profile.entryTrajectory;
+    this.positioningMotionV3 = undefined;
     this.positioningElapsedMs = 0;
     this.positioningWaypointIndex = 0;
     this.positioningCompletion = 'idle';
@@ -452,6 +456,7 @@ export class SimulationEngine {
     this.resetState();
     this.executionMode = 'servo';
     this.positioningWaypoints = [];
+    this.positioningMotionV3 = undefined;
     this.positioningElapsedMs = 0;
     this.positioningWaypointIndex = 0;
     this.positioningCompletion = 'idle';
@@ -491,6 +496,7 @@ export class SimulationEngine {
     this.errorMessage = undefined;
     this.executionMode = 'servo';
     this.positioningWaypoints = [];
+    this.positioningMotionV3 = undefined;
     this.positioningElapsedMs = 0;
     this.positioningWaypointIndex = 0;
     this.positioningCompletion = 'idle';
@@ -646,14 +652,17 @@ export class SimulationEngine {
       }
       const previous = waypoints[this.positioningWaypointIndex];
       const next = waypoints[this.positioningWaypointIndex + 1];
-      if (previous && next && targetTime > previous.timeMs) {
-        this.robotController.setTrajectoryAngles(
-          interpolateCutterTrajectoryJointAngles(
-            previous,
-            next,
+      if (previous && targetTime > previous.timeMs) {
+        const jointAngles = this.positioningMotionV3
+          ? evaluateCutterGridPositioningV3At(
+            this.challenge,
+            this.positioningMotionV3,
             targetTime,
-          ),
-        );
+          ).jointAngles
+          : next
+            ? interpolateCutterTrajectoryJointAngles(previous, next, targetTime)
+            : undefined;
+        if (jointAngles) this.robotController.setTrajectoryAngles(jointAngles);
       }
       this.positioningElapsedMs = targetTime;
       this.snapshotElapsedMs += deltaMs;
@@ -666,6 +675,7 @@ export class SimulationEngine {
           this.stepTargetCommandCount = this.cutterExecutor.getStepIndex() + 1;
         }
         this.positioningWaypoints = [];
+        this.positioningMotionV3 = undefined;
         this.addLog('system', completion === 'idle'
           ? 'Cutter positioned at the certified grid origin.'
           : 'Cutter positioned at the selected grid origin.');
@@ -676,6 +686,7 @@ export class SimulationEngine {
       }
     } catch (error) {
       this.positioningWaypoints = [];
+      this.positioningMotionV3 = undefined;
       this.fail(error);
     }
   }
@@ -684,10 +695,13 @@ export class SimulationEngine {
     plan: CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
     completion: 'run' | 'step',
   ): void {
-    const first = plan.positioningTrajectory[0];
+    const positioningMotion = plan.version === 3 ? plan.positioningMotion : undefined;
+    const positioningWaypoints = positioningMotion?.waypoints ?? plan.positioningTrajectory;
+    const first = positioningWaypoints[0];
     if (!first) throw new Error('The selected Cutter Grid entry trajectory is empty.');
     this.status = 'positioning';
-    this.positioningWaypoints = plan.positioningTrajectory;
+    this.positioningWaypoints = positioningWaypoints;
+    this.positioningMotionV3 = positioningMotion;
     this.positioningElapsedMs = 0;
     this.positioningWaypointIndex = 0;
     this.positioningCompletion = completion;
