@@ -30,7 +30,7 @@ Emscripten `-O3` 构建结果：
 
 Chromium Worker 探针只观察到本地审计服务器的 `/`、`/hcr_ruckig_local.mjs` 和 `/hcr_ruckig_local.wasm` 请求；没有任何外部请求。`verify-ruckig-local-wasm.mjs` 会在可用时同时运行 Edge，并将此门禁固化为可重复命令。
 
-前端还以纯 TypeScript ABI 适配器固定九组五关节输入的顺序、sample-major `q/v/a/j` 解码、非有限值拒绝与任意错误路径的 WASM 内存释放。该适配器不加载 URL、不访问 DOM，也不被当前播放器调用。
+前端还以纯 TypeScript ABI 适配器固定九组五关节输入的顺序、sample-major `q/v/a/j` 解码、非有限值拒绝与任意错误路径的 WASM 内存释放。Worker 加载器只接受固定的同源 `/vendor/ruckig/hcr_ruckig_local.mjs` 和同目录的 `hcr_ruckig_local.wasm`；它拒绝所有其他 `locateFile` 名称。`npm run ruckig:wasm:stage` 会再次校验 ABI、提交、许可证、字节数和 SHA-256，才将四个审计产物复制到忽略的 `public/vendor/ruckig/`。默认 `npm run build` 不会隐式生成或联网下载该二进制。
 
 ## 结论与后续门禁
 
