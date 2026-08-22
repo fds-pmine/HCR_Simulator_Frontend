@@ -30,6 +30,8 @@ Emscripten `-O3` 构建结果：
 
 Chromium Worker 探针只观察到本地审计服务器的 `/`、`/hcr_ruckig_local.mjs` 和 `/hcr_ruckig_local.wasm` 请求；没有任何外部请求。`verify-ruckig-local-wasm.mjs` 会在可用时同时运行 Edge，并将此门禁固化为可重复命令。
 
+前端还以纯 TypeScript ABI 适配器固定九组五关节输入的顺序、sample-major `q/v/a/j` 解码、非有限值拒绝与任意错误路径的 WASM 内存释放。该适配器不加载 URL、不访问 DOM，也不被当前播放器调用。
+
 ## 结论与后续门禁
 
 该 Spike 证明固定版本 Ruckig 可被压缩为体积可接受、无云依赖的前端 Worker 子段求解器；不证明其已满足 Cutter Grid 的完整运动契约。当前 V3 的固定 C2 几何与解析回放仍是唯一运行路径。

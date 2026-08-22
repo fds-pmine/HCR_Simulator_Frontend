@@ -17,6 +17,7 @@ export * from './profileV3';
 export * from './profileRegistry';
 export * from './plannerClient';
 export * from './referenceProgram';
+export * from './ruckigLocalWasm';
 export * from './signature';
 export * from './types';
 export * from './trajectory';
