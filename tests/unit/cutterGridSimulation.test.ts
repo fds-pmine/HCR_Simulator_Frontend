@@ -327,6 +327,48 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     expect(stepped.getSnapshot().metrics.executedCommandCount).toBe(v3RegressionPlan.executedCommandCount);
   }, 240_000);
 
+  it('keeps V3 plan state and cutting invariant at 30–144Hz and across a hidden-tab clock reset', async () => {
+    const frameRates = [30, 60, 90, 120, 144] as const;
+    const replays = frameRates.map((fps) => replayV3AtFrameRate(fps));
+    const hiddenTabReplay = replayV3AtFrameRate(60, true);
+    await Promise.all([...replays, hiddenTabReplay].map((engine) => engine.waitForScore()));
+
+    const baseline = replays[0].getSnapshot();
+    for (const engine of [...replays.slice(1), hiddenTabReplay]) {
+      const snapshot = engine.getSnapshot();
+      expect(snapshot.status).toBe('completed');
+      expect(snapshot.jointAngles).toEqual(baseline.jointAngles);
+      expect(snapshot.hairVoxels).toEqual(baseline.hairVoxels);
+      expect(snapshot.metrics).toEqual(baseline.metrics);
+      expect(snapshot.cutterGrid?.trajectorySignature).toBe(v3RegressionPlan.trajectorySignature);
+    }
+    expect([...baseline.hairVoxels].sort()).toEqual(v3RegressionPlan.expectedResultVoxels);
+  }, 240_000);
+
+  function replayV3AtFrameRate(frameRate: number, resetClockMidRun = false): SimulationEngine {
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    const intervalMs = 1_000 / frameRate;
+    let timestampMs = 0;
+    let frames = 0;
+    let clockReset = false;
+    engine.runCutterGrid(v3RegressionPlan, 3);
+    engine.tickAt(timestampMs);
+    while (engine.getSnapshot().status === 'positioning' || engine.getSnapshot().status === 'running') {
+      timestampMs += intervalMs;
+      if (resetClockMidRun && !clockReset && frames >= 10) {
+        engine.resetPlaybackClock();
+        timestampMs += 30_000;
+        engine.tickAt(timestampMs);
+        clockReset = true;
+      } else {
+        engine.tickAt(timestampMs);
+      }
+      frames += 1;
+      if (frames > 100_000) throw new Error(`V3 replay did not complete at ${frameRate}Hz.`);
+    }
+    return engine;
+  }
+
   function createPositionedEngine(): SimulationEngine {
     const profile = registeredCutterGridProfile(challenge);
     if (!profile) throw new Error('Expected bundled Profile.');
