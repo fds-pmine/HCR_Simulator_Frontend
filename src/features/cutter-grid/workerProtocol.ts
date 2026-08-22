@@ -4,8 +4,10 @@ import type {
   CutterGridPlanningProgressV2,
   CutterGridProfileV1,
   CutterGridProfileV2,
+  CutterGridProfileV3,
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
 } from './types';
 
 export interface CutterGridWorkerV1Request {
@@ -24,9 +26,18 @@ export interface CutterGridWorkerV2Request {
   profile: CutterGridProfileV2;
 }
 
+export interface CutterGridWorkerV3Request {
+  type: 'plan-v3';
+  requestId: number;
+  challenge: Challenge;
+  compiled: CompiledCutterGridProgramV1;
+  profile: CutterGridProfileV3;
+}
+
 export type CutterGridWorkerRequest =
   | CutterGridWorkerV1Request
-  | CutterGridWorkerV2Request;
+  | CutterGridWorkerV2Request
+  | CutterGridWorkerV3Request;
 
 export type CutterGridWorkerResponse =
   | {
@@ -38,6 +49,11 @@ export type CutterGridWorkerResponse =
       type: 'planned-v2';
       requestId: number;
       plan: CutterTrajectoryPlanV2;
+    }
+  | {
+      type: 'planned-v3';
+      requestId: number;
+      plan: CutterTrajectoryPlanV3;
     }
   | CutterGridPlanningProgressV2
   | {

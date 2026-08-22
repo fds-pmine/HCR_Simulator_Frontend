@@ -8,7 +8,9 @@ import {
   cutterGridAvailableForChallenge,
   registeredCutterGridProfile,
   registeredCutterGridProfileV2,
+  registeredCutterGridProfileV3,
 } from '../../src/features/cutter-grid/profileRegistry';
+import { CutterGridMotionV3Error } from '../../src/features/cutter-grid/motionV3';
 import { CutterGridPlanningError } from '../../src/features/cutter-grid/trajectory';
 import type {
   CutterGridWorkerRequest,
@@ -149,6 +151,51 @@ describe('Cutter Grid Profile registry and Worker client', () => {
     await expect(pending).rejects.toMatchObject({
       code: 'no-continuous-joint-path',
       details: { sourceBlockId: 'move-2', actionIndex: 2, layerIndex: 9, targetCoord: [1, 2, 3], stage: 'edge', seedBudget: 96 },
+    });
+  });
+
+  it('sends the signed V3 profile and preserves V3 retiming failures', async () => {
+    const worker = new FakeWorker();
+    const client = new CutterGridPlannerClient(() => worker);
+    const profile = registeredCutterGridProfileV3(challenge);
+    if (!profile) throw new Error('Expected bundled V3 Profile.');
+    const pending = client.planV3(
+      challenge,
+      {
+        // The command IR remains V2 while V3 changes only the frozen motion
+        // plan; the worker adapts the certified global branch before retiming.
+        program: profile.referenceProgram,
+        runtimeActions: [],
+        executedCommandCount: 0,
+      },
+      profile,
+    );
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'plan-v3',
+      profile: expect.objectContaining({
+        version: 3,
+        plannerVersion: 'cutter-grid-ladder-v3',
+        motionLimits: profile.motionLimits,
+      }),
+    }));
+    worker.onmessage?.({
+      data: {
+        type: 'failed',
+        requestId: 1,
+        code: 'jerk-smoothing-infeasible',
+        message: 'Limit exceeded.',
+        sourceBlockId: 'move-3',
+        actionIndex: 4,
+        targetCoord: [-2, 6, -3],
+      },
+    } as unknown as MessageEvent<CutterGridWorkerResponse>);
+
+    await expect(pending).rejects.toBeInstanceOf(CutterGridMotionV3Error);
+    await pending.catch((error: unknown) => {
+      expect(error).toMatchObject({
+        code: 'jerk-smoothing-infeasible',
+        details: { sourceBlockId: 'move-3', actionIndex: 4, targetCoord: [-2, 6, -3] },
+      });
     });
   });
 });

@@ -246,6 +246,37 @@ tests/
 
 阶段出口：V2 全局多分支规划通过全部验收并可供审查。
 
+### Cutter Grid Motion Stability V3 Phase 0 — 契约、基线与 Rust 迁移向量
+
+- [ ] 记录 C1 Hermite、渲染 `delta` 倍率和 IK 分支的独立诊断证据；固化 `Up 6 → Left 2 → Forward 3`、认证参考程序、Wait/Repeat 长程序的 V2 签名、关节 `q/v/a` 与接触基线。
+- [ ] 定义纯领域 V3 Profile/Plan/错误/签名契约和前端—Rust JSON fixture；规划数据不得依赖 DOM、Worker、React 或渲染时钟。
+- [ ] 移除“直接乘渲染 delta”的加速语义，改为请求 `1.25x` 的动态限制重定时输入；本阶段不改变生产运行入口。
+
+阶段出口：V3 输入输出、迁移边界和失败语义由测试与 fixture 固化，前端与将来的 `hcr_sim` 可使用同一数据契约。
+
+### Cutter Grid Motion Stability V3 Phase 1 — 固定路径限 jerk 轨迹
+
+- [ ] 实现连续角度 unwrap、pause-safe checkpoint、速度/加速度可达重定时和逐段 `q/v/a` jerk 平滑；所有计算保持纯函数和确定性。
+- [ ] 对每段实施联合自适应验证：关节 `v/a/j`、头部净空、关节限位、Cartesian 偏差及固定刀头扫掠集合。
+- [ ] 在失败时返回 V3 专用错误与首个来源积木/坐标，禁止回退到 C1、逐帧滤波或可行前缀执行。
+
+阶段出口：V3 可为 V2 已选构型链生成可序列化冻结轨迹，并通过数值/接触回归。
+
+### Cutter Grid Motion Stability V3 Phase 2 — 前端绝对时间试验与诊断
+
+- [ ] Worker 只规划冻结 V3 轨迹；前端执行器按绝对计划时间采样，支持暂停、隐藏页、丢帧和取消而不改变轨迹语义。
+- [ ] 接触、Step、Run/Test、评分和 Inspector 使用同一冻结 V3 计划；UI 高频关节更新不经过 React State。
+- [ ] 验证 `30/60/90/120/144Hz`、长帧和 Chrome/Edge 下的计划一致性、无关节瞬跳及实际时长提速。
+
+阶段出口：前端可作为 Rust 实现前的可视化试验台，V3 不再使用渲染倍率加速。
+
+### Cutter Grid Motion Stability V3 Phase 3 — Rust 权威迁移准备
+
+- [ ] 在 `hcr_sim` 实现同一纯领域规划器并以共享 fixture 与前端逐项对照；在未得到后端 Session/Match 启用授权前不修改网络提交路径。
+- [ ] 前端改为消费 Rust 产生或跨语言验证的 V3 计划，保留本地试验开关和诊断，不在 UI 层产生另一套路径规划规则。
+
+阶段出口：Rust 规划器是最终权威，前端仅负责请求、回放与可视化；跨语言签名、错误和接触结果一致。
+
 ## 4. 关键实现约定
 
 ### 仿真与 React

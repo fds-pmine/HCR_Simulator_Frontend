@@ -3,7 +3,8 @@ import profileV2Fixture from '../../../tests/fixtures/cutter-grid-profile-v2.jso
 import type { Challenge } from '../../types/domain';
 import { cutterGridProfileMatchesChallenge } from './profile';
 import { cutterGridProfileV2MatchesChallenge } from './profileV2';
-import type { CutterGridProfileV1, CutterGridProfileV2 } from './types';
+import { upgradeCutterGridProfileV2ToV3 } from './profileV3';
+import type { CutterGridProfileV1, CutterGridProfileV2, CutterGridProfileV3 } from './types';
 
 const bundledProfile = profileFixture as unknown as CutterGridProfileV1;
 const bundledProfiles = new Map<string, CutterGridProfileV1>(
@@ -44,4 +45,16 @@ export function registeredCutterGridProfileV2(
     if (cutterGridProfileV2MatchesChallenge(profile, challenge)) return profile;
   }
   return undefined;
+}
+
+/**
+ * V3 is intentionally derived from the certified bundled V2 geometry while
+ * the browser implementation is a test bed.  Its fully materialized output
+ * is serializable and can be compared with Rust before it becomes authoritative.
+ */
+export function registeredCutterGridProfileV3(
+  challenge: Challenge,
+): CutterGridProfileV3 | undefined {
+  const profile = registeredCutterGridProfileV2(challenge);
+  return profile ? upgradeCutterGridProfileV2ToV3(challenge, profile) : undefined;
 }

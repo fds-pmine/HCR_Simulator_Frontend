@@ -4,6 +4,7 @@ import type {
   CutterGridPlanningDiagnosticsV2,
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
   CutterTrajectoryStepV1,
   CutterTrajectoryWaypointV1,
 } from '../cutter-grid/types';
@@ -124,6 +125,8 @@ export class SimulationEngine {
   private positioningElapsedMs = 0;
   private positioningWaypointIndex = 0;
   private positioningCompletion: 'idle' | 'run' | 'step' = 'idle';
+  /** Last rAF-derived timestamp. Never participates in headless replay. */
+  private playbackTimestampMs: number | undefined;
 
   constructor(
     private readonly challenge: Challenge,
@@ -149,7 +152,7 @@ export class SimulationEngine {
       );
     }
     this.executor = new ProgramExecutor(this.robotController);
-    this.cutterExecutor = new CutterTrajectoryExecutor(this.robotController);
+    this.cutterExecutor = new CutterTrajectoryExecutor(this.robotController, challenge);
     this.hairVoxels = new Set(challenge.initialHair.voxels);
     this.addLog('system', `Challenge "${challenge.name}" loaded.`);
     this.snapshot = this.createSnapshot();
@@ -209,7 +212,7 @@ export class SimulationEngine {
   }
 
   runCutterGrid(
-    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2,
+    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
     sourceBlockCount: number,
   ): void {
     if (
@@ -220,8 +223,8 @@ export class SimulationEngine {
       throw new Error(`Run is not allowed while status is "${this.status}".`);
     }
     this.prepareCutterGridPlan(plan, sourceBlockCount);
-    if (plan.version === 2) {
-      this.beginV2Positioning(plan, 'run');
+    if (plan.version !== 1) {
+      this.beginCutterGridPositioning(plan, 'run');
       this.addLog('system', 'Positioning cutter for the selected Cutter Grid branch.');
     } else {
       this.status = 'running';
@@ -231,7 +234,7 @@ export class SimulationEngine {
   }
 
   stepCutterGrid(
-    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2,
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
     sourceBlockCount = 0,
   ): void {
     const resumable =
@@ -247,8 +250,8 @@ export class SimulationEngine {
       }
       if (!plan) throw new Error('A Cutter Grid trajectory is required for the first step.');
       this.prepareCutterGridPlan(plan, sourceBlockCount);
-      if (plan.version === 2) {
-        this.beginV2Positioning(plan, 'step');
+      if (plan.version !== 1) {
+        this.beginCutterGridPositioning(plan, 'step');
         this.addLog('system', 'Positioning cutter for the selected Cutter Grid branch.');
         this.publish();
         return;
@@ -318,6 +321,26 @@ export class SimulationEngine {
     this.resetState();
     this.addLog('system', "Simulation reset to the challenge's initial state.");
     this.publish();
+  }
+
+  /**
+   * Render-time entry point. The authoritative plan time is the monotonic rAF
+   * timestamp, not a fixed frame count or a multiplied render delta.
+   */
+  tickAt(playbackTimestampMs: number): void {
+    if (!Number.isFinite(playbackTimestampMs)) {
+      this.fail(new Error('Playback clock must be a finite timestamp.'));
+      return;
+    }
+    const previous = this.playbackTimestampMs;
+    this.playbackTimestampMs = playbackTimestampMs;
+    if (previous === undefined || playbackTimestampMs < previous) return;
+    this.tick(playbackTimestampMs - previous);
+  }
+
+  /** Drop the rAF anchor without changing the frozen plan or simulation state. */
+  resetPlaybackClock(): void {
+    this.playbackTimestampMs = undefined;
   }
 
   tick(deltaMs: number): void {
@@ -471,6 +494,7 @@ export class SimulationEngine {
     this.positioningElapsedMs = 0;
     this.positioningWaypointIndex = 0;
     this.positioningCompletion = 'idle';
+    this.playbackTimestampMs = undefined;
     this.scorePromise = Promise.resolve(undefined);
   }
 
@@ -520,7 +544,7 @@ export class SimulationEngine {
   }
 
   private prepareCutterGridPlan(
-    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2,
+    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
     sourceBlockCount: number,
   ): void {
     if (plan.steps.length === 0) throw new Error('Cutter Grid plan contains no actions.');
@@ -656,9 +680,12 @@ export class SimulationEngine {
     }
   }
 
-  private beginV2Positioning(plan: CutterTrajectoryPlanV2, completion: 'run' | 'step'): void {
+  private beginCutterGridPositioning(
+    plan: CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
+    completion: 'run' | 'step',
+  ): void {
     const first = plan.positioningTrajectory[0];
-    if (!first) throw new Error('The selected Cutter Grid V2 entry trajectory is empty.');
+    if (!first) throw new Error('The selected Cutter Grid entry trajectory is empty.');
     this.status = 'positioning';
     this.positioningWaypoints = plan.positioningTrajectory;
     this.positioningElapsedMs = 0;
@@ -699,8 +726,8 @@ export class SimulationEngine {
         programMetrics: this.metrics,
         scoring: this.challenge.scoring,
       };
-    // Cutter Grid is deliberately local-only until the backend owns the same
-    // planner and can replay CutterTrajectoryPlanV1 deterministically.
+    // Cutter Grid is deliberately local-only until `hcr_sim` owns the same
+    // V3 planner and cross-language fixtures prove deterministic replay.
     this.scorePromise = (this.executionMode === 'cutter-grid'
       ? Promise.resolve(calculateScore(scoreInput))
       : this.scoreProvider.score(scoreInput))
@@ -778,7 +805,7 @@ export class SimulationEngine {
             ...(cutterPlan
               ? { trajectorySignature: cutterPlan.trajectorySignature }
               : {}),
-            ...(cutterPlan?.version === 2
+            ...(cutterPlan?.version !== undefined && cutterPlan.version !== 1
               ? {
                   entryOptionId: cutterPlan.entryOptionId,
                   diagnostics: cutterPlan.diagnostics,

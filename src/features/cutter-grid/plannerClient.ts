@@ -1,13 +1,16 @@
 import type { Challenge } from '../../types/domain';
 import { CutterGridPlanningError } from './trajectory';
 import { CutterGridLadderPlanningError } from './ladderPlanner';
+import { CutterGridMotionV3Error } from './motionV3';
 import type {
   CompiledCutterGridProgramV1,
   CutterGridPlanningProgressV2,
   CutterGridProfileV1,
   CutterGridProfileV2,
+  CutterGridProfileV3,
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
 } from './types';
 import type { CutterGridWorkerRequest, CutterGridWorkerResponse } from './workerProtocol';
 
@@ -127,6 +130,55 @@ export class CutterGridPlannerClient {
         reject(new Error(event.message || 'Cutter Grid V2 planning worker failed.'));
       };
       worker.postMessage({ type: 'plan-v2', requestId, challenge, compiled, profile });
+    });
+  }
+
+  planV3(
+    challenge: Challenge,
+    compiled: CompiledCutterGridProgramV1,
+    profile: CutterGridProfileV3,
+    onProgress?: (progress: Omit<CutterGridPlanningProgressV2, 'type' | 'requestId'>) => void,
+  ): Promise<CutterTrajectoryPlanV3> {
+    this.cancel();
+    const requestId = ++this.#requestId;
+    const worker = this.createWorker();
+    this.#worker = worker;
+    return new Promise((resolve, reject) => {
+      this.#reject = reject;
+      worker.onmessage = (event) => {
+        if (event.data.requestId !== requestId || this.#worker !== worker) return;
+        if (event.data.type === 'progress') {
+          onProgress?.({
+            phase: event.data.phase,
+            completedLayers: event.data.completedLayers,
+            totalLayers: event.data.totalLayers,
+            seedBudget: event.data.seedBudget,
+            ...(event.data.disconnectedLayer === undefined ? {} : { disconnectedLayer: event.data.disconnectedLayer }),
+          });
+          return;
+        }
+        this.finish(worker);
+        if (event.data.type === 'planned-v3') {
+          resolve(event.data.plan);
+          return;
+        }
+        if (event.data.type !== 'failed') return;
+        reject(new CutterGridMotionV3Error(
+          event.data.code as CutterGridMotionV3Error['code'],
+          event.data.message,
+          {
+            sourceBlockId: event.data.sourceBlockId,
+            targetCoord: event.data.targetCoord,
+            actionIndex: event.data.actionIndex,
+          },
+        ));
+      };
+      worker.onerror = (event) => {
+        if (this.#worker !== worker) return;
+        this.finish(worker);
+        reject(new Error(event.message || 'Cutter Grid V3 planning worker failed.'));
+      };
+      worker.postMessage({ type: 'plan-v3', requestId, challenge, compiled, profile });
     });
   }
 

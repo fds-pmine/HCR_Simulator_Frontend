@@ -676,6 +676,23 @@ npm run test:e2e
 - V2 Profile 保存最多 32 个安全原点构型及各自认证的零接触入场轨迹。Run、Test 与 idle 下首次 Step 把所有入口和完整玩家路径一并规划；入场属于冻结计划且不剪发、不计命令、不计玩家耗时或成绩。
 - V2 区分静态 `Safe IK known` / `No safe IK found` 与当前 `Program connected` / `Program disconnected`。候选不存在、入口不兼容、连续边不存在与有限搜索预算耗尽必须分别报告，搜索耗尽不得表述为物理不可达。
 
+### 15.3.2 限 jerk 运动稳定试验（V3，前端验证中）
+
+- V3 保持 V2 已选定的无碰撞 IK 构型链和玩家指定 Cartesian 轴向路径；重定时、平滑或渲染播放不得重新选择 IK 分支、缩短距离、抄近路或改变扫掠接触集合。
+- V3 先在前端以纯领域函数完成确定性试验。所有规划输入、输出、诊断、签名和误差必须可序列化且不依赖 DOM、Worker 或渲染时钟；经前端回归验证后，同一领域契约迁移到 Rust `hcr_sim`，由后端成为最终路径规划权威。
+- V3 Profile 为每个关节增加显式仿真速度、加速度与 jerk 硬上限；缺少任一限制时 fail closed。V3 计划保存连续内部角度、段边界 `q/v/a`、动态限制签名、实际速度比例、可按绝对时间采样的段参数、pause-safe 原子检查点和完整轨迹签名。
+- 每个原子移动边界、逻辑转角、Wait 两侧、入场起止和程序终点必须为 pause-safe checkpoint，具有零速度和零加速度。这样 Run/Test 连续回放以及 Step 的停留/恢复均不产生速度或加速度阶跃。
+- 固定关节几何路径先经过速度/加速度受限的确定性重定时，再以本地逐段 state-to-state jerk 平滑生成 C2 轨迹。平滑后必须按不超过 `5ms`、`0.5°` 和 `voxelSize/16` 的联合分辨率重新验证关节限制、头部碰撞、Cartesian 管道和接触集合；任一失败均 fail closed。
+- 仅允许本地实现或在 Worker 中固定版本的本地 WASM 调用。禁止 Ruckig Community intermediate-waypoint 云 API、ROS、MoveIt、Tesseract 或任何外部路径规划服务。
+- 动画提速是规划输入而非渲染时钟倍率：默认请求 `1.25x`，实际速度、加速度和 jerk 分别受 V3 硬上限 clamp，实际时长和比例写入计划并参与计分/签名。禁止把每帧 `delta` 或冻结轨迹时钟直接相乘。
+- 渲染以单调的绝对计划时间采样冻结轨迹；隐藏页、暂停和调试时冻结计划时间，恢复时不追赶墙钟。接触、评分与原子动作事件由计划扫掠区间驱动，不依赖某个中间渲染帧是否出现。
+
+### 15.3.3 Rust 迁移边界
+
+- 前端 V3 仅是验证和可视化实现，不是最终规划权威。稳定后在 `hcr-backend/crates/hcr_sim` 实现相同的纯 Rust V3 领域规划器；后端 API、Session、Match 与实体机械臂桥接在 Rust 规划器完成、跨语言向量一致且另行授权前保持现状。
+- 前端与 Rust 必须共享版本化 JSON fixture：输入 Challenge/Profile/Program，输出 V3 计划或结构化错误、轨迹签名、原子检查点及预计接触集合。任何浮点容差、枚举顺序、量化规则和签名字段改变都必须先更新 fixture 并在两端通过。
+- UI 只消费可序列化 V3 计划并作绝对时间显示；它不得以浏览器特有状态修补或改变 Rust 规划结果。
+
 ### 15.4 版本化边界
 
 - `CutterGridProgramV1` 是独立、可序列化的玩家 IR，包含 `plannerVersion`、方向、距离、Wait/Repeat 和 `sourceBlockId`；它不扩展或伪装当前后端 Servo Program IR。

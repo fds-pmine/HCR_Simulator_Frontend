@@ -1,4 +1,4 @@
-import type { CutterGridProfileV1, CutterGridProfileV2, CutterTrajectoryPlanV1, CutterTrajectoryPlanV2 } from './types';
+import type { CutterGridProfileV1, CutterGridProfileV2, CutterGridProfileV3, CutterTrajectoryPlanV1, CutterTrajectoryPlanV2, CutterTrajectoryPlanV3 } from './types';
 import { Line } from '@react-three/drei';
 
 export function CutterGridOverlay({
@@ -6,8 +6,8 @@ export function CutterGridOverlay({
   plan,
   executedStepCount = 0,
 }: {
-  profile: CutterGridProfileV1 | CutterGridProfileV2;
-  plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2;
+  profile: CutterGridProfileV1 | CutterGridProfileV2 | CutterGridProfileV3;
+  plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3;
   executedStepCount?: number;
 }) {
   const sampledNodes = profile.nodes.filter((_, index) => index % 24 === 0);

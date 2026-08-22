@@ -27,12 +27,13 @@ import {
 } from '../../features/blockly/programmingMode';
 import { CutterGridCompilationError } from '../../features/cutter-grid/programCompiler';
 import { CutterGridPlannerClient } from '../../features/cutter-grid/plannerClient';
-import { registeredCutterGridProfileV2 } from '../../features/cutter-grid/profileRegistry';
+import { registeredCutterGridProfileV3 } from '../../features/cutter-grid/profileRegistry';
 import { CutterGridLadderPlanningError } from '../../features/cutter-grid/ladderPlanner';
+import { CutterGridMotionV3Error } from '../../features/cutter-grid/motionV3';
 import type {
   CompiledCutterGridProgramV1,
   CutterGridPlanningProgressV2,
-  CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
 } from '../../features/cutter-grid/types';
 import { SimulatorCanvas } from '../../features/simulation/SimulatorCanvas';
 import type { SimulationEngine } from '../../features/simulation/SimulationEngine';
@@ -117,7 +118,7 @@ export function SimulationWorkbench({
     | {
         workspaceVersion: number;
         compiled: CompiledCutterGridProgramV1;
-        plan: CutterTrajectoryPlanV2;
+        plan: CutterTrajectoryPlanV3;
       }
     | undefined
   >(undefined);
@@ -125,7 +126,7 @@ export function SimulationWorkbench({
   const snapshot = useSimulationSnapshot(engine);
   const [compileError, setCompileError] = useState<string>();
   const [testing, setTesting] = useState(false);
-  const [cutterPlan, setCutterPlan] = useState<CutterTrajectoryPlanV2>();
+  const [cutterPlan, setCutterPlan] = useState<CutterTrajectoryPlanV3>();
   const [planningProgress, setPlanningProgress] = useState<
     Omit<CutterGridPlanningProgressV2, 'type' | 'requestId'>
   >();
@@ -148,7 +149,7 @@ export function SimulationWorkbench({
   } = useWorkbenchStore();
   const cutterProfile =
     programmingMode === 'cutter-grid'
-      ? registeredCutterGridProfileV2(challenge)
+      ? registeredCutterGridProfileV3(challenge)
       : undefined;
   const editorLocked =
     snapshot.status === 'running' ||
@@ -264,7 +265,7 @@ export function SimulationWorkbench({
 
   const frozenCutterPlan = async () => {
     const compiled = compileCutterGrid();
-    const profile = registeredCutterGridProfileV2(challenge);
+    const profile = registeredCutterGridProfileV3(challenge);
     if (!compiled || !profile) return undefined;
     const workspaceVersion = workspaceVersionRef.current;
     const cached = cutterPlanRef.current;
@@ -272,7 +273,7 @@ export function SimulationWorkbench({
     engine.beginPlanning();
     setPlanningProgress(undefined);
     try {
-      const plan = await plannerRef.current.planV2(challenge, compiled, profile, setPlanningProgress);
+      const plan = await plannerRef.current.planV3(challenge, compiled, profile, setPlanningProgress);
       if (workspaceVersion !== workspaceVersionRef.current) return undefined;
       const frozen = { workspaceVersion, compiled, plan };
       cutterPlanRef.current = frozen;
@@ -284,13 +285,13 @@ export function SimulationWorkbench({
       engine.cancelPlanning();
       setPlanningProgress(undefined);
       if (
-        error instanceof CutterGridLadderPlanningError &&
+        (error instanceof CutterGridLadderPlanningError || error instanceof CutterGridMotionV3Error) &&
         error.code === 'planning-cancelled'
       ) return undefined;
       setCompileError(
         error instanceof Error ? error.message : 'Cutter Grid planning failed.',
       );
-      if (error instanceof CutterGridLadderPlanningError) {
+      if (error instanceof CutterGridLadderPlanningError || error instanceof CutterGridMotionV3Error) {
         editorRef.current?.locateError({
           blockId: error.details.sourceBlockId,
         });
