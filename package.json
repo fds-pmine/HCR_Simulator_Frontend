@@ -22,6 +22,7 @@
     "cutter-grid:audit": "vitest run --config cutter-grid-audit.config.ts",
     "cutter-grid:profile": "vitest run --config cutter-grid-profile.config.ts",
     "cutter-grid:plan": "vitest run --config cutter-grid-plan.config.ts",
+    "cutter-grid:motion-v3-fixture": "vitest run --config cutter-grid-motion-v3.config.ts",
     "electron:dev": "cross-env VITE_HCR_API_BASE_URL=http://127.0.0.1:18623 concurrently -k -n vite,electron -c cyan,magenta \"vite --strictPort\" \"wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
     "electron:preview": "npm run build:desktop && electron .",
     "build:desktop": "cross-env VITE_HCR_API_BASE_URL=https://api.hcr.rs npm run build",

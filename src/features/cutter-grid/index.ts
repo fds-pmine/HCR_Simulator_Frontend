@@ -1,6 +1,7 @@
 export * from './blockConstants';
 export * from './blockDefinitions';
 export * from './continuousEdge';
+export * from './conformanceV3';
 export * from './entryPlanning';
 export * from './feasibility';
 export * from './grid';

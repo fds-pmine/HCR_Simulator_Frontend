@@ -249,7 +249,8 @@ tests/
 ### Cutter Grid Motion Stability V3 Phase 0 — 契约、基线与 Rust 迁移向量
 
 - [ ] 记录 C1 Hermite、渲染 `delta` 倍率和 IK 分支的独立诊断证据；固化 `Up 6 → Left 2 → Forward 3`、认证参考程序、Wait/Repeat 长程序的 V2 签名、关节 `q/v/a` 与接触基线。
-- [ ] 定义纯领域 V3 Profile/Plan/错误/签名契约和前端—Rust JSON fixture；规划数据不得依赖 DOM、Worker、React 或渲染时钟。
+- [ ] 定义纯领域 V3 Profile/Plan/错误/签名契约和前端—Rust JSON fixture；fixture 引用已版本化 Profile，保存完整计划签名、原子 checkpoint/接触/诊断摘要及结构化失败结果，规划数据不得依赖 DOM、Worker、React 或渲染时钟。
+- [x] 在前端生成并回归验证 V3 conformance bundle：认证参考程序、全局 IK 回归程序与缺少动态限制错误均可从版本化 Challenge/Profile 输入重建；Rust 端消费与验证留待后端获准迁移后完成。
 - [ ] 移除“直接乘渲染 delta”的加速语义，改为请求 `1.25x` 的动态限制重定时输入；本阶段不改变生产运行入口。
 
 阶段出口：V3 输入输出、迁移边界和失败语义由测试与 fixture 固化，前端与将来的 `hcr_sim` 可使用同一数据契约。

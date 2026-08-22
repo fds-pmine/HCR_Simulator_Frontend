@@ -691,7 +691,7 @@ npm run test:e2e
 ### 15.3.3 Rust 迁移边界
 
 - 前端 V3 仅是验证和可视化实现，不是最终规划权威。稳定后在 `hcr-backend/crates/hcr_sim` 实现相同的纯 Rust V3 领域规划器；后端 API、Session、Match 与实体机械臂桥接在 Rust 规划器完成、跨语言向量一致且另行授权前保持现状。
-- 前端与 Rust 必须共享版本化 JSON fixture：输入 Challenge/Profile/Program，输出 V3 计划或结构化错误、轨迹签名、原子检查点及预计接触集合。任何浮点容差、枚举顺序、量化规则和签名字段改变都必须先更新 fixture 并在两端通过。
+- 前端与 Rust 必须共享版本化 JSON fixture：输入 Challenge、已引用的版本化 Profile fixture、Program 和动态限制；每个成功向量输出完整 V3 计划的轨迹/几何签名、原子检查点、预计接触集合及诊断摘要，失败向量输出结构化错误。为避免重复存储每 `5ms` 认证样本，fixture 可省略完整 waypoint 数组，但 Rust 必须重建完整计划并匹配签名和所有摘要字段。任何浮点容差、枚举顺序、量化规则和签名字段改变都必须先更新 fixture 并在两端通过。
 - UI 只消费可序列化 V3 计划并作绝对时间显示；它不得以浏览器特有状态修补或改变 Rust 规划结果。
 
 ### 15.4 版本化边界

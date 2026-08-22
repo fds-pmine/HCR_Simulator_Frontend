@@ -48,7 +48,8 @@
 
 ## Cutter Grid 限 jerk 运动稳定（V3，前端试验）
 
-- [ ] V3 Profile/Plan/诊断、签名和失败结果为纯可序列化领域数据，并有前端—Rust 共享 fixture。
+- [ ] V3 Profile/Plan/诊断、签名和失败结果为纯可序列化领域数据，并有前端—Rust 共享 fixture；成功向量包含全计划签名、原子 checkpoint、接触和诊断摘要，失败向量包含结构化错误。
+- [x] 前端 V3 conformance bundle 已固定认证参考程序、`Up 6 → Left 2 → Forward 3` 和缺少动态限制错误；当前 fixture 仍只在前端仓库，待 Rust 获准迁移后须由 `hcr_sim` 逐项消费验证。
 - [ ] V3 保持 V2 全局选定的 IK 构型链、固定 Cartesian 路径、头部净空和 `0.12` 扫掠接触语义。
 - [ ] V3 对每个固定路径使用确定性的全局 C2 五次几何样条；原子移动和系统入场均以共享 knot `q/v/a`、同一动态限制和绝对时间律回放，不得回退到 V2 C1 插值。
 - [ ] 每个原子移动边界均为 `v=a=0` 的 pause-safe checkpoint；所有段满足关节速度、加速度和 jerk 硬限制，且没有角度 wrap/量化反馈跳变。
