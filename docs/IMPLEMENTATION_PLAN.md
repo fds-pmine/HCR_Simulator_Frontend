@@ -259,7 +259,7 @@ tests/
 
 - [x] 完成本地 Ruckig Community WASM Spike：固定 `v0.19.4`/MIT 与 Emscripten `4.0.20`，五关节离线 state-to-state ABI 在 Chromium/Edge Worker 中通过端点与零外部请求门禁；云客户端源码被排除，当前不替换 V3 运行轨迹。
 - [x] 以前端纯 TypeScript ABI 适配器固定 Ruckig 的九组五关节输入、sample-major `q/v/a/j` 输出、非有限值拒绝和错误路径释放；适配器仍不加载 URL 或驱动运行时规划。
-- [x] 以 TOPP-RA 共享边界预备本地 Ruckig 分段编排：每段传递完整 `q/v/a`，按不超过 `5ms` 采样并验证动态限制，失败对同一边界以 `1.1x` 最小时长重试至 `50x` 后 fail closed；尚未接入 Worker 运行轨迹或空间/接触审计。
+- [x] 以 TOPP-RA 共享边界预备本地 Ruckig 分段编排：每段传递完整 `q/v/a`，按不超过 `5ms` 采样并验证动态限制，失败对同一边界以 `1.1x` 最小时长重试至 `50x` 后 fail closed；调用方可注入纯领域空间审计，逐段验证限位、头部、固定 Cartesian 管道、联合采样密度和接触许可。尚未接入 Worker 运行轨迹或聚合为完整玩家 Move 的接触结论。
 - [x] 完成纯领域、保守的 TOPP-RA 风格前向/后向可达传播：从固定 C2 几何输出确定性的路径速度及 `q/v/a` 边界，原子端点保持静止，并以真实全局 IK 回归几何验证速度/加速度限制。它是 Ruckig 输入预备层，尚未接入运行时。
 - [ ] 实现连续角度 unwrap、全局 C2 五次几何样条、pause-safe checkpoint、速度/加速度可达重定时和逐段 `q/v/a` jerk 平滑；所有计算保持纯函数和确定性。
 - [ ] 对全局最小 jerk 样条的限位 overshoot 采用签名可见的确定性单调 C2 约束解，并重新执行完整几何审计；不得放宽限位或回退到 V2 C1 插值。

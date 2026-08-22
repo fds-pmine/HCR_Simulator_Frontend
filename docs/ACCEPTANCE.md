@@ -50,7 +50,7 @@
 
 - [x] 本地 Ruckig Community WASM Spike 已固定 `v0.19.4`/MIT、Emscripten `4.0.20` 和五关节 state-to-state ABI；Chromium/Edge module Worker 只请求本地 JS/WASM，云客户端未编译。该 Spike 尚未成为运行时规划器。
 - [x] 前端 Ruckig ABI 适配器已固定五关节 `q/v/a` 输入顺序、`q/v/a/j` sample-major 输出、非有限值拒绝与错误路径内存释放；它不加载网络或 DOM，尚未接入播放器。
-- [x] 纯领域 Ruckig 分段编排复用 TOPP-RA 边界，验证共享 `q/v/a`、`5ms` 采样动态限制及 `1.1x` 至 `50x` 的 fail-closed 时长扩展；完整空间/接触验证和 Worker 接入仍未启用。
+- [x] 纯领域 Ruckig 分段编排复用 TOPP-RA 边界，验证共享 `q/v/a`、`5ms` 采样动态限制及 `1.1x` 至 `50x` 的 fail-closed 时长扩展；调用方可注入本地空间认证，逐段检查关节范围、头部净空、固定 Cartesian 管道、`0.5°`/`voxelSize/16` 联合采样与零接触/允许接触集。该契约尚未接入 Worker，也尚未聚合为完整玩家 Move 的接触结论。
 - [x] 纯领域 TOPP-RA 风格可达传播在固定 V3 C2 几何上确定性地产生 pause-safe `q/v/a` 边界，端点为零且所有节点不超过有效速度/加速度限制；它尚未改变运行时重定时或接触语义。
 - [x] V3 Worker 以独立版本化消息报告全局 IK 图搜索、几何平滑、时间参数化、jerk 平滑和播放验证；观察进度不改变候选顺序、冻结轨迹或签名，并显示层数/真实运动段数的正确单位。
 - [x] V3 rAF 回放产生有界只读遥测：每个播放帧的计划/渲染时间、`q/v/a/j`、末端、分支与单格、帧间隔和 `50ms` 长帧统计均可复核；隐藏页重锚不追赶墙钟，Inspector 默认折叠该开发信息，遥测不影响运动语义。

@@ -39,8 +39,8 @@ Chromium Worker 探针只观察到本地审计服务器的 `/`、`/hcr_ruckig_lo
 替换运行时前必须完成以下事项：
 
 1. 已完成：在保持 V2 已选 IK 分支和固定 Cartesian 管道不变的前提下，纯领域预备层生成确定性的保守 TOPP-RA 风格 path speed 及 `q/v/a` 边界；该输出尚未作为运行时轨迹。
-2. 已完成纯领域编排：对每个局部 Ruckig 段传递精确共享边界，按 `1.1x` 最小时长扩展并以 `50x` 上限 fail closed，逐样本检验端点与动态限制；不得传 intermediate waypoints。它尚未作为 Worker 运行轨迹。
-3. 对完整回放在 `5ms`、`0.5°` 和 `voxelSize/16` 的联合分辨率复验速度、加速度、jerk、头部净空、Cartesian 偏差和扫掠接触集合。
+2. 已完成纯领域编排：对每个局部 Ruckig 段传递精确共享边界，按 `1.1x` 最小时长扩展并以 `50x` 上限 fail closed，逐样本检验端点与动态限制；不得传 intermediate waypoints。空间认证回调会把关节限位、头部净空、固定 Cartesian 管道、`0.5°`/`voxelSize/16` 联合采样和零接触/允许接触集作为不可重试的 fail-closed 门禁。它尚未作为 Worker 运行轨迹。
+3. 将所有局部段的空间认证结果聚合为完整玩家 Move，并在 `5ms`、`0.5°` 和 `voxelSize/16` 联合分辨率复验完整回放的速度、加速度、jerk、头部净空、Cartesian 偏差和扫掠接触集合。
 4. 添加 Worker 取消、确定性签名和 Chrome/Edge 回归。任何失败均 fail closed；不回退到网络 API、渲染滤波或旧 V2 插值。
 
 完成这些前，Rust 后端迁移继续延后，且 Cutter Grid 的后端提交、Session、Match 和 ArmDock 均保持不变。

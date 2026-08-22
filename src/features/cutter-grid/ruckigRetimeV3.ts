@@ -7,6 +7,7 @@ import {
   type RuckigLocalTrajectoryResult,
   type RuckigLocalTrajectorySample,
 } from './ruckigLocalWasm';
+import { CutterGridRuckigSpatialValidationError } from './ruckigSpatialValidationV3';
 import {
   computeCutterGridReachabilityV3,
   type CutterGridReachabilityLimitsV3,
@@ -54,9 +55,25 @@ export interface CutterGridRuckigRetimingV3 {
   maximumJerkRatio: number;
 }
 
+/**
+ * The caller owns the player-move Cartesian tube and remaining-hair state.
+ * Keeping this callback explicit prevents a local q/v/a solver from quietly
+ * substituting its own geometric contract while it retimes a frozen path.
+ */
+export interface CutterGridRuckigRetimeOptionsV3 {
+  validateSegment?: (segment: {
+    startParameter: number;
+    endParameter: number;
+    samples: readonly CutterGridRuckigSampleV3[];
+  }) => void;
+}
+
 export class CutterGridRuckigRetimingError extends Error {
   constructor(
-    public readonly code: 'jerk-smoothing-infeasible' | 'trajectory-smoothing-search-exhausted',
+    public readonly code:
+      | 'jerk-smoothing-infeasible'
+      | 'trajectory-smoothing-path-deviation'
+      | 'trajectory-smoothing-search-exhausted',
     message: string,
   ) {
     super(message);
@@ -69,8 +86,9 @@ export class CutterGridRuckigRetimingError extends Error {
  * Geometry and the V2-selected IK branch are inputs only: this function never
  * selects a new posture, changes a Cartesian waypoint, or calls a network.
  *
- * Collision, Cartesian tube, and swept-contact checks deliberately remain in
- * the existing V3 validator until this output becomes the active plan source.
+ * A caller can attach `validateSegment` to certify head clearance, the fixed
+ * Cartesian tube, sampling density, and swept contact before accepting a
+ * segment. That is mandatory when this becomes an active plan source.
  */
 export function retimeCutterGridGeometryWithRuckigV3(
   challenge: Challenge,
@@ -78,6 +96,7 @@ export function retimeCutterGridGeometryWithRuckigV3(
   limits: CutterGridRuckigMotionLimitsV3,
   solver: CutterGridRuckigSolverV3,
   reachabilityIntervals?: number,
+  options: CutterGridRuckigRetimeOptionsV3 = {},
 ): CutterGridRuckigRetimingV3 {
   assertFiveJointRobot(challenge);
   const reachability = computeCutterGridReachabilityV3(
@@ -94,7 +113,7 @@ export function retimeCutterGridGeometryWithRuckigV3(
   for (let index = 1; index < reachability.nodes.length; index += 1) {
     const start = reachability.nodes[index - 1];
     const end = reachability.nodes[index];
-    const segment = solveSegment(challenge, geometry, limits, solver, start, end);
+    const segment = solveSegment(challenge, geometry, limits, solver, start, end, options);
     segments.push(segment.segment);
     maximumVelocityRatio = Math.max(maximumVelocityRatio, segment.maximumVelocityRatio);
     maximumAccelerationRatio = Math.max(maximumAccelerationRatio, segment.maximumAccelerationRatio);
@@ -119,6 +138,7 @@ function solveSegment(
   solver: CutterGridRuckigSolverV3,
   start: CutterGridReachabilityNodeV3,
   end: CutterGridReachabilityNodeV3,
+  options: CutterGridRuckigRetimeOptionsV3,
 ): {
   segment: CutterGridRuckigSegmentV3;
   maximumVelocityRatio: number;
@@ -146,6 +166,15 @@ function solveSegment(
         throw new Error('Local Ruckig returned different durations for the same immutable segment input.');
       }
       const validation = validateSegment(challenge, limits, input, trajectory);
+      const samples = trajectory.samples.map((sample, sampleIndex) => ({
+        ...sample,
+        timeSeconds: trajectory.durationSeconds * sampleIndex / (trajectory.samples.length - 1),
+      }));
+      options.validateSegment?.({
+        startParameter: start.parameter,
+        endParameter: end.parameter,
+        samples,
+      });
       return {
         segment: {
           startParameter: start.parameter,
@@ -153,14 +182,18 @@ function solveSegment(
           requestedMinimumDurationSeconds: requestedMinimumDuration,
           durationSeconds: trajectory.durationSeconds,
           durationExtensionCount: extensionCount,
-          samples: trajectory.samples.map((sample, sampleIndex) => ({
-            ...sample,
-            timeSeconds: trajectory.durationSeconds * sampleIndex / (trajectory.samples.length - 1),
-          })),
+          samples,
         },
         ...validation,
       };
     } catch (error) {
+      if (error instanceof CutterGridRuckigSpatialValidationError) {
+        throw new CutterGridRuckigRetimingError(
+          'trajectory-smoothing-path-deviation',
+          error.message,
+        );
+      }
+      if (error instanceof CutterGridRuckigRetimingError) throw error;
       if (error instanceof RuckigLocalWasmError && error.resultCode === -100) {
         throw new CutterGridRuckigRetimingError(
           'jerk-smoothing-infeasible',

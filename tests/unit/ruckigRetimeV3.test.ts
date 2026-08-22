@@ -15,6 +15,7 @@ import {
   type CutterGridRuckigMotionLimitsV3,
   type CutterGridRuckigSolverV3,
 } from '../../src/features/cutter-grid/ruckigRetimeV3';
+import { CutterGridRuckigSpatialValidationError } from '../../src/features/cutter-grid/ruckigSpatialValidationV3';
 import { CUTTER_GRID_LADDER_PLANNER_VERSION, type CutterTrajectoryGeometryV3 } from '../../src/features/cutter-grid/types';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge } from '../../src/types/domain';
@@ -91,6 +92,28 @@ describe('Cutter Grid V3 local Ruckig segment retiming', () => {
       CutterGridRuckigRetimingError,
     );
     expect(solver.inputs).toHaveLength(1);
+  }, 60_000);
+
+  it('does not retry after the caller rejects a spatially invalid local segment', () => {
+    const solver = new DeterministicRuckigSolver();
+
+    try {
+      retimeCutterGridGeometryWithRuckigV3(challenge, geometry, limits, solver, 8, {
+        validateSegment: () => {
+          throw new CutterGridRuckigSpatialValidationError(
+            'cartesian-pipe',
+            'Synthetic local Ruckig pipe violation.',
+            {},
+          );
+        },
+      });
+      throw new Error('Expected spatial validation to fail closed.');
+    } catch (error) {
+      expect(error).toBeInstanceOf(CutterGridRuckigRetimingError);
+      expect((error as CutterGridRuckigRetimingError).code).toBe('trajectory-smoothing-path-deviation');
+    }
+    // Probe plus the immutable 5ms sample request; no duration-extension retry.
+    expect(solver.inputs).toHaveLength(2);
   }, 60_000);
 });
 
