@@ -43,6 +43,13 @@ export interface CutterGridRuckigSpatialValidationSummaryV3 {
   cutVoxels: VoxelKey[];
 }
 
+export interface CutterGridRuckigMoveSpatialValidatorV3 {
+  /** Supply one already time-sampled local Ruckig segment in path order. */
+  validateSegment(samples: readonly RuckigLocalTrajectorySample[]): void;
+  /** Close the atomic Move and prove its full swept contact set is unchanged. */
+  finalize(): CutterGridRuckigSpatialValidationSummaryV3;
+}
+
 /**
  * Fails closed when an otherwise dynamically valid Ruckig sample stream does
  * not preserve Cutter Grid's geometric safety contract.  It is deliberately
@@ -153,6 +160,55 @@ export function validateCutterGridRuckigSpatialSamplesV3(
     maximumEndEffectorSampleDelta,
     maximumCartesianDeviation,
     cutVoxels: [...cutVoxels].sort(),
+  };
+}
+
+/**
+ * Aggregates all local Ruckig segments for exactly one frozen Cutter Grid Move.
+ * Segment boundaries can re-observe the same hair voxel, so only this final
+ * set comparison can prove that a re-timed Move preserves cut semantics.
+ */
+export function createCutterGridRuckigMoveSpatialValidatorV3(
+  challenge: Challenge,
+  context: Omit<CutterGridRuckigSpatialValidationContextV3, 'permittedCutVoxels'> & {
+    expectedCutVoxels: readonly VoxelKey[];
+  },
+): CutterGridRuckigMoveSpatialValidatorV3 {
+  const permittedCutVoxels = new Set(context.expectedCutVoxels);
+  const aggregateCuts = new Set<VoxelKey>();
+  let maximumJointSampleDeltaDeg = 0;
+  let maximumEndEffectorSampleDelta = 0;
+  let maximumCartesianDeviation = 0;
+  let finalized = false;
+
+  return {
+    validateSegment(samples) {
+      if (finalized) {
+        throw failure('unexpected-hair-contact', 'Cannot append a local Ruckig segment after Move validation finished.', context);
+      }
+      const summary = validateCutterGridRuckigSpatialSamplesV3(challenge, samples, {
+        ...context,
+        permittedCutVoxels,
+      });
+      maximumJointSampleDeltaDeg = Math.max(maximumJointSampleDeltaDeg, summary.maximumJointSampleDeltaDeg);
+      maximumEndEffectorSampleDelta = Math.max(maximumEndEffectorSampleDelta, summary.maximumEndEffectorSampleDelta);
+      maximumCartesianDeviation = Math.max(maximumCartesianDeviation, summary.maximumCartesianDeviation);
+      summary.cutVoxels.forEach((key) => aggregateCuts.add(key));
+    },
+    finalize() {
+      if (finalized) {
+        throw failure('unexpected-hair-contact', 'Local Ruckig Move validation was already finalized.', context);
+      }
+      finalized = true;
+      const cutVoxels = [...aggregateCuts].sort();
+      assertCutterGridRuckigExpectedCutVoxelsV3(cutVoxels, context.expectedCutVoxels, context);
+      return {
+        maximumJointSampleDeltaDeg,
+        maximumEndEffectorSampleDelta,
+        maximumCartesianDeviation,
+        cutVoxels,
+      };
+    },
   };
 }
 

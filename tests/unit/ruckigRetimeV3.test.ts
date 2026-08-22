@@ -115,6 +115,27 @@ describe('Cutter Grid V3 local Ruckig segment retiming', () => {
     // Probe plus the immutable 5ms sample request; no duration-extension retry.
     expect(solver.inputs).toHaveLength(2);
   }, 60_000);
+
+  it('fails closed when aggregate Move contact validation rejects otherwise valid segments', () => {
+    const solver = new DeterministicRuckigSolver();
+
+    try {
+      retimeCutterGridGeometryWithRuckigV3(challenge, geometry, limits, solver, 8, {
+        finalizeSpatialValidation: () => {
+          throw new CutterGridRuckigSpatialValidationError(
+            'unexpected-hair-contact',
+            'Synthetic aggregate contact mismatch.',
+            {},
+          );
+        },
+      });
+      throw new Error('Expected aggregate spatial validation to fail closed.');
+    } catch (error) {
+      expect(error).toBeInstanceOf(CutterGridRuckigRetimingError);
+      expect((error as CutterGridRuckigRetimingError).code).toBe('trajectory-smoothing-path-deviation');
+    }
+    expect(solver.inputs).toHaveLength(16);
+  }, 60_000);
 });
 
 class DeterministicRuckigSolver implements CutterGridRuckigSolverV3 {

@@ -66,6 +66,11 @@ export interface CutterGridRuckigRetimeOptionsV3 {
     endParameter: number;
     samples: readonly CutterGridRuckigSampleV3[];
   }) => void;
+  /**
+   * Invoked only after every local segment passed `validateSegment`. Use this
+   * to compare the aggregate swept-contact set with the frozen atomic Move.
+   */
+  finalizeSpatialValidation?: () => void;
 }
 
 export class CutterGridRuckigRetimingError extends Error {
@@ -118,6 +123,17 @@ export function retimeCutterGridGeometryWithRuckigV3(
     maximumVelocityRatio = Math.max(maximumVelocityRatio, segment.maximumVelocityRatio);
     maximumAccelerationRatio = Math.max(maximumAccelerationRatio, segment.maximumAccelerationRatio);
     maximumJerkRatio = Math.max(maximumJerkRatio, segment.maximumJerkRatio);
+  }
+  try {
+    options.finalizeSpatialValidation?.();
+  } catch (error) {
+    if (error instanceof CutterGridRuckigSpatialValidationError) {
+      throw new CutterGridRuckigRetimingError(
+        'trajectory-smoothing-path-deviation',
+        error.message,
+      );
+    }
+    throw error;
   }
 
   return {

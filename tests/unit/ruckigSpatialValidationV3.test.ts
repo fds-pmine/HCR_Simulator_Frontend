@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_CHALLENGE_ID } from '../../src/data/challenges/defaultChallenge';
 import {
   assertCutterGridRuckigExpectedCutVoxelsV3,
+  createCutterGridRuckigMoveSpatialValidatorV3,
   CutterGridRuckigSpatialValidationError,
   validateCutterGridRuckigSpatialSamplesV3,
 } from '../../src/features/cutter-grid/ruckigSpatialValidationV3';
@@ -112,6 +113,38 @@ describe('Cutter Grid local Ruckig spatial certification', () => {
       () => assertCutterGridRuckigExpectedCutVoxelsV3(['0,0,0'], ['0,0,1']),
       'unexpected-hair-contact',
     );
+  });
+
+  it('aggregates all local segments before comparing the frozen Move contact set', () => {
+    const endEffector = computeRobotPose(challenge.robotConfig, initialAngles).endEffector;
+    const contactChallenge: Challenge = {
+      ...challenge,
+      voxelConfig: {
+        ...challenge.voxelConfig,
+        origin: [...endEffector] as [number, number, number],
+      },
+    };
+    const validator = createCutterGridRuckigMoveSpatialValidatorV3(contactChallenge, {
+      fixedAxisLine: { start: endEffector, end: endEffector },
+      hairVoxels: new Set(['0,0,0']),
+      expectedCutVoxels: ['0,0,0'],
+      sourceBlockId: 'move-1',
+      targetCoord: [0, 0, 0],
+      actionIndex: 0,
+    });
+    const segment = [sample(contactChallenge, initialAngles), sample(contactChallenge, initialAngles)];
+    validator.validateSegment(segment);
+    // Re-observing the shared segment endpoint cannot create a duplicate cut.
+    validator.validateSegment(segment);
+
+    expect(validator.finalize().cutVoxels).toEqual(['0,0,0']);
+
+    const missingContact = createCutterGridRuckigMoveSpatialValidatorV3(contactChallenge, {
+      fixedAxisLine: { start: endEffector, end: endEffector },
+      hairVoxels: new Set(['0,0,0']),
+      expectedCutVoxels: ['0,0,0'],
+    });
+    expectSpatialFailure(() => missingContact.finalize(), 'unexpected-hair-contact');
   });
 });
 
