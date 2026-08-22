@@ -176,32 +176,42 @@ function solveSegment(
     const input = makeRuckigInput(challenge, geometry, limits, start, end, requestedMinimumDuration, 2);
     try {
       const probe = solver.sample(input);
-      const sampleCount = sampleCountForDuration(probe.durationSeconds);
-      const trajectory = solver.sample({ ...input, sampleCount });
-      if (Math.abs(trajectory.durationSeconds - probe.durationSeconds) > 1e-9) {
-        throw new Error('Local Ruckig returned different durations for the same immutable segment input.');
+      let sampleCount = sampleCountForDuration(probe.durationSeconds);
+      for (;;) {
+        const trajectory = solver.sample({ ...input, sampleCount });
+        if (Math.abs(trajectory.durationSeconds - probe.durationSeconds) > 1e-9) {
+          throw new Error('Local Ruckig returned different durations for the same immutable segment input.');
+        }
+        const validation = validateSegment(challenge, limits, input, trajectory);
+        const samples = trajectory.samples.map((sample, sampleIndex) => ({
+          ...sample,
+          timeSeconds: trajectory.durationSeconds * sampleIndex / (trajectory.samples.length - 1),
+        }));
+        try {
+          options.validateSegment?.({
+            startParameter: start.parameter,
+            endParameter: end.parameter,
+            samples,
+          });
+        } catch (error) {
+          if (!(error instanceof CutterGridRuckigSpatialValidationError) || error.code !== 'sample-resolution') {
+            throw error;
+          }
+          sampleCount = nextSpatialSampleCount(sampleCount, end.parameter);
+          continue;
+        }
+        return {
+          segment: {
+            startParameter: start.parameter,
+            endParameter: end.parameter,
+            requestedMinimumDurationSeconds: requestedMinimumDuration,
+            durationSeconds: trajectory.durationSeconds,
+            durationExtensionCount: extensionCount,
+            samples,
+          },
+          ...validation,
+        };
       }
-      const validation = validateSegment(challenge, limits, input, trajectory);
-      const samples = trajectory.samples.map((sample, sampleIndex) => ({
-        ...sample,
-        timeSeconds: trajectory.durationSeconds * sampleIndex / (trajectory.samples.length - 1),
-      }));
-      options.validateSegment?.({
-        startParameter: start.parameter,
-        endParameter: end.parameter,
-        samples,
-      });
-      return {
-        segment: {
-          startParameter: start.parameter,
-          endParameter: end.parameter,
-          requestedMinimumDurationSeconds: requestedMinimumDuration,
-          durationSeconds: trajectory.durationSeconds,
-          durationExtensionCount: extensionCount,
-          samples,
-        },
-        ...validation,
-      };
     } catch (error) {
       if (error instanceof CutterGridRuckigSpatialValidationError) {
         throw new CutterGridRuckigRetimingError(
@@ -325,6 +335,23 @@ function sampleCountForDuration(durationSeconds: number): number {
     throw new Error('Local Ruckig duration cannot be certified at the required 5ms resolution.');
   }
   return sampleCount;
+}
+
+/**
+ * Five milliseconds is only the initial temporal density. Spatial
+ * certification can require more samples on the exact same state-to-state
+ * Ruckig solution when a fast joint or the end effector crosses its 0.5° /
+ * voxelSize/16 bound. This is a sampling refinement, not a duration retry or
+ * a change to the frozen geometry/IK branch.
+ */
+function nextSpatialSampleCount(sampleCount: number, endParameter: number): number {
+  if (!Number.isInteger(sampleCount) || sampleCount < 2 || sampleCount >= MAX_SAMPLE_COUNT) {
+    throw new CutterGridRuckigRetimingError(
+      'trajectory-smoothing-search-exhausted',
+      `Cutter Grid could not certify local Ruckig spatial sampling at parameter ${endParameter.toFixed(6)}.`,
+    );
+  }
+  return Math.min(MAX_SAMPLE_COUNT, sampleCount * 2 - 1);
 }
 
 function vectorFromJoints(

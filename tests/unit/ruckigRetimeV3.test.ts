@@ -116,6 +116,32 @@ describe('Cutter Grid V3 local Ruckig segment retiming', () => {
     expect(solver.inputs).toHaveLength(2);
   }, 60_000);
 
+  it('densifies the same local Ruckig segment before treating sparse samples as a path failure', () => {
+    const solver = new DeterministicRuckigSolver();
+    let rejectedSparseSampleSet = false;
+    const acceptedSampleCounts: number[] = [];
+    const retimed = retimeCutterGridGeometryWithRuckigV3(challenge, geometry, limits, solver, 8, {
+      validateSegment: ({ samples }) => {
+        if (!rejectedSparseSampleSet) {
+          rejectedSparseSampleSet = true;
+          throw new CutterGridRuckigSpatialValidationError(
+            'sample-resolution',
+            'Synthetic sparse Ruckig output.',
+            {},
+          );
+        }
+        acceptedSampleCounts.push(samples.length);
+      },
+    });
+
+    expect(rejectedSparseSampleSet).toBe(true);
+    expect(acceptedSampleCounts[0]).toBeGreaterThan(2);
+    expect(retimed.segments).toHaveLength(8);
+    // First segment uses probe + 5ms sample stream + denser stream; every
+    // remaining segment has exactly probe + 5ms stream.
+    expect(solver.inputs).toHaveLength(17);
+  }, 60_000);
+
   it('fails closed when aggregate Move contact validation rejects otherwise valid segments', () => {
     const solver = new DeterministicRuckigSolver();
 
