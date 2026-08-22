@@ -10,7 +10,10 @@ import type {
   CutterTrajectoryWaypointV1,
 } from '../cutter-grid/types';
 import { interpolateCutterTrajectoryJointAngles } from '../cutter-grid/trajectory';
-import { evaluateCutterGridPositioningV3At } from '../cutter-grid/motionV3';
+import {
+  evaluateCutterGridPositioningV3At,
+  evaluateCutterTrajectoryStepV3At,
+} from '../cutter-grid/motionV3';
 import { calculateScore, estimateProgramDuration } from '../scoring/scoring';
 import type { RobotPose } from '../robot/kinematics';
 import { RobotController } from '../robot/RobotController';
@@ -27,6 +30,11 @@ import type {
 import type { ScoreProvider } from '../../services/contracts';
 import { ProgramExecutor } from './programExecutor';
 import { CutterTrajectoryExecutor } from './cutterTrajectoryExecutor';
+import {
+  CutterGridMotionDiagnosticsRecorder,
+  type CutterGridMotionDiagnostics,
+  type CutterGridMotionDiagnosticsSummary,
+} from './cutterGridMotionDiagnostics';
 
 export type SimulationStatus =
   | 'loading'
@@ -91,6 +99,7 @@ export interface SimulationSnapshot {
     trajectorySignature?: string;
     entryOptionId?: string;
     diagnostics?: CutterGridPlanningDiagnosticsV2;
+    motionDiagnostics?: CutterGridMotionDiagnosticsSummary;
   };
 }
 
@@ -130,6 +139,9 @@ export class SimulationEngine {
   private positioningCompletion: 'idle' | 'run' | 'step' = 'idle';
   /** Last rAF-derived timestamp. Never participates in headless replay. */
   private playbackTimestampMs: number | undefined;
+  /** Bounded V3-only evidence trace; it never influences trajectory playback. */
+  private cutterGridMotionDiagnostics: CutterGridMotionDiagnosticsRecorder | undefined;
+  private lastCutterGridDiagnosticPlanTimeMs: number | undefined;
 
   constructor(
     private readonly challenge: Challenge,
@@ -180,6 +192,8 @@ export class SimulationEngine {
       throw new Error(`Positioning is not allowed while status is "${this.status}".`);
     }
     this.executionMode = 'cutter-grid';
+    this.cutterGridMotionDiagnostics = undefined;
+    this.lastCutterGridDiagnosticPlanTimeMs = undefined;
     this.status = 'positioning';
     this.positioningWaypoints = profile.entryTrajectory;
     this.positioningMotionV3 = undefined;
@@ -203,6 +217,8 @@ export class SimulationEngine {
       throw new Error(`Planning is not allowed while status is "${this.status}".`);
     }
     this.executionMode = 'cutter-grid';
+    this.cutterGridMotionDiagnostics = undefined;
+    this.lastCutterGridDiagnosticPlanTimeMs = undefined;
     this.status = 'planning';
     this.addLog('system', 'Cutter Grid trajectory planning started.');
     this.publish();
@@ -338,8 +354,17 @@ export class SimulationEngine {
     }
     const previous = this.playbackTimestampMs;
     this.playbackTimestampMs = playbackTimestampMs;
-    if (previous === undefined || playbackTimestampMs < previous) return;
-    this.tick(playbackTimestampMs - previous);
+    if (previous === undefined || playbackTimestampMs < previous) {
+      this.publishMotionDiagnosticsIfTerminal(
+        this.captureCutterGridMotionDiagnostics(playbackTimestampMs, 0),
+      );
+      return;
+    }
+    const frameIntervalMs = playbackTimestampMs - previous;
+    this.tick(frameIntervalMs);
+    this.publishMotionDiagnosticsIfTerminal(
+      this.captureCutterGridMotionDiagnostics(playbackTimestampMs, frameIntervalMs),
+    );
   }
 
   /** Drop the rAF anchor without changing the frozen plan or simulation state. */
@@ -437,6 +462,14 @@ export class SimulationEngine {
     return this.snapshot;
   }
 
+  /**
+   * Returns a bounded copy of V3 rAF observations for diagnostics and tests.
+   * The trace is intentionally not part of the trajectory signature.
+   */
+  getCutterGridMotionDiagnostics(): CutterGridMotionDiagnostics | undefined {
+    return this.cutterGridMotionDiagnostics?.snapshot();
+  }
+
   getPose(): RobotPose {
     return this.robotController.getPose();
   }
@@ -455,6 +488,8 @@ export class SimulationEngine {
     }
     this.resetState();
     this.executionMode = 'servo';
+    this.cutterGridMotionDiagnostics = undefined;
+    this.lastCutterGridDiagnosticPlanTimeMs = undefined;
     this.positioningWaypoints = [];
     this.positioningMotionV3 = undefined;
     this.positioningElapsedMs = 0;
@@ -501,6 +536,8 @@ export class SimulationEngine {
     this.positioningWaypointIndex = 0;
     this.positioningCompletion = 'idle';
     this.playbackTimestampMs = undefined;
+    this.cutterGridMotionDiagnostics = undefined;
+    this.lastCutterGridDiagnosticPlanTimeMs = undefined;
     this.scorePromise = Promise.resolve(undefined);
   }
 
@@ -573,6 +610,10 @@ export class SimulationEngine {
     this.errorMessage = undefined;
     this.scorePromise = Promise.resolve(undefined);
     this.executionMode = 'cutter-grid';
+    this.cutterGridMotionDiagnostics = plan.version === 3
+      ? new CutterGridMotionDiagnosticsRecorder()
+      : undefined;
+    this.lastCutterGridDiagnosticPlanTimeMs = undefined;
     this.cutterExecutor.load(plan);
     if (plan.version === 1) {
       this.robotController.setTrajectoryAngles(startAngles);
@@ -726,6 +767,105 @@ export class SimulationEngine {
     this.addLog('command', 'Cutter Grid action completed.', step.sourceBlockId);
   }
 
+  /**
+   * Capture one rAF observation after the controller has accepted the frozen
+   * V3 sample. This is observational only: no recorded value feeds back into
+   * the executor, collision checks, scoring, or the worker's next plan.
+   */
+  private captureCutterGridMotionDiagnostics(
+    renderedAtMs: number,
+    frameIntervalMs: number,
+  ): boolean {
+    const recorder = this.cutterGridMotionDiagnostics;
+    const plan = this.cutterExecutor.getPlan();
+    if (!recorder || plan?.version !== 3) return false;
+
+    const isMoving = this.status === 'positioning' || this.status === 'running';
+    if (this.status === 'positioning' && this.positioningMotionV3) {
+      const waypoint = evaluateCutterGridPositioningV3At(
+        this.challenge,
+        this.positioningMotionV3,
+        this.positioningElapsedMs,
+      );
+      return this.recordCutterGridMotionDiagnostics({
+        renderedAtMs,
+        frameIntervalMs,
+        planTimeMs: this.positioningElapsedMs,
+        phase: 'positioning',
+        stepIndex: -1,
+        sourceBlockId: 'system-positioning',
+        entryOptionId: plan.entryOptionId,
+        plannedJointAngles: waypoint.jointAngles,
+        plannedJointVelocitiesDegPerSec: waypoint.jointVelocitiesDegPerSec,
+        plannedJointAccelerationsDegPerSec2: waypoint.jointAccelerationsDegPerSec2,
+        plannedJointJerksDegPerSec3: waypoint.jointJerksDegPerSec3,
+        plannedEndEffector: waypoint.endEffector,
+      }, isMoving);
+    }
+
+    const stepIndex = Math.min(
+      this.cutterExecutor.getStepIndex(),
+      plan.steps.length - 1,
+    );
+    const step = plan.steps[stepIndex];
+    if (!step) return false;
+    const elapsedInStepMs = this.cutterExecutor.getStepIndex() < plan.steps.length
+      ? this.cutterExecutor.getElapsedInStepMs()
+      : step.durationMs;
+    const playerElapsedMs = plan.steps
+      .slice(0, stepIndex)
+      .reduce((total, candidate) => total + candidate.durationMs, 0) + elapsedInStepMs;
+    const waypoint = evaluateCutterTrajectoryStepV3At(
+      this.challenge,
+      step,
+      elapsedInStepMs,
+    );
+    return this.recordCutterGridMotionDiagnostics({
+      renderedAtMs,
+      frameIntervalMs,
+      planTimeMs: plan.positioningMotion.durationMs + playerElapsedMs,
+      phase: 'player',
+      stepIndex,
+      sourceBlockId: step.sourceBlockId,
+      entryOptionId: plan.entryOptionId,
+      plannedJointAngles: waypoint.jointAngles,
+      plannedJointVelocitiesDegPerSec: waypoint.jointVelocitiesDegPerSec,
+      plannedJointAccelerationsDegPerSec2: waypoint.jointAccelerationsDegPerSec2,
+      plannedJointJerksDegPerSec3: waypoint.jointJerksDegPerSec3,
+      plannedEndEffector: waypoint.endEffector,
+    }, isMoving);
+  }
+
+  private recordCutterGridMotionDiagnostics(
+    sample: Omit<
+      Parameters<CutterGridMotionDiagnosticsRecorder['record']>[0],
+      'actualJointAngles' | 'actualEndEffector'
+    >,
+    isMoving: boolean,
+  ): boolean {
+    if (
+      !isMoving &&
+      this.lastCutterGridDiagnosticPlanTimeMs === sample.planTimeMs
+    ) return false;
+    const recorder = this.cutterGridMotionDiagnostics;
+    if (!recorder) return false;
+    recorder.record({
+      ...sample,
+      actualJointAngles: this.robotController.getAngles(),
+      actualEndEffector: this.robotController.getPose().endEffector,
+    });
+    this.lastCutterGridDiagnosticPlanTimeMs = sample.planTimeMs;
+    return true;
+  }
+
+  private publishMotionDiagnosticsIfTerminal(captured: boolean): void {
+    if (
+      captured &&
+      this.status !== 'positioning' &&
+      this.status !== 'running'
+    ) this.publish();
+  }
+
   private completeProgram(): void {
     this.status = 'completed';
     this.stepTargetCommandCount = undefined;
@@ -824,6 +964,9 @@ export class SimulationEngine {
                   entryOptionId: cutterPlan.entryOptionId,
                   diagnostics: cutterPlan.diagnostics,
                 }
+              : {}),
+            ...(this.cutterGridMotionDiagnostics
+              ? { motionDiagnostics: this.cutterGridMotionDiagnostics.summary() }
               : {}),
           }
         : undefined;

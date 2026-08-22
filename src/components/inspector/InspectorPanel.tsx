@@ -98,6 +98,41 @@ export function InspectorPanel({
             ) : null}
             <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
           </dl>
+          {snapshot.cutterGrid?.motionDiagnostics ? (
+            <details className="cutter-grid-motion-diagnostics" data-testid="cutter-grid-motion-diagnostics">
+              <summary>Motion diagnostics (development)</summary>
+              <dl className="cutter-grid-summary">
+                <div><dt>Frames</dt><dd>{snapshot.cutterGrid.motionDiagnostics.frameCount}</dd></div>
+                <div><dt>Long frames</dt><dd>{snapshot.cutterGrid.motionDiagnostics.longFrameCount}</dd></div>
+                <div><dt>Max interval</dt><dd>{formatNumber(snapshot.cutterGrid.motionDiagnostics.maximumFrameIntervalMs, 1)} ms</dd></div>
+                <div><dt>Max joint error</dt><dd>{formatNumber(snapshot.cutterGrid.motionDiagnostics.maximumJointTrackingErrorDeg, 6)}°</dd></div>
+                <div><dt>Max tip error</dt><dd>{formatNumber(snapshot.cutterGrid.motionDiagnostics.maximumEndEffectorTrackingError, 8)} m</dd></div>
+                {snapshot.cutterGrid.motionDiagnostics.lastFrame ? (
+                  <>
+                    <div><dt>Last plan time</dt><dd>{formatNumber(snapshot.cutterGrid.motionDiagnostics.lastFrame.planTimeMs, 1)} ms · {snapshot.cutterGrid.motionDiagnostics.lastFrame.phase}</dd></div>
+                    <div><dt>Last segment</dt><dd>{snapshot.cutterGrid.motionDiagnostics.lastFrame.stepIndex < 0 ? 'system positioning' : `step ${snapshot.cutterGrid.motionDiagnostics.lastFrame.stepIndex + 1}`}</dd></div>
+                  </>
+                ) : null}
+              </dl>
+              {snapshot.cutterGrid.motionDiagnostics.lastFrame ? (
+                <div className="cutter-grid-motion-joints">
+                  {challenge.robotConfig.joints.map((joint) => {
+                    const frame = snapshot.cutterGrid?.motionDiagnostics?.lastFrame;
+                    if (!frame) return null;
+                    return (
+                      <div key={joint.id}>
+                        <strong>{joint.name}</strong>
+                        <span>q {formatNumber(frame.plannedJointAngles[joint.id], 3)}°</span>
+                        <span>v {formatNumber(frame.plannedJointVelocitiesDegPerSec[joint.id], 2)}</span>
+                        <span>a {formatNumber(frame.plannedJointAccelerationsDegPerSec2[joint.id], 2)}</span>
+                        <span>j {formatNumber(frame.plannedJointJerksDegPerSec3[joint.id], 2)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </details>
+          ) : null}
           <div className="cutter-grid-legend" aria-label="Cutter Grid legend">
             <span><i className="is-reachable" />Safe IK known</span>
             <span><i className="is-blocked" />No safe IK found</span>

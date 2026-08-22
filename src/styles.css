@@ -1542,6 +1542,40 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+.cutter-grid-motion-diagnostics {
+  margin-top: 12px;
+  border-top: 1px solid rgba(142, 184, 207, 0.16);
+  padding-top: 10px;
+}
+
+.cutter-grid-motion-diagnostics summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+  font-size: var(--font-xs);
+  letter-spacing: 0.04em;
+}
+
+.cutter-grid-motion-joints {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.cutter-grid-motion-joints div {
+  display: grid;
+  grid-template-columns: minmax(74px, 1fr) repeat(4, auto);
+  gap: 6px;
+}
+
+.cutter-grid-motion-joints strong {
+  color: var(--muted-strong);
+  font-family: inherit;
+  font-weight: 600;
+}
+
 .cutter-grid-legend {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

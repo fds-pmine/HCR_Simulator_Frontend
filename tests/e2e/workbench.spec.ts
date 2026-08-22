@@ -379,14 +379,21 @@ test.describe('HCR Simulator workbench', () => {
       timeout: 120_000,
     });
     await expect(page.getByTestId('executed-command-count')).toHaveText('1');
-    await expect(page.locator('.cutter-grid-summary')).toContainText('1/2');
-    await expect(page.locator('.cutter-grid-summary')).toContainText('(1, 0, 0)');
-    await expect(page.locator('.cutter-grid-summary')).toContainText('Connected for this program');
-    await expect(page.locator('.cutter-grid-summary')).toContainText('Branch');
+    const cutterGridSummary = page.locator('.cutter-grid-inspector > .cutter-grid-summary');
+    await expect(cutterGridSummary).toContainText('1/2');
+    await expect(cutterGridSummary).toContainText('(1, 0, 0)');
+    await expect(cutterGridSummary).toContainText('Connected for this program');
+    await expect(cutterGridSummary).toContainText('Branch');
+    const motionDiagnostics = page.getByTestId('cutter-grid-motion-diagnostics');
+    await expect(motionDiagnostics).toBeVisible();
+    await expect(motionDiagnostics).not.toHaveAttribute('open', '');
+    await motionDiagnostics.locator('summary').click();
+    await expect(motionDiagnostics).toContainText('Frames');
+    await expect(motionDiagnostics).toContainText('Max joint error');
     await expect(page.getByTestId('final-score')).toHaveCount(0);
 
     const trajectoryBeforeReset = await page
-      .locator('.cutter-grid-summary')
+      .locator('.cutter-grid-inspector > .cutter-grid-summary')
       .locator('dd')
       .last()
       .textContent();
@@ -398,7 +405,7 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.getByTestId('simulation-status')).toHaveText('Paused', {
       timeout: 20_000,
     });
-    await expect(page.locator('.cutter-grid-summary').locator('dd').last()).toHaveText(
+    await expect(page.locator('.cutter-grid-inspector > .cutter-grid-summary').locator('dd').last()).toHaveText(
       trajectoryBeforeReset ?? '',
     );
   });

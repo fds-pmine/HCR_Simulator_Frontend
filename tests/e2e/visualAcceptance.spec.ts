@@ -46,10 +46,11 @@ for (const viewport of VIEWPORTS) {
     await expect(page.locator('.side-panel--right')).toBeInViewport();
     await expect(page.getByTestId('run-button')).toBeInViewport();
     await expect(page.getByTestId('reset-button')).toBeInViewport();
-    await expect(page.locator('.cutter-grid-summary')).toBeVisible();
-    await expect(page.locator('.cutter-grid-summary')).toContainText('(1, 0, 0)');
-    await expect(page.locator('.cutter-grid-summary')).toContainText('1/2');
-    await expect(page.locator('.cutter-grid-summary')).toContainText('Connected for this program');
+    const cutterGridSummary = page.locator('.cutter-grid-inspector > .cutter-grid-summary');
+    await expect(cutterGridSummary).toBeVisible();
+    await expect(cutterGridSummary).toContainText('(1, 0, 0)');
+    await expect(cutterGridSummary).toContainText('1/2');
+    await expect(cutterGridSummary).toContainText('Connected for this program');
     await expect(page.getByText(/Backend replay not yet supported/)).toBeVisible();
 
     const overflow = await page.evaluate(() => ({

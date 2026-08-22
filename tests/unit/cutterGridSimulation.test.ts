@@ -366,6 +366,41 @@ describe('Cutter Grid frozen trajectory simulation', () => {
     expect(engine.getSnapshot().metrics.executedCommandCount).toBe(0);
   });
 
+  it('records V3 rAF diagnostics without changing the frozen playback clock', () => {
+    const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+    engine.runCutterGrid(v3RegressionPlan, 3);
+    engine.tickAt(0);
+    engine.tickAt(100);
+    engine.tickAt(350);
+
+    const beforeClockReset = engine.getCutterGridMotionDiagnostics();
+    expect(beforeClockReset).toBeDefined();
+    if (!beforeClockReset) throw new Error('Expected V3 playback diagnostics.');
+    expect(beforeClockReset.frameCount).toBe(3);
+    expect(beforeClockReset.longFrameCount).toBe(2);
+    expect(beforeClockReset.maximumFrameIntervalMs).toBe(250);
+    expect(beforeClockReset.lastFrame?.entryOptionId).toBe(v3RegressionPlan.entryOptionId);
+    expect(beforeClockReset.lastFrame?.plannedJointVelocitiesDegPerSec).toBeDefined();
+
+    const planTimeBeforeClockReset = beforeClockReset.lastFrame?.planTimeMs;
+    engine.resetPlaybackClock();
+    engine.tickAt(30_350);
+
+    const afterClockReset = engine.getCutterGridMotionDiagnostics();
+    expect(afterClockReset?.frameCount).toBe(4);
+    expect(afterClockReset?.longFrameCount).toBe(2);
+    expect(afterClockReset?.lastFrame?.frameIntervalMs).toBe(0);
+    expect(afterClockReset?.lastFrame?.planTimeMs).toBe(planTimeBeforeClockReset);
+    for (const joint of challenge.robotConfig.joints) {
+      expect(
+        afterClockReset?.lastFrame?.actualJointAngles[joint.id],
+      ).toBeCloseTo(afterClockReset?.lastFrame?.plannedJointAngles[joint.id] ?? 0, 9);
+      expect(Number.isFinite(
+        afterClockReset?.lastFrame?.plannedJointJerksDegPerSec3[joint.id] ?? Number.NaN,
+      )).toBe(true);
+    }
+  });
+
   function replayV3AtFrameRate(frameRate: number, resetClockMidRun = false): SimulationEngine {
     const engine = new SimulationEngine(challenge, new LocalScoreProvider());
     const intervalMs = 1_000 / frameRate;
