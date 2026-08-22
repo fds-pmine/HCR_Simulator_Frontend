@@ -10,6 +10,8 @@ import {
   type CutterGridPlanningDiagnosticsV3,
   type CutterGridPlanningErrorCodeV3,
   type CutterGridPositioningMotionV3,
+  type CutterTrajectoryGeometryKnotV3,
+  type CutterTrajectoryGeometryV3,
   type CutterTrajectoryPlanV2,
   type CutterTrajectoryPlanV3,
   type CutterTrajectoryStepMotionV3,
@@ -78,10 +80,10 @@ const POSITIONING_MOTION_VALIDATION: MotionValidationOptions = {
 
 /**
  * Retimes a V2 globally-selected geometry path without selecting a new IK
- * branch.  Geometry remains cubic Hermite in its path parameter while a
- * quintic minimum-jerk time law controls the scalar progress through every
- * atomic Cutter Grid move.  The exported data is DOM-free and is intentionally
- * shaped for a future byte-for-byte Rust `hcr_sim` counterpart.
+ * branch.  Geometry is a deterministic global C2 quintic spline in its path
+ * parameter while a quintic minimum-jerk time law controls scalar progress
+ * through every atomic Cutter Grid move. The exported data is DOM-free and is
+ * intentionally shaped for a future byte-for-byte Rust `hcr_sim` counterpart.
  */
 export function retimeCutterGridTrajectoryV3(
   challenge: Challenge,
@@ -162,12 +164,19 @@ export function retimeCutterGridTrajectoryV3(
     maximumCartesianDeviation,
     validationSampleCount,
   };
+  const geometrySignature = cutterGridGeometrySignatureV3(
+    plan.challengeSignature,
+    plan.entryOptionId,
+    positioning.motion,
+    steps,
+  );
   const unsigned: Omit<CutterTrajectoryPlanV3, 'trajectorySignature'> = {
     kind: 'cutter-grid-trajectory',
     version: 3,
     plannerVersion: CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION,
     challengeSignature: plan.challengeSignature,
     entryOptionId: plan.entryOptionId,
+    geometrySignature,
     positioningTrajectory: cloneGeometryWaypoints(plan.positioningTrajectory),
     positioningMotion: positioning.motion,
     startCoord: plan.startCoord,
@@ -313,10 +322,12 @@ function motionForStep(
       { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord, actionIndex: step.index },
     );
   }
+  const geometryWaypoints = unwrapGeometryWaypoints(challenge, step);
+  const geometry = buildGlobalC2QuinticGeometry(challenge, geometryWaypoints, step);
   let minimumDurationSeconds = 0;
   for (let sample = 0; sample <= CUTTER_GRID_MOTION_V3_CONFIG.normalizedDerivativeSamples; sample += 1) {
     const normalizedTime = sample / CUTTER_GRID_MOTION_V3_CONFIG.normalizedDerivativeSamples;
-    const normalized = evaluateGeometryAtNormalizedTime(challenge, step.waypoints, normalizedTime, 1);
+    const normalized = evaluateGeometryAtNormalizedTime(challenge, geometry, normalizedTime, 1);
     for (const joint of challenge.robotConfig.joints) {
       const angle = normalized[joint.id];
       minimumDurationSeconds = Math.max(
@@ -335,9 +346,10 @@ function motionForStep(
     );
   }
   return {
-    interpolation: 'cubic-hermite-quintic-time-law',
+    interpolation: 'global-c2-quintic-time-law',
     durationMs: Math.max(1, Math.ceil(minimumDurationSeconds * 1_000)),
-    geometryWaypoints: cloneGeometryWaypoints(step.waypoints),
+    geometryWaypoints,
+    geometry,
   };
 }
 
@@ -520,9 +532,15 @@ function evaluateStepMotionAt(
 ): StepEvaluation {
   const durationSeconds = Math.max(1e-9, motion.durationMs / 1_000);
   const normalizedTime = clamp(targetTimeMs / motion.durationMs, 0, 1);
+  if (!motion.geometry) {
+    throw new CutterGridMotionV3Error(
+      'time-parameterization-infeasible',
+      'Cutter Grid V3 move is missing its C2 geometry.',
+    );
+  }
   const normalized = evaluateGeometryAtNormalizedTime(
     challenge,
-    motion.geometryWaypoints,
+    motion.geometry,
     normalizedTime,
     durationSeconds,
   );
@@ -588,37 +606,405 @@ function snapNumericalJointLimitNoise(
   })) as Record<JointId, number>;
 }
 
-function evaluateGeometryAtNormalizedTime(
+/**
+ * Choose a deterministic equivalent angle representation before smoothing.
+ * The V2 graph has already selected the IK branch; this only prevents a
+ * mathematically equivalent +/- 360 degree representation from creating a
+ * false discontinuity in the timing domain.
+ */
+function unwrapGeometryWaypoints(
+  challenge: Challenge,
+  step: CutterTrajectoryStepV2,
+): CutterTrajectoryWaypointV2[] {
+  const result = cloneGeometryWaypoints(step.waypoints);
+  for (const joint of challenge.robotConfig.joints) {
+    let previous: number | undefined;
+    for (const waypoint of result) {
+      const raw = waypoint.jointAngles[joint.id];
+      const minimumTurn = Math.ceil((joint.minAngleDeg - raw) / 360);
+      const maximumTurn = Math.floor((joint.maxAngleDeg - raw) / 360);
+      let selected: number | undefined;
+      for (let turn = minimumTurn; turn <= maximumTurn; turn += 1) {
+        const candidate = raw + turn * 360;
+        if (
+          selected === undefined ||
+          (previous !== undefined && Math.abs(candidate - previous) < Math.abs(selected - previous) - 1e-12) ||
+          (previous !== undefined && Math.abs(candidate - previous) <= Math.abs(selected - previous) + 1e-12 && candidate < selected) ||
+          (previous === undefined && Math.abs(candidate - raw) < Math.abs(selected - raw) - 1e-12) ||
+          (previous === undefined && Math.abs(candidate - raw) <= Math.abs(selected - raw) + 1e-12 && candidate < selected)
+        ) {
+          selected = candidate;
+        }
+      }
+      if (selected === undefined) {
+        throw new CutterGridMotionV3Error(
+          'joint-branch-discontinuity',
+          `${joint.name} has no equivalent angle inside its configured range.`,
+          { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord, actionIndex: step.index },
+        );
+      }
+      waypoint.jointAngles[joint.id] = selected;
+      previous = selected;
+    }
+  }
+  return result.map((waypoint) => ({
+    ...waypoint,
+    endEffector: computeRobotPose(challenge.robotConfig, waypoint.jointAngles).endEffector,
+  }));
+}
+
+function buildGlobalC2QuinticGeometry(
   challenge: Challenge,
   waypoints: readonly CutterTrajectoryWaypointV2[],
+  step: CutterTrajectoryStepV2,
+): CutterTrajectoryGeometryV3 {
+  const startTime = waypoints[0]?.timeMs;
+  const endTime = waypoints.at(-1)?.timeMs;
+  if (startTime === undefined || endTime === undefined || endTime <= startTime) {
+    throw new CutterGridMotionV3Error(
+      'time-parameterization-infeasible',
+      'Cutter Grid V3 geometry needs strictly increasing waypoint times.',
+      { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord, actionIndex: step.index },
+    );
+  }
+  const parameters = waypoints.map((waypoint) => (waypoint.timeMs - startTime) / (endTime - startTime));
+  if (parameters.some((parameter, index) => index > 0 && parameter <= parameters[index - 1])) {
+    throw new CutterGridMotionV3Error(
+      'time-parameterization-infeasible',
+      'Cutter Grid V3 geometry waypoint parameters must be strictly increasing.',
+      { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord, actionIndex: step.index },
+    );
+  }
+
+  const minimumJerkDerivatives = Object.fromEntries(challenge.robotConfig.joints.map((joint) => [
+    joint.id,
+    solveMinimumJerkKnotDerivatives(
+      parameters,
+      waypoints.map((waypoint) => waypoint.jointAngles[joint.id]),
+      step,
+    ),
+  ])) as Record<JointId, { velocities: number[]; accelerations: number[] }>;
+  const minimumJerkGeometry = geometryFromDerivatives(
+    challenge,
+    waypoints,
+    parameters,
+    minimumJerkDerivatives,
+    'minimum-jerk',
+  );
+  if (geometryRespectsJointRanges(challenge, minimumJerkGeometry)) {
+    return minimumJerkGeometry;
+  }
+
+  // The unconstrained minimum-jerk optimum can overshoot a joint that is
+  // already on its physical limit. Preserve the same V2 knot sequence with a
+  // deterministic C2 monotone construction rather than relaxing the limit or
+  // letting a planning failure leak into a valid player command.
+  const monotoneDerivatives = Object.fromEntries(challenge.robotConfig.joints.map((joint) => [
+    joint.id,
+    monotoneC2KnotDerivatives(
+      parameters,
+      waypoints.map((waypoint) => waypoint.jointAngles[joint.id]),
+    ),
+  ])) as Record<JointId, { velocities: number[]; accelerations: number[] }>;
+  return geometryFromDerivatives(
+    challenge,
+    waypoints,
+    parameters,
+    monotoneDerivatives,
+    'monotone-c2-fallback',
+  );
+}
+
+function geometryFromDerivatives(
+  challenge: Challenge,
+  waypoints: readonly CutterTrajectoryWaypointV2[],
+  parameters: readonly number[],
+  derivatives: Record<JointId, { velocities: number[]; accelerations: number[] }>,
+  constraintResolution: CutterTrajectoryGeometryV3['constraintResolution'],
+): CutterTrajectoryGeometryV3 {
+  const knots: CutterTrajectoryGeometryKnotV3[] = waypoints.map((waypoint, index) => ({
+    parameter: parameters[index],
+    jointAngles: { ...waypoint.jointAngles },
+    jointVelocitiesPerParameter: Object.fromEntries(challenge.robotConfig.joints.map((joint) => [
+      joint.id,
+      derivatives[joint.id].velocities[index],
+    ])) as Record<JointId, number>,
+    jointAccelerationsPerParameter2: Object.fromEntries(challenge.robotConfig.joints.map((joint) => [
+      joint.id,
+      derivatives[joint.id].accelerations[index],
+    ])) as Record<JointId, number>,
+  }));
+  return { interpolation: 'global-c2-quintic-spline', constraintResolution, knots };
+}
+
+function geometryRespectsJointRanges(
+  challenge: Challenge,
+  geometry: CutterTrajectoryGeometryV3,
+): boolean {
+  for (let segment = 0; segment < geometry.knots.length - 1; segment += 1) {
+    const start = geometry.knots[segment].parameter;
+    const end = geometry.knots[segment + 1].parameter;
+    for (let sample = 0; sample <= 32; sample += 1) {
+      const evaluated = evaluateCutterTrajectoryGeometryV3AtParameter(
+        challenge,
+        geometry,
+        start + ((end - start) * sample) / 32,
+      );
+      for (const joint of challenge.robotConfig.joints) {
+        const angle = evaluated[joint.id].angle;
+        if (angle < joint.minAngleDeg - 1e-9 || angle > joint.maxAngleDeg + 1e-9) return false;
+      }
+    }
+  }
+  return true;
+}
+
+function monotoneC2KnotDerivatives(
+  parameters: readonly number[],
+  positions: readonly number[],
+): { velocities: number[]; accelerations: number[] } {
+  const velocities = Array<number>(positions.length).fill(0);
+  const accelerations = Array<number>(positions.length).fill(0);
+  for (let knot = 1; knot < positions.length - 1; knot += 1) {
+    const previousSlope = (positions[knot] - positions[knot - 1]) / (parameters[knot] - parameters[knot - 1]);
+    const nextSlope = (positions[knot + 1] - positions[knot]) / (parameters[knot + 1] - parameters[knot]);
+    if (previousSlope * nextSlope <= 0) continue;
+    // Keeping each endpoint derivative no greater than half either secant
+    // slope makes the quintic segment monotone; the zero accelerations are
+    // shared on both sides, so the fallback remains C2.
+    velocities[knot] = Math.sign(previousSlope) * Math.min(
+      Math.abs(previousSlope),
+      Math.abs(nextSlope),
+    ) / 2;
+  }
+  return { velocities, accelerations };
+}
+
+function solveMinimumJerkKnotDerivatives(
+  parameters: readonly number[],
+  positions: readonly number[],
+  step: CutterTrajectoryStepV2,
+): { velocities: number[]; accelerations: number[] } {
+  const knotCount = positions.length;
+  const unknownCount = Math.max(0, (knotCount - 2) * 2);
+  const velocities = Array<number>(knotCount).fill(0);
+  const accelerations = Array<number>(knotCount).fill(0);
+  if (unknownCount === 0) return { velocities, accelerations };
+
+  const matrix = Array.from({ length: unknownCount }, () => Array<number>(unknownCount).fill(0));
+  const vector = Array<number>(unknownCount).fill(0);
+  for (let segment = 0; segment < knotCount - 1; segment += 1) {
+    const h = parameters[segment + 1] - parameters[segment];
+    const constant = quinticJerkCoefficientVector(
+      quinticCoefficients(positions[segment], positions[segment + 1], h, 0, 0, 0, 0),
+    );
+    const localTerms = [
+      minimumJerkVariableTerm(segment, knotCount, 'start', 'velocity', h),
+      minimumJerkVariableTerm(segment, knotCount, 'start', 'acceleration', h),
+      minimumJerkVariableTerm(segment + 1, knotCount, 'end', 'velocity', h),
+      minimumJerkVariableTerm(segment + 1, knotCount, 'end', 'acceleration', h),
+    ].filter((term): term is { index: number; coefficients: [number, number, number] } => term !== undefined);
+    const metric = jerkIntegralMetric(h);
+    for (const left of localTerms) {
+      vector[left.index] -= dot3(left.coefficients, multiply3(metric, constant));
+      for (const right of localTerms) {
+        matrix[left.index][right.index] += dot3(
+          left.coefficients,
+          multiply3(metric, right.coefficients),
+        );
+      }
+    }
+  }
+  const solution = solveSymmetricLinearSystem(matrix, vector, step);
+  for (let knot = 1; knot < knotCount - 1; knot += 1) {
+    const base = (knot - 1) * 2;
+    velocities[knot] = solution[base];
+    accelerations[knot] = solution[base + 1];
+  }
+  return { velocities, accelerations };
+}
+
+function minimumJerkVariableTerm(
+  knotIndex: number,
+  knotCount: number,
+  side: 'start' | 'end',
+  kind: 'velocity' | 'acceleration',
+  duration: number,
+): { index: number; coefficients: [number, number, number] } | undefined {
+  if (knotIndex === 0 || knotIndex === knotCount - 1) return undefined;
+  const index = (knotIndex - 1) * 2 + (kind === 'velocity' ? 0 : 1);
+  const startVelocity = side === 'start' && kind === 'velocity' ? 1 : 0;
+  const startAcceleration = side === 'start' && kind === 'acceleration' ? 1 : 0;
+  const endVelocity = side === 'end' && kind === 'velocity' ? 1 : 0;
+  const endAcceleration = side === 'end' && kind === 'acceleration' ? 1 : 0;
+  const curve = quinticCoefficients(
+    0,
+    0,
+    duration,
+    startVelocity,
+    startAcceleration,
+    endVelocity,
+    endAcceleration,
+  );
+  return { index, coefficients: quinticJerkCoefficientVector(curve) };
+}
+
+function quinticJerkCoefficientVector(curve: QuinticCurve): [number, number, number] {
+  return [6 * curve.c3, 24 * curve.c4, 60 * curve.c5];
+}
+
+function jerkIntegralMetric(duration: number): [[number, number, number], [number, number, number], [number, number, number]] {
+  const h = duration;
+  return [
+    [h, h ** 2 / 2, h ** 3 / 3],
+    [h ** 2 / 2, h ** 3 / 3, h ** 4 / 4],
+    [h ** 3 / 3, h ** 4 / 4, h ** 5 / 5],
+  ];
+}
+
+function multiply3(
+  matrix: readonly (readonly number[])[],
+  vector: readonly [number, number, number],
+): [number, number, number] {
+  return [
+    matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
+    matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
+    matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2],
+  ];
+}
+
+function dot3(left: readonly number[], right: readonly number[]): number {
+  return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+}
+
+function solveSymmetricLinearSystem(
+  matrix: number[][],
+  vector: number[],
+  step: CutterTrajectoryStepV2,
+): number[] {
+  const size = vector.length;
+  // Each quintic span touches only its two adjacent q/v/a knots.  The normal
+  // matrix therefore has a fixed half-bandwidth of three scalar variables;
+  // do not turn a long Cutter Grid path into an O(n^3) dense solve.
+  const halfBandwidth = 3;
+  const coefficients = matrix.map((row) => [...row]);
+  const constants = [...vector];
+  for (let column = 0; column < size; column += 1) {
+    const pivot = coefficients[column][column];
+    if (!Number.isFinite(pivot) || Math.abs(pivot) < 1e-12) {
+      throw new CutterGridMotionV3Error(
+        'trajectory-smoothing-search-exhausted',
+        'Cutter Grid V3 could not solve its deterministic C2 geometry system.',
+        { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord, actionIndex: step.index },
+      );
+    }
+    for (let row = column + 1; row <= Math.min(size - 1, column + halfBandwidth); row += 1) {
+      const factor = coefficients[row][column] / pivot;
+      if (factor === 0) continue;
+      coefficients[row][column] = 0;
+      for (let index = column + 1; index <= Math.min(size - 1, column + halfBandwidth); index += 1) {
+        coefficients[row][index] -= factor * coefficients[column][index];
+      }
+      constants[row] -= factor * constants[column];
+    }
+  }
+  const solution = Array<number>(size).fill(0);
+  for (let row = size - 1; row >= 0; row -= 1) {
+    let remainder = constants[row];
+    for (let column = row + 1; column <= Math.min(size - 1, row + halfBandwidth); column += 1) {
+      remainder -= coefficients[row][column] * solution[column];
+    }
+    solution[row] = remainder / coefficients[row][row];
+  }
+  return solution;
+}
+
+function evaluateGeometryAtNormalizedTime(
+  challenge: Challenge,
+  geometry: CutterTrajectoryGeometryV3,
   normalizedTime: number,
   durationSeconds: number,
 ): Record<JointId, { angle: number; velocity: number; acceleration: number; jerk: number }> {
-  const spanCount = waypoints.length - 1;
   const ease = quinticTimeLaw(normalizedTime);
-  const parameter = Math.min(spanCount, spanCount * ease.position);
-  const spanIndex = Math.min(spanCount - 1, Math.floor(parameter));
-  const local = parameter - spanIndex;
-  const start = waypoints[spanIndex];
-  const end = waypoints[spanIndex + 1];
-  const oldDurationSeconds = Math.max(1e-9, (end.timeMs - start.timeMs) / 1_000);
-  const parameterVelocity = (spanCount * ease.velocity) / durationSeconds;
-  const parameterAcceleration = (spanCount * ease.acceleration) / durationSeconds ** 2;
-  const parameterJerk = (spanCount * ease.jerk) / durationSeconds ** 3;
+  const parameterCurve = evaluateCutterTrajectoryGeometryV3AtParameter(
+    challenge,
+    geometry,
+    ease.position,
+  );
+  const parameterVelocity = ease.velocity / durationSeconds;
+  const parameterAcceleration = ease.acceleration / durationSeconds ** 2;
+  const parameterJerk = ease.jerk / durationSeconds ** 3;
   return Object.fromEntries(challenge.robotConfig.joints.map((joint) => {
-    const p0 = start.jointAngles[joint.id];
-    const p1 = end.jointAngles[joint.id];
-    const m0 = start.jointVelocitiesDegPerSec[joint.id] * oldDurationSeconds;
-    const m1 = end.jointVelocitiesDegPerSec[joint.id] * oldDurationSeconds;
-    const geometry = cubicHermite(p0, p1, m0, m1, local);
-    const velocity = geometry.first * parameterVelocity;
-    const acceleration = geometry.second * parameterVelocity ** 2 + geometry.first * parameterAcceleration;
+    const curve = parameterCurve[joint.id];
+    const velocity = curve.velocityPerParameter * parameterVelocity;
+    const acceleration =
+      curve.accelerationPerParameter2 * parameterVelocity ** 2 +
+      curve.velocityPerParameter * parameterAcceleration;
     const jerk =
-      geometry.third * parameterVelocity ** 3 +
-      3 * geometry.second * parameterVelocity * parameterAcceleration +
-      geometry.first * parameterJerk;
-    return [joint.id, { angle: geometry.position, velocity, acceleration, jerk }];
+      curve.jerkPerParameter3 * parameterVelocity ** 3 +
+      3 * curve.accelerationPerParameter2 * parameterVelocity * parameterAcceleration +
+      curve.velocityPerParameter * parameterJerk;
+    return [joint.id, { angle: curve.angle, velocity, acceleration, jerk }];
   })) as Record<JointId, { angle: number; velocity: number; acceleration: number; jerk: number }>;
+}
+
+/**
+ * Evaluates immutable C2 geometry without a wall-clock time law. This pure
+ * helper is deliberately exported for the front-end/Rust fixture contract.
+ */
+export function evaluateCutterTrajectoryGeometryV3AtParameter(
+  challenge: Challenge,
+  geometry: CutterTrajectoryGeometryV3,
+  parameter: number,
+): Record<JointId, {
+  angle: number;
+  velocityPerParameter: number;
+  accelerationPerParameter2: number;
+  jerkPerParameter3: number;
+}> {
+  const knots = geometry.knots;
+  const end = knots.at(-1);
+  if (knots.length < 2 || !end) {
+    throw new CutterGridMotionV3Error(
+      'time-parameterization-infeasible',
+      'Cutter Grid V3 needs at least two C2 geometry knots.',
+    );
+  }
+  const boundedParameter = clamp(parameter, 0, end.parameter);
+  const spanIndex = boundedParameter >= end.parameter
+    ? knots.length - 2
+    : knots.findIndex((knot, index) => index < knots.length - 1 && boundedParameter < knots[index + 1].parameter);
+  const start = knots[Math.max(0, spanIndex)];
+  const finish = knots[Math.max(0, spanIndex) + 1];
+  if (!start || !finish) {
+    throw new CutterGridMotionV3Error('time-parameterization-infeasible', 'Cutter Grid V3 geometry span is missing.');
+  }
+  const local = clamp(boundedParameter - start.parameter, 0, finish.parameter - start.parameter);
+  return Object.fromEntries(challenge.robotConfig.joints.map((joint) => {
+    const curve = evaluateQuintic(
+      quinticCoefficients(
+        start.jointAngles[joint.id],
+        finish.jointAngles[joint.id],
+        finish.parameter - start.parameter,
+        start.jointVelocitiesPerParameter[joint.id],
+        start.jointAccelerationsPerParameter2[joint.id],
+        finish.jointVelocitiesPerParameter[joint.id],
+        finish.jointAccelerationsPerParameter2[joint.id],
+      ),
+      local,
+    );
+    return [joint.id, {
+      angle: curve.position,
+      velocityPerParameter: curve.first,
+      accelerationPerParameter2: curve.second,
+      jerkPerParameter3: curve.third,
+    }];
+  })) as Record<JointId, {
+    angle: number;
+    velocityPerParameter: number;
+    accelerationPerParameter2: number;
+    jerkPerParameter3: number;
+  }>;
 }
 
 function quinticTimeLaw(t: number): { position: number; velocity: number; acceleration: number; jerk: number } {
@@ -635,7 +1021,49 @@ function quinticTimeLaw(t: number): { position: number; velocity: number; accele
   };
 }
 
-function cubicHermite(p0: number, p1: number, m0: number, m1: number, t: number): {
+interface QuinticCurve {
+  c0: number;
+  c1: number;
+  c2: number;
+  c3: number;
+  c4: number;
+  c5: number;
+}
+
+function quinticCoefficients(
+  startPosition: number,
+  endPosition: number,
+  duration: number,
+  startVelocity: number,
+  startAcceleration: number,
+  endVelocity: number,
+  endAcceleration: number,
+): QuinticCurve {
+  const h = Math.max(1e-12, duration);
+  const delta = endPosition - startPosition;
+  return {
+    c0: startPosition,
+    c1: startVelocity,
+    c2: startAcceleration / 2,
+    c3: (
+      20 * delta -
+      (8 * endVelocity + 12 * startVelocity) * h -
+      (3 * startAcceleration - endAcceleration) * h ** 2
+    ) / (2 * h ** 3),
+    c4: (
+      -30 * delta +
+      (14 * endVelocity + 16 * startVelocity) * h +
+      (3 * startAcceleration - 2 * endAcceleration) * h ** 2
+    ) / (2 * h ** 4),
+    c5: (
+      12 * delta -
+      (6 * endVelocity + 6 * startVelocity) * h -
+      (startAcceleration - endAcceleration) * h ** 2
+    ) / (2 * h ** 5),
+  };
+}
+
+function evaluateQuintic(curve: QuinticCurve, t: number): {
   position: number;
   first: number;
   second: number;
@@ -643,23 +1071,12 @@ function cubicHermite(p0: number, p1: number, m0: number, m1: number, t: number)
 } {
   const t2 = t * t;
   const t3 = t2 * t;
+  const t4 = t3 * t;
   return {
-    position:
-      (2 * t3 - 3 * t2 + 1) * p0 +
-      (t3 - 2 * t2 + t) * m0 +
-      (-2 * t3 + 3 * t2) * p1 +
-      (t3 - t2) * m1,
-    first:
-      (6 * t2 - 6 * t) * p0 +
-      (3 * t2 - 4 * t + 1) * m0 +
-      (-6 * t2 + 6 * t) * p1 +
-      (3 * t2 - 2 * t) * m1,
-    second:
-      (12 * t - 6) * p0 +
-      (6 * t - 4) * m0 +
-      (-12 * t + 6) * p1 +
-      (6 * t - 2) * m1,
-    third: 12 * p0 + 6 * m0 - 12 * p1 + 6 * m1,
+    position: curve.c0 + curve.c1 * t + curve.c2 * t2 + curve.c3 * t3 + curve.c4 * t4 + curve.c5 * t4 * t,
+    first: curve.c1 + 2 * curve.c2 * t + 3 * curve.c3 * t2 + 4 * curve.c4 * t3 + 5 * curve.c5 * t4,
+    second: 2 * curve.c2 + 6 * curve.c3 * t + 12 * curve.c4 * t2 + 20 * curve.c5 * t3,
+    third: 6 * curve.c3 + 24 * curve.c4 * t + 60 * curve.c5 * t2,
   };
 }
 
@@ -745,6 +1162,52 @@ function motionTrajectorySignature(plan: Omit<CutterTrajectoryPlanV3, 'trajector
       waypoints: step.waypoints.map(signatureWaypoint),
     })),
   }));
+}
+
+function cutterGridGeometrySignatureV3(
+  challengeSignature: string,
+  entryOptionId: string,
+  positioning: CutterGridPositioningMotionV3,
+  steps: readonly CutterTrajectoryStepV3[],
+): string {
+  return fnv1a64(JSON.stringify({
+    plannerVersion: CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION,
+    challengeSignature,
+    entryOptionId,
+    positioning: geometryMotionSignaturePayload(positioning.motion),
+    steps: steps.map((step) => ({
+      index: step.index,
+      kind: step.kind,
+      startCoord: step.startCoord,
+      endCoord: step.endCoord,
+      sourceBlockId: step.sourceBlockId,
+      motion: geometryMotionSignaturePayload(step.motion),
+    })),
+  }));
+}
+
+function geometryMotionSignaturePayload(
+  motion: CutterTrajectoryStepMotionV3,
+): Record<string, unknown> {
+  return {
+    interpolation: motion.interpolation,
+    geometryWaypoints: motion.geometryWaypoints.map((waypoint) => ({
+      timeMs: round(waypoint.timeMs, 6),
+      jointAngles: roundRecord(waypoint.jointAngles),
+      jointVelocitiesDegPerSec: roundRecord(waypoint.jointVelocitiesDegPerSec),
+      endEffector: waypoint.endEffector.map((value) => round(value, 9)),
+    })),
+    geometry: motion.geometry && {
+      interpolation: motion.geometry.interpolation,
+      constraintResolution: motion.geometry.constraintResolution,
+      knots: motion.geometry.knots.map((knot) => ({
+        parameter: round(knot.parameter, 12),
+        jointAngles: roundRecord(knot.jointAngles),
+        jointVelocitiesPerParameter: roundRecord(knot.jointVelocitiesPerParameter),
+        jointAccelerationsPerParameter2: roundRecord(knot.jointAccelerationsPerParameter2),
+      })),
+    },
+  };
 }
 
 function signatureWaypoint(waypoint: CutterTrajectoryWaypointV3): Record<string, unknown> {

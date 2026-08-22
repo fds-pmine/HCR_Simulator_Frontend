@@ -303,13 +303,33 @@ export interface CutterTrajectoryWaypointV3 extends CutterTrajectoryWaypointV1 {
 }
 
 /**
- * The geometric cubic-Hermite spans are retained so an executor can sample
- * at an arbitrary absolute time instead of accumulating render-frame deltas.
+ * A knot of the fixed joint-space geometry path.  Derivatives are with
+ * respect to the normalized path parameter rather than wall-clock time, so
+ * the same geometry can be retimed without selecting another IK branch.
+ */
+export interface CutterTrajectoryGeometryKnotV3 {
+  parameter: number;
+  jointAngles: Record<JointId, number>;
+  jointVelocitiesPerParameter: Record<JointId, number>;
+  jointAccelerationsPerParameter2: Record<JointId, number>;
+}
+
+/** C2 quintic geometry shared by all timing attempts for one fixed path. */
+export interface CutterTrajectoryGeometryV3 {
+  interpolation: 'global-c2-quintic-spline';
+  constraintResolution: 'minimum-jerk' | 'monotone-c2-fallback';
+  knots: CutterTrajectoryGeometryKnotV3[];
+}
+
+/**
+ * A fixed C2 quintic geometry path plus its absolute-time timing law. The
+ * executor evaluates this immutable data rather than accumulating frame deltas.
  */
 export interface CutterTrajectoryStepMotionV3 {
-  interpolation: 'cubic-hermite-quintic-time-law' | 'hold';
+  interpolation: 'global-c2-quintic-time-law' | 'hold';
   durationMs: number;
   geometryWaypoints: CutterTrajectoryWaypointV2[];
+  geometry?: CutterTrajectoryGeometryV3;
 }
 
 export interface CutterTrajectoryStepV3 extends Omit<CutterTrajectoryStepV1, 'waypoints'> {
@@ -345,6 +365,8 @@ export interface CutterTrajectoryPlanV3 {
   plannerVersion: typeof CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION;
   challengeSignature: string;
   entryOptionId: string;
+  /** Stable digest of the selected entry and immutable C2 player geometry. */
+  geometrySignature: string;
   /** Immutable source geometry selected by the V2 global entry search. */
   positioningTrajectory: CutterTrajectoryWaypointV2[];
   /** V3 timing for the system-only entry geometry, covered by the plan signature. */
@@ -363,6 +385,7 @@ export interface CutterTrajectoryPlanV3 {
 
 export type CutterGridPlanningErrorCodeV3 =
   | 'motion-limit-missing'
+  | 'joint-branch-discontinuity'
   | 'time-parameterization-infeasible'
   | 'jerk-smoothing-infeasible'
   | 'trajectory-smoothing-path-deviation'

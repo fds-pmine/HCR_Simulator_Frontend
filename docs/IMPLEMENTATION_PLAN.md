@@ -256,7 +256,8 @@ tests/
 
 ### Cutter Grid Motion Stability V3 Phase 1 — 固定路径限 jerk 轨迹
 
-- [ ] 实现连续角度 unwrap、pause-safe checkpoint、速度/加速度可达重定时和逐段 `q/v/a` jerk 平滑；所有计算保持纯函数和确定性。
+- [ ] 实现连续角度 unwrap、全局 C2 五次几何样条、pause-safe checkpoint、速度/加速度可达重定时和逐段 `q/v/a` jerk 平滑；所有计算保持纯函数和确定性。
+- [ ] 对全局最小 jerk 样条的限位 overshoot 采用签名可见的确定性单调 C2 约束解，并重新执行完整几何审计；不得放宽限位或回退到 V2 C1 插值。
 - [ ] 对每段实施联合自适应验证：关节 `v/a/j`、头部净空、关节限位、Cartesian 偏差及固定刀头扫掠集合。
 - [ ] 在失败时返回 V3 专用错误与首个来源积木/坐标，禁止回退到 C1、逐帧滤波或可行前缀执行。
 
