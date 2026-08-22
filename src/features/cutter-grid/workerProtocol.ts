@@ -2,6 +2,7 @@ import type { Challenge } from '../../types/domain';
 import type {
   CompiledCutterGridProgramV1,
   CutterGridPlanningProgressV2,
+  CutterGridPlanningProgressV3,
   CutterGridProfileV1,
   CutterGridProfileV2,
   CutterGridProfileV3,
@@ -56,6 +57,7 @@ export type CutterGridWorkerResponse =
       plan: CutterTrajectoryPlanV3;
     }
   | CutterGridPlanningProgressV2
+  | CutterGridPlanningProgressV3
   | {
       type: 'failed';
       requestId: number;

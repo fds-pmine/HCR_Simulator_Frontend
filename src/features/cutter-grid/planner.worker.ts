@@ -28,9 +28,16 @@ worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
         },
         {
           onProgress: (progress) => worker.postMessage({
-            type: 'progress',
+            type: 'progress-v3',
             requestId: request.requestId,
-            ...progress,
+            phase: progress.phase,
+            completedItems: progress.completedLayers,
+            totalItems: progress.totalLayers,
+            unit: 'layers',
+            seedBudget: progress.seedBudget,
+            ...(progress.disconnectedLayer === undefined
+              ? {}
+              : { disconnectedLayer: progress.disconnectedLayer }),
           } satisfies CutterGridWorkerResponse),
         },
       );
@@ -38,6 +45,16 @@ worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
         request.challenge,
         v2Plan,
         request.profile.motionLimits,
+        {
+          onProgress: (progress) => worker.postMessage({
+            type: 'progress-v3',
+            requestId: request.requestId,
+            phase: progress.phase,
+            completedItems: progress.completedSegments,
+            totalItems: progress.totalSegments,
+            unit: 'motion-segments',
+          } satisfies CutterGridWorkerResponse),
+        },
       );
       worker.postMessage({
         type: 'planned-v3',

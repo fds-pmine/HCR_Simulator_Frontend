@@ -41,7 +41,13 @@ describe('Cutter Grid V3 jerk-limited retiming', () => {
   });
 
   it('preserves the selected global branch and emits deterministic pause-safe motion', () => {
-    const first = retimeCutterGridTrajectoryV3(challenge, v2Plan, frontendTrialMotionLimitsV3(challenge));
+    const progress: Array<{ phase: string; completedSegments: number; totalSegments: number }> = [];
+    const first = retimeCutterGridTrajectoryV3(
+      challenge,
+      v2Plan,
+      frontendTrialMotionLimitsV3(challenge),
+      { onProgress: (event) => progress.push(event) },
+    );
     const second = retimeCutterGridTrajectoryV3(challenge, v2Plan, frontendTrialMotionLimitsV3(challenge));
 
     expect(first.trajectorySignature).toBe(second.trajectorySignature);
@@ -62,6 +68,18 @@ describe('Cutter Grid V3 jerk-limited retiming', () => {
     expect(first.diagnostics.maximumCartesianDeviation).toBeLessThanOrEqual(
       challenge.voxelConfig.size / 16 + 1e-9,
     );
+    expect(progress.map((event) => event.phase)).toEqual(expect.arrayContaining([
+      'geometric-smoothing',
+      'time-parameterization',
+      'jerk-smoothing',
+      'playback-validation',
+    ]));
+    for (const phase of ['geometric-smoothing', 'time-parameterization', 'jerk-smoothing', 'playback-validation']) {
+      const events = progress.filter((event) => event.phase === phase);
+      expect(events[0]?.completedSegments).toBe(0);
+      expect(events.at(-1)?.completedSegments).toBe(events.at(-1)?.totalSegments);
+      expect(events.at(-1)?.totalSegments).toBe(v2Plan.steps.filter((step) => step.kind === 'move-cell').length + 1);
+    }
 
     const entryStart = evaluateCutterGridPositioningV3At(
       challenge,

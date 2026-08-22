@@ -266,6 +266,7 @@ tests/
 
 ### Cutter Grid Motion Stability V3 Phase 2 — 前端绝对时间试验与诊断
 
+- [x] Worker 为 V3 以独立版本化进度消息报告 V2 图搜索及几何平滑、时间参数化、jerk 平滑和播放验证；进度观察不参与候选选择或轨迹签名，并明确区分 Cartesian 层与真实运动段计数。
 - [ ] Worker 只规划冻结 V3 轨迹；前端执行器按绝对计划时间采样，支持暂停、隐藏页、丢帧和取消而不改变轨迹语义。
 - [ ] 接触、Step、Run/Test、评分和 Inspector 使用同一冻结 V3 计划；UI 高频关节更新不经过 React State。
 - [ ] 验证 `30/60/90/120/144Hz`、长帧和 Chrome/Edge 下的计划一致性、无关节瞬跳及实际时长提速。

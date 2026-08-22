@@ -48,6 +48,7 @@
 
 ## Cutter Grid 限 jerk 运动稳定（V3，前端试验）
 
+- [x] V3 Worker 以独立版本化消息报告全局 IK 图搜索、几何平滑、时间参数化、jerk 平滑和播放验证；观察进度不改变候选顺序、冻结轨迹或签名，并显示层数/真实运动段数的正确单位。
 - [ ] V3 Profile/Plan/诊断、签名和失败结果为纯可序列化领域数据，并有前端—Rust 共享 fixture；成功向量包含全计划签名、原子 checkpoint、接触和诊断摘要，失败向量包含结构化错误。
 - [x] 前端 V3 conformance bundle 已固定认证参考程序、`Up 6 → Left 2 → Forward 3` 和缺少动态限制错误；当前 fixture 仍只在前端仓库，待 Rust 获准迁移后须由 `hcr_sim` 逐项消费验证。
 - [ ] V3 保持 V2 全局选定的 IK 构型链、固定 Cartesian 路径、头部净空和 `0.12` 扫掠接触语义。

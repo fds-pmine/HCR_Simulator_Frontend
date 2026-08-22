@@ -32,7 +32,7 @@ import { CutterGridLadderPlanningError } from '../../features/cutter-grid/ladder
 import { CutterGridMotionV3Error } from '../../features/cutter-grid/motionV3';
 import type {
   CompiledCutterGridProgramV1,
-  CutterGridPlanningProgressV2,
+  CutterGridPlanningProgressV3,
   CutterTrajectoryPlanV3,
 } from '../../features/cutter-grid/types';
 import { SimulatorCanvas } from '../../features/simulation/SimulatorCanvas';
@@ -128,7 +128,7 @@ export function SimulationWorkbench({
   const [testing, setTesting] = useState(false);
   const [cutterPlan, setCutterPlan] = useState<CutterTrajectoryPlanV3>();
   const [planningProgress, setPlanningProgress] = useState<
-    Omit<CutterGridPlanningProgressV2, 'type' | 'requestId'>
+    Omit<CutterGridPlanningProgressV3, 'type' | 'requestId'>
   >();
   const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>(() =>
     availableProgrammingModes.includes(initialProgrammingMode)
@@ -680,7 +680,7 @@ export function SimulationWorkbench({
           </div>
           {snapshot.status === 'planning' && planningProgress ? (
             <div className="planning-progress" aria-live="polite">
-              Planning: {planningProgress.phase.replaceAll('-', ' ')} · {planningProgress.completedLayers}/{planningProgress.totalLayers} · {planningProgress.seedBudget} seeds
+              Planning: {planningProgress.phase.replaceAll('-', ' ')} · {planningProgress.completedItems}/{planningProgress.totalItems} {planningProgress.unit.replace('-', ' ')}{planningProgress.seedBudget === undefined ? '' : ` · ${planningProgress.seedBudget} seeds`}
             </div>
           ) : null}
           </>

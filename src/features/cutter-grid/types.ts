@@ -262,6 +262,30 @@ export interface CutterGridPlanningProgressV2 {
   disconnectedLayer?: number;
 }
 
+/**
+ * V3 preserves the V2 global-IK progress stages, then reports the immutable
+ * geometry and timing work separately. `unit` makes the counter explicit: the
+ * first four phases count Cartesian layers, while the latter four count real
+ * arm-motion segments (the system entry plus player moves).
+ */
+export type CutterGridPlanningPhaseV3 =
+  | CutterGridPlanningPhaseV2
+  | 'geometric-smoothing'
+  | 'time-parameterization'
+  | 'jerk-smoothing'
+  | 'playback-validation';
+
+export interface CutterGridPlanningProgressV3 {
+  type: 'progress-v3';
+  requestId: number;
+  phase: CutterGridPlanningPhaseV3;
+  completedItems: number;
+  totalItems: number;
+  unit: 'layers' | 'motion-segments';
+  seedBudget?: 24 | 96 | 384;
+  disconnectedLayer?: number;
+}
+
 export type CutterGridPlanningErrorCodeV2 =
   | 'no-safe-ik-candidate'
   | 'no-compatible-entry'

@@ -5,6 +5,7 @@ import { CutterGridMotionV3Error } from './motionV3';
 import type {
   CompiledCutterGridProgramV1,
   CutterGridPlanningProgressV2,
+  CutterGridPlanningProgressV3,
   CutterGridProfileV1,
   CutterGridProfileV2,
   CutterGridProfileV3,
@@ -137,7 +138,7 @@ export class CutterGridPlannerClient {
     challenge: Challenge,
     compiled: CompiledCutterGridProgramV1,
     profile: CutterGridProfileV3,
-    onProgress?: (progress: Omit<CutterGridPlanningProgressV2, 'type' | 'requestId'>) => void,
+    onProgress?: (progress: Omit<CutterGridPlanningProgressV3, 'type' | 'requestId'>) => void,
   ): Promise<CutterTrajectoryPlanV3> {
     this.cancel();
     const requestId = ++this.#requestId;
@@ -147,12 +148,13 @@ export class CutterGridPlannerClient {
       this.#reject = reject;
       worker.onmessage = (event) => {
         if (event.data.requestId !== requestId || this.#worker !== worker) return;
-        if (event.data.type === 'progress') {
+        if (event.data.type === 'progress-v3') {
           onProgress?.({
             phase: event.data.phase,
-            completedLayers: event.data.completedLayers,
-            totalLayers: event.data.totalLayers,
-            seedBudget: event.data.seedBudget,
+            completedItems: event.data.completedItems,
+            totalItems: event.data.totalItems,
+            unit: event.data.unit,
+            ...(event.data.seedBudget === undefined ? {} : { seedBudget: event.data.seedBudget }),
             ...(event.data.disconnectedLayer === undefined ? {} : { disconnectedLayer: event.data.disconnectedLayer }),
           });
           return;

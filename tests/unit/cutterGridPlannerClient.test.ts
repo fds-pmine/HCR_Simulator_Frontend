@@ -159,6 +159,7 @@ describe('Cutter Grid Profile registry and Worker client', () => {
     const client = new CutterGridPlannerClient(() => worker);
     const profile = registeredCutterGridProfileV3(challenge);
     if (!profile) throw new Error('Expected bundled V3 Profile.');
+    const progress = vi.fn();
     const pending = client.planV3(
       challenge,
       {
@@ -169,6 +170,7 @@ describe('Cutter Grid Profile registry and Worker client', () => {
         executedCommandCount: 0,
       },
       profile,
+      progress,
     );
     expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
       type: 'plan-v3',
@@ -178,6 +180,22 @@ describe('Cutter Grid Profile registry and Worker client', () => {
         motionLimits: profile.motionLimits,
       }),
     }));
+    worker.onmessage?.({
+      data: {
+        type: 'progress-v3',
+        requestId: 1,
+        phase: 'geometric-smoothing',
+        completedItems: 3,
+        totalItems: 12,
+        unit: 'motion-segments',
+      },
+    } as unknown as MessageEvent<CutterGridWorkerResponse>);
+    expect(progress).toHaveBeenCalledWith({
+      phase: 'geometric-smoothing',
+      completedItems: 3,
+      totalItems: 12,
+      unit: 'motion-segments',
+    });
     worker.onmessage?.({
       data: {
         type: 'failed',

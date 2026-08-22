@@ -33,6 +33,27 @@ export const CUTTER_GRID_MOTION_V3_CONFIG = Object.freeze({
   normalizedDerivativeSamples: 512,
 });
 
+export type CutterGridMotionV3ProgressPhase =
+  | 'geometric-smoothing'
+  | 'time-parameterization'
+  | 'jerk-smoothing'
+  | 'playback-validation';
+
+/**
+ * Synchronous, deterministic observations of the V3 pipeline.  They are
+ * deliberately outside the signed plan: subscribing cannot alter candidate
+ * order, geometry, duration, or any safety decision.
+ */
+export interface CutterGridMotionV3Progress {
+  phase: CutterGridMotionV3ProgressPhase;
+  completedSegments: number;
+  totalSegments: number;
+}
+
+export interface CutterGridMotionV3Options {
+  onProgress?: (progress: CutterGridMotionV3Progress) => void;
+}
+
 export class CutterGridMotionV3Error extends Error {
   constructor(
     public readonly code: CutterGridPlanningErrorCodeV3,
@@ -63,6 +84,11 @@ interface ValidationResult {
   maximumCartesianDeviation: number;
 }
 
+interface MotionGeometry {
+  geometryWaypoints: CutterTrajectoryWaypointV2[];
+  geometry: CutterTrajectoryGeometryV3;
+}
+
 interface MotionValidationOptions {
   verifyCartesianPipe: boolean;
   requireZeroHairContact: boolean;
@@ -89,30 +115,64 @@ export function retimeCutterGridTrajectoryV3(
   challenge: Challenge,
   plan: CutterTrajectoryPlanV2,
   motionLimits: CutterGridMotionLimitsV3,
+  options: CutterGridMotionV3Options = {},
 ): CutterTrajectoryPlanV3 {
   assertMotionLimits(challenge, motionLimits);
   const effective = effectiveMotionLimits(challenge, motionLimits);
+  const positioningStep = positioningTrajectoryStep(plan.positioningTrajectory);
+  const moveStepCount = plan.steps.filter((step) => step.kind === 'move-cell').length;
+  const totalSegments = moveStepCount + 1;
+  const reportProgress = (phase: CutterGridMotionV3ProgressPhase, completedSegments: number) => {
+    options.onProgress?.({ phase, completedSegments, totalSegments });
+  };
   let maximumVelocityRatio = 0;
   let maximumAccelerationRatio = 0;
   let maximumJerkRatio = 0;
   let maximumCartesianDeviation = 0;
   let validationSampleCount = 0;
 
+  // First construct all immutable C2 geometry. Grouping this separate from
+  // timing makes the Worker diagnostic truthful and proves that a later
+  // duration expansion cannot choose another IK/angle-wrap branch.
+  reportProgress('geometric-smoothing', 0);
+  const positioningGeometry = buildMotionGeometry(challenge, positioningStep);
+  const stepGeometries = plan.steps.map((step) =>
+    step.kind === 'move-cell' ? buildMotionGeometry(challenge, step) : undefined,
+  );
+  reportProgress('geometric-smoothing', totalSegments);
+
+  reportProgress('time-parameterization', 0);
+  const positioningInitialMotion = timeParameterizeMotion(
+    challenge,
+    positioningStep,
+    positioningGeometry,
+    effective,
+  );
+  const initialMotions = plan.steps.map((step, index) =>
+    step.kind === 'move-cell'
+      ? timeParameterizeMotion(challenge, step, requireMotionGeometry(stepGeometries[index]), effective)
+      : undefined,
+  );
+  reportProgress('time-parameterization', totalSegments);
+
   // Positioning is a system operation, but it is still real arm motion.  Do
   // not let a V2 interpolation create a visible jerk immediately before the
   // first player action.
+  reportProgress('jerk-smoothing', 0);
   const positioning = retimeCutterGridPositioningV3(
     challenge,
-    plan.positioningTrajectory,
-    motionLimits,
+    positioningStep,
+    positioningInitialMotion,
     effective,
   );
+  let smoothedSegments = 1;
+  reportProgress('jerk-smoothing', smoothedSegments);
   maximumVelocityRatio = Math.max(maximumVelocityRatio, positioning.maximumVelocityRatio);
   maximumAccelerationRatio = Math.max(maximumAccelerationRatio, positioning.maximumAccelerationRatio);
   maximumJerkRatio = Math.max(maximumJerkRatio, positioning.maximumJerkRatio);
   validationSampleCount += positioning.validationSampleCount;
 
-  const steps = plan.steps.map((step) => {
+  const steps = plan.steps.map((step, index) => {
     if (step.kind === 'wait') {
       const waypoints = step.waypoints.map((waypoint) => holdWaypoint(challenge, waypoint));
       validationSampleCount += waypoints.length;
@@ -130,9 +190,11 @@ export function retimeCutterGridTrajectoryV3(
     const { motion, validation } = validateWithDurationExpansion(
       challenge,
       step,
-      motionForStep(challenge, step, effective),
+      requireInitialMotion(initialMotions[index]),
       effective,
     );
+    smoothedSegments += 1;
+    reportProgress('jerk-smoothing', smoothedSegments);
     maximumVelocityRatio = Math.max(maximumVelocityRatio, validation.maximumVelocityRatio);
     maximumAccelerationRatio = Math.max(maximumAccelerationRatio, validation.maximumAccelerationRatio);
     maximumJerkRatio = Math.max(maximumJerkRatio, validation.maximumJerkRatio);
@@ -147,7 +209,9 @@ export function retimeCutterGridTrajectoryV3(
     } satisfies CutterTrajectoryStepV3;
   });
 
+  reportProgress('playback-validation', 0);
   const expectedResultVoxels = applyExpectedContacts(challenge, steps);
+  reportProgress('playback-validation', totalSegments);
   const estimatedDurationMs = steps.reduce((sum, step) => sum + step.durationMs, 0);
   const actualSpeedScale = Math.min(
     ...challenge.robotConfig.joints.map((joint) =>
@@ -197,8 +261,8 @@ export function retimeCutterGridTrajectoryV3(
 
 function retimeCutterGridPositioningV3(
   challenge: Challenge,
-  geometryWaypoints: readonly CutterTrajectoryWaypointV2[],
-  motionLimits: CutterGridMotionLimitsV3,
+  positioningStep: CutterTrajectoryStepV2,
+  initialMotion: CutterTrajectoryStepMotionV3,
   effective: EffectiveMotionLimits,
 ): {
   motion: CutterGridPositioningMotionV3;
@@ -207,21 +271,10 @@ function retimeCutterGridPositioningV3(
   maximumJerkRatio: number;
   validationSampleCount: number;
 } {
-  const last = geometryWaypoints.at(-1);
-  const positioningStep: CutterTrajectoryStepV2 = {
-    index: -1,
-    kind: 'move-cell',
-    sourceBlockId: 'system-positioning',
-    startCoord: [0, 0, 0],
-    endCoord: [0, 0, 0],
-    durationMs: last?.timeMs ?? 0,
-    waypoints: cloneGeometryWaypoints(geometryWaypoints),
-    expectedCutVoxels: [],
-  };
   const { motion, validation } = validateWithDurationExpansion(
     challenge,
     positioningStep,
-    motionForStep(challenge, positioningStep, effective),
+    initialMotion,
     effective,
     POSITIONING_MOTION_VALIDATION,
   );
@@ -235,6 +288,22 @@ function retimeCutterGridPositioningV3(
     maximumAccelerationRatio: validation.maximumAccelerationRatio,
     maximumJerkRatio: validation.maximumJerkRatio,
     validationSampleCount: validation.waypoints.length,
+  };
+}
+
+function positioningTrajectoryStep(
+  geometryWaypoints: readonly CutterTrajectoryWaypointV2[],
+): CutterTrajectoryStepV2 {
+  const last = geometryWaypoints.at(-1);
+  return {
+    index: -1,
+    kind: 'move-cell',
+    sourceBlockId: 'system-positioning',
+    startCoord: [0, 0, 0],
+    endCoord: [0, 0, 0],
+    durationMs: last?.timeMs ?? 0,
+    waypoints: cloneGeometryWaypoints(geometryWaypoints),
+    expectedCutVoxels: [],
   };
 }
 
@@ -310,11 +379,10 @@ function assertMotionLimits(challenge: Challenge, motionLimits: CutterGridMotion
   }
 }
 
-function motionForStep(
+function buildMotionGeometry(
   challenge: Challenge,
   step: CutterTrajectoryStepV2,
-  limits: EffectiveMotionLimits,
-): CutterTrajectoryStepMotionV3 {
+): MotionGeometry {
   if (step.waypoints.length < 2) {
     throw new CutterGridMotionV3Error(
       'time-parameterization-infeasible',
@@ -324,6 +392,16 @@ function motionForStep(
   }
   const geometryWaypoints = unwrapGeometryWaypoints(challenge, step);
   const geometry = buildGlobalC2QuinticGeometry(challenge, geometryWaypoints, step);
+  return { geometryWaypoints, geometry };
+}
+
+function timeParameterizeMotion(
+  challenge: Challenge,
+  step: CutterTrajectoryStepV2,
+  geometryData: MotionGeometry,
+  limits: EffectiveMotionLimits,
+): CutterTrajectoryStepMotionV3 {
+  const { geometryWaypoints, geometry } = geometryData;
   let minimumDurationSeconds = 0;
   for (let sample = 0; sample <= CUTTER_GRID_MOTION_V3_CONFIG.normalizedDerivativeSamples; sample += 1) {
     const normalizedTime = sample / CUTTER_GRID_MOTION_V3_CONFIG.normalizedDerivativeSamples;
@@ -351,6 +429,26 @@ function motionForStep(
     geometryWaypoints,
     geometry,
   };
+}
+
+function requireMotionGeometry(geometry: MotionGeometry | undefined): MotionGeometry {
+  if (!geometry) {
+    throw new CutterGridMotionV3Error(
+      'trajectory-smoothing-search-exhausted',
+      'Cutter Grid V3 lost a prepared geometry segment.',
+    );
+  }
+  return geometry;
+}
+
+function requireInitialMotion(motion: CutterTrajectoryStepMotionV3 | undefined): CutterTrajectoryStepMotionV3 {
+  if (!motion) {
+    throw new CutterGridMotionV3Error(
+      'trajectory-smoothing-search-exhausted',
+      'Cutter Grid V3 lost a prepared timing segment.',
+    );
+  }
+  return motion;
 }
 
 function validateStepMotion(
