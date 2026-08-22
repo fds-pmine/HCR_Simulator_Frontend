@@ -43,6 +43,6 @@ Chromium Worker 探针只观察到本地审计服务器的 `/`、`/hcr_ruckig_lo
 1. 已完成：在保持 V2 已选 IK 分支和固定 Cartesian 管道不变的前提下，纯领域预备层生成确定性的保守 TOPP-RA 风格 path speed 及 `q/v/a` 边界；该输出尚未作为运行时轨迹。
 2. 已完成纯领域编排：对每个局部 Ruckig 段传递精确共享边界，按 `1.1x` 最小时长扩展并以 `50x` 上限 fail closed，逐样本检验端点与动态限制；不得传 intermediate waypoints。空间认证回调会把关节限位、头部净空、固定 Cartesian 管道、`0.5°`/`voxelSize/16` 联合采样和零接触/允许接触集作为不可重试的 fail-closed 门禁。它尚未作为 Worker 运行轨迹。
 3. 已完成纯领域完整玩家 Move 的局部段空间结果聚合、冻结接触集合精确比对，以及“密集认证样本 / 稀疏回放控制结点 / 时间戳剪发事件”分离；真实 WASM 使用带 jerk 切换点的分段常 jerk 三次 C2 表示，而非用端点 quintic 近似制造虚假 jerk 峰值。Chromium 实测通过双格 Practice Step（约 20 秒全流程）和 `Up 6 → Left 2 → Forward 3` 全局 IK 回归的完整预规划及首个 Step 边界（约 2.1 分钟）。
-4. 尚未完成：Worker 的主动取消、生产级默认启用的性能基线与 Chrome/Edge 双浏览器完整回归。因此 Ruckig 仍由 `VITE_HCR_CUTTER_GRID_RUCKIG_TRIAL=1` 显式开启；默认 Cutter Grid 继续使用已认证的解析 V3 轨迹。任何失败均 fail closed；不回退到网络 API、渲染滤波或旧 V2 插值。
+4. 已完成：输入变化、模式/Challenge 切换或组件卸载会终止当前专用规划 Worker，并以 `planning-cancelled` 结束旧请求；主线程只接受当前 request id，旧回调不能写入新计划。尚未完成的是生产级默认启用的性能基线与 Chrome/Edge 双浏览器完整回归。因此 Ruckig 仍由 `VITE_HCR_CUTTER_GRID_RUCKIG_TRIAL=1` 显式开启；默认 Cutter Grid 继续使用已认证的解析 V3 轨迹。任何失败均 fail closed；不回退到网络 API、渲染滤波或旧 V2 插值。
 
 完成这些前，Rust 后端迁移继续延后，且 Cutter Grid 的后端提交、Session、Match 和 ArmDock 均保持不变。

@@ -216,4 +216,25 @@ describe('Cutter Grid Profile registry and Worker client', () => {
       });
     });
   });
+
+  it('actively terminates a pending V3 Worker and returns a normal cancellation', async () => {
+    const worker = new FakeWorker();
+    const client = new CutterGridPlannerClient(() => worker);
+    const profile = registeredCutterGridProfileV3(challenge);
+    if (!profile) throw new Error('Expected bundled V3 Profile.');
+
+    const pending = client.planV3(
+      challenge,
+      {
+        program: profile.referenceProgram,
+        runtimeActions: [],
+        executedCommandCount: 0,
+      },
+      profile,
+    );
+    client.cancel();
+
+    await expect(pending).rejects.toMatchObject({ code: 'planning-cancelled' });
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
 });

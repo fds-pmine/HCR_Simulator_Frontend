@@ -30,6 +30,7 @@ import { CutterGridPlannerClient } from '../../features/cutter-grid/plannerClien
 import { registeredCutterGridProfileV3 } from '../../features/cutter-grid/profileRegistry';
 import { CutterGridLadderPlanningError } from '../../features/cutter-grid/ladderPlanner';
 import { CutterGridMotionV3Error } from '../../features/cutter-grid/motionV3';
+import { CutterGridPlanningError } from '../../features/cutter-grid/trajectory';
 import type {
   CompiledCutterGridProgramV1,
   CutterGridPlanningProgressV3,
@@ -285,7 +286,11 @@ export function SimulationWorkbench({
       engine.cancelPlanning();
       setPlanningProgress(undefined);
       if (
-        (error instanceof CutterGridLadderPlanningError || error instanceof CutterGridMotionV3Error) &&
+        (
+          error instanceof CutterGridPlanningError ||
+          error instanceof CutterGridLadderPlanningError ||
+          error instanceof CutterGridMotionV3Error
+        ) &&
         error.code === 'planning-cancelled'
       ) return undefined;
       setCompileError(
