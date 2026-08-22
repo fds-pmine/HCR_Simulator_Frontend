@@ -3,6 +3,7 @@ import { findRobotHeadCollision } from '../robot/headCollision';
 import { computeRobotPose } from '../robot/kinematics';
 import { findSweptVoxelHits } from '../voxel/contactDetection';
 import { fnv1a64 } from './signature';
+import { cutterGridMotionLimitsSignatureV3 } from './motionLimitsV3';
 import {
   CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION,
   type CutterGridMotionLimitsV3,
@@ -145,6 +146,7 @@ export function retimeCutterGridTrajectoryV3(
     estimatedDurationMs,
     executedCommandCount: plan.executedCommandCount,
     motionLimits,
+    motionLimitsSignature: cutterGridMotionLimitsSignatureV3(challenge, motionLimits),
     diagnostics,
   };
   return {

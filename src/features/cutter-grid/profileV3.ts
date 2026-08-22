@@ -1,5 +1,6 @@
 import type { Challenge } from '../../types/domain';
 import { fnv1a64 } from './signature';
+import { cutterGridMotionLimitsSignatureV3 } from './motionLimitsV3';
 import {
   CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION,
   CUTTER_GRID_PROFILE_V3_VERSION,
@@ -48,6 +49,7 @@ export function upgradeCutterGridProfileV2ToV3(
     version: CUTTER_GRID_PROFILE_V3_VERSION,
     plannerVersion: CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION,
     motionLimits,
+    motionLimitsSignature: cutterGridMotionLimitsSignatureV3(challenge, motionLimits),
   } satisfies Omit<CutterGridProfileV3, 'profileSignature'>;
   return {
     ...unsigned,
@@ -69,6 +71,10 @@ export function cutterGridProfileV3MatchesChallenge(
     profile.version !== CUTTER_GRID_PROFILE_V3_VERSION ||
     profile.plannerVersion !== CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION
   ) return false;
+  if (
+    profile.motionLimitsSignature !==
+    cutterGridMotionLimitsSignatureV3(challenge, profile.motionLimits)
+  ) return false;
   const { profileSignature: expectedSignature, ...unsigned } = profile;
   return expectedSignature === profileSignature(unsigned);
 }
@@ -85,5 +91,6 @@ function profileSignature(profile: Omit<CutterGridProfileV3, 'profileSignature'>
       positioningSignature: entry.positioningSignature,
     })),
     motionLimits: profile.motionLimits,
+    motionLimitsSignature: profile.motionLimitsSignature,
   }));
 }

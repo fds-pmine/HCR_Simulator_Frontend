@@ -292,6 +292,7 @@ export interface CutterGridProfileV3 extends Omit<CutterGridProfileV2, 'version'
   version: typeof CUTTER_GRID_PROFILE_V3_VERSION;
   plannerVersion: typeof CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION;
   motionLimits: CutterGridMotionLimitsV3;
+  motionLimitsSignature: string;
   profileSignature: string;
 }
 
@@ -341,6 +342,7 @@ export interface CutterTrajectoryPlanV3 {
   estimatedDurationMs: number;
   executedCommandCount: number;
   motionLimits: CutterGridMotionLimitsV3;
+  motionLimitsSignature: string;
   diagnostics: CutterGridPlanningDiagnosticsV3;
   trajectorySignature: string;
 }

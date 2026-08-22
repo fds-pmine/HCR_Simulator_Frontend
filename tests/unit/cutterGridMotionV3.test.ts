@@ -12,6 +12,7 @@ import {
 } from '../../src/features/cutter-grid/motionV3';
 import { registeredCutterGridProfileV2 } from '../../src/features/cutter-grid/profileRegistry';
 import { frontendTrialMotionLimitsV3 } from '../../src/features/cutter-grid/profileV3';
+import { cutterGridMotionLimitsSignatureV3 } from '../../src/features/cutter-grid/motionLimitsV3';
 import {
   CUTTER_GRID_LADDER_PLANNER_VERSION,
   type CutterGridMotionLimitsV3,
@@ -42,6 +43,12 @@ describe('Cutter Grid V3 jerk-limited retiming', () => {
     const second = retimeCutterGridTrajectoryV3(challenge, v2Plan, frontendTrialMotionLimitsV3(challenge));
 
     expect(first.trajectorySignature).toBe(second.trajectorySignature);
+    expect(first.motionLimitsSignature).toBe(
+      cutterGridMotionLimitsSignatureV3(challenge, first.motionLimits),
+    );
+    // Cross-language fixture value: the future Rust implementation must emit
+    // this digest for the registered Neat Short Haircut V3 profile.
+    expect(first.motionLimitsSignature).toBe('f22c09b1ef4fbcbb');
     expect(first.endCoord).toEqual(v2Plan.endCoord);
     expect(first.entryOptionId).toBe(v2Plan.entryOptionId);
     expect(first.expectedResultVoxels).toEqual(v2Plan.expectedResultVoxels);
@@ -79,6 +86,25 @@ describe('Cutter Grid V3 jerk-limited retiming', () => {
       }
       expect(end.jointAngles).toEqual(step.waypoints.at(-1)?.jointAngles);
     }
+  });
+
+  it('changes the portable dynamic signature when one joint limit changes', () => {
+    const limits = frontendTrialMotionLimitsV3(challenge);
+    const jointId = challenge.robotConfig.joints[0]?.id;
+    if (!jointId) throw new Error('Expected a configured joint.');
+    const changed = {
+      ...limits,
+      joints: {
+        ...limits.joints,
+        [jointId]: {
+          ...limits.joints[jointId],
+          maxJerkDegPerSec3: limits.joints[jointId].maxJerkDegPerSec3 + 1,
+        },
+      },
+    };
+    expect(cutterGridMotionLimitsSignatureV3(challenge, changed)).not.toBe(
+      cutterGridMotionLimitsSignatureV3(challenge, limits),
+    );
   });
 });
 

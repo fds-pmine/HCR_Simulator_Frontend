@@ -8,6 +8,7 @@ export * from './ik';
 export * from './ladderDiagnostics';
 export * from './ladderPlanner';
 export * from './motionV3';
+export * from './motionLimitsV3';
 export * from './programCompiler';
 export * from './profile';
 export * from './profileV2';
