@@ -8,7 +8,7 @@ import type { RuckigLocalWasmModule } from './ruckigLocalWasm';
 export const RUCKIG_LOCAL_WORKER_ASSETS = Object.freeze({
   modulePath: '/vendor/ruckig/hcr_ruckig_local.mjs',
   wasmFileName: 'hcr_ruckig_local.wasm',
-  abiVersion: 'ruckig-local-5d-v2',
+  abiVersion: 'ruckig-local-5d-v3',
 });
 
 export interface RuckigLocalEmscriptenFactoryOptions {

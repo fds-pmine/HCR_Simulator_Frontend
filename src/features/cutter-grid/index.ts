@@ -19,6 +19,7 @@ export * from './plannerClient';
 export * from './referenceProgram';
 export * from './ruckigLocalWasm';
 export * from './ruckigLocalWorker';
+export * from './ruckigPlanV3';
 export * from './ruckigRetimeV3';
 export * from './ruckigSpatialValidationV3';
 export * from './signature';

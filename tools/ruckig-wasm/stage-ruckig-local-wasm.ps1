@@ -36,7 +36,7 @@ foreach ($file in $requiredFiles) {
 
 $manifest = Get-Content -LiteralPath (Join-Path $sourcePath 'hcr_ruckig_local.manifest.json') -Raw | ConvertFrom-Json
 if (
-  $manifest.abiVersion -ne 'ruckig-local-5d-v2' -or
+  $manifest.abiVersion -ne 'ruckig-local-5d-v3' -or
   $manifest.ruckigVersion -ne '0.19.4' -or
   $manifest.ruckigCommit -ne 'a8db97a4e9c55e5160a3855f739fa3b270df8e4c' -or
   $manifest.license -ne 'MIT' -or

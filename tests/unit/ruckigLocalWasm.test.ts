@@ -26,7 +26,7 @@ const input: RuckigLocalStateToStateInput = {
 };
 
 describe('local Ruckig WASM ABI adapter', () => {
-  it('writes the fixed q/v/a ABI order and decodes sample-major q/v/a/j output', () => {
+  it('writes the fixed q/v/a ABI order and decodes time-stamped q/v/a/j output', () => {
     const module = new FakeRuckigModule();
 
     const result = sampleRuckigLocalStateToState(module, input);
@@ -45,6 +45,7 @@ describe('local Ruckig WASM ABI adapter', () => {
     ]);
     expect(result.resultCode).toBe(0);
     expect(result.durationSeconds).toBe(1.5);
+    expect(result.sampleTimesSeconds).toEqual([0, 0.75, 1.5]);
     expect(result.samples).toEqual([
       {
         position: [1, 2, 3, 4, 5],
@@ -135,13 +136,14 @@ class FakeRuckigModule implements RuckigLocalWasmModule {
     if (this.resultCode < 0) return this.resultCode;
     this.HEAPF64[durationPointer / 8] = this.durationSeconds;
     for (let sample = 0; sample < sampleCount; sample += 1) {
-      const offset = outputPointer / 8 + sample * 20;
+      const offset = outputPointer / 8 + sample * 21;
       const progress = sample / (sampleCount - 1);
+      this.HEAPF64[offset] = this.durationSeconds * progress;
       for (let joint = 0; joint < 5; joint += 1) {
-        this.HEAPF64[offset + joint] = 1 + joint + 5 * progress;
-        this.HEAPF64[offset + 5 + joint] = sample * 5 + joint;
-        this.HEAPF64[offset + 10 + joint] = -sample * 5 - joint;
-        this.HEAPF64[offset + 15 + joint] = 10 + sample * 5 + joint;
+        this.HEAPF64[offset + 1 + joint] = 1 + joint + 5 * progress;
+        this.HEAPF64[offset + 6 + joint] = sample * 5 + joint;
+        this.HEAPF64[offset + 11 + joint] = -sample * 5 - joint;
+        this.HEAPF64[offset + 16 + joint] = 10 + sample * 5 + joint;
       }
     }
     return this.resultCode;

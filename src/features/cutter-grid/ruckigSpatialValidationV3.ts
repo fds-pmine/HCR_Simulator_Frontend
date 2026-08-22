@@ -21,10 +21,12 @@ export type CutterGridRuckigSpatialFailureCodeV3 =
 
 export interface CutterGridRuckigSpatialValidationContextV3 {
   /** The complete player-requested axis segment, rather than a local Ruckig chord. */
-  fixedAxisLine: {
+  fixedAxisLine?: {
     start: Vec3Tuple;
     end: Vec3Tuple;
   };
+  /** System-only positioning has no player axis line, but still requires every other safety check. */
+  verifyCartesianPipe?: boolean;
   /** Hair still present before this atomic player move starts. */
   hairVoxels: ReadonlySet<VoxelKey>;
   /** A subset is permitted while validating one local segment; omitted permits all hits. */
@@ -86,22 +88,31 @@ export function validateCutterGridRuckigSpatialSamplesV3(
         context,
       );
     }
-    const deviation = pointSegmentDistance(
-      pose.endEffector,
-      context.fixedAxisLine.start,
-      context.fixedAxisLine.end,
-    );
-    maximumCartesianDeviation = Math.max(maximumCartesianDeviation, deviation);
-    if (
-      deviation >
-      challenge.voxelConfig.size * CUTTER_GRID_RUCKIG_SPATIAL_LIMITS_V3.maxCartesianPipeDeviationInVoxels +
-        1e-9
-    ) {
-      throw failure(
-        'cartesian-pipe',
-        'Local Ruckig leaves the player-requested fixed-axis Cartesian path.',
-        context,
+    if (context.verifyCartesianPipe !== false) {
+      if (!context.fixedAxisLine) {
+        throw failure(
+          'cartesian-pipe',
+          'Local Ruckig player motion is missing its certified fixed-axis Cartesian line.',
+          context,
+        );
+      }
+      const deviation = pointSegmentDistance(
+        pose.endEffector,
+        context.fixedAxisLine.start,
+        context.fixedAxisLine.end,
       );
+      maximumCartesianDeviation = Math.max(maximumCartesianDeviation, deviation);
+      if (
+        deviation >
+        challenge.voxelConfig.size * CUTTER_GRID_RUCKIG_SPATIAL_LIMITS_V3.maxCartesianPipeDeviationInVoxels +
+          1e-9
+      ) {
+        throw failure(
+          'cartesian-pipe',
+          'Local Ruckig leaves the player-requested fixed-axis Cartesian path.',
+          context,
+        );
+      }
     }
     endEffectors.push(pose.endEffector);
   }
@@ -125,7 +136,10 @@ export function validateCutterGridRuckigSpatialSamplesV3(
     ) {
       throw failure(
         'sample-resolution',
-        'Local Ruckig samples exceed the certified joint or end-effector spacing.',
+        'Local Ruckig samples exceed the certified joint or end-effector spacing ' +
+          `(joint=${maximumJointSampleDeltaDeg.toFixed(9)}deg/${CUTTER_GRID_RUCKIG_SPATIAL_LIMITS_V3.maxJointSampleDeltaDeg}deg, ` +
+          `tool=${maximumEndEffectorSampleDelta.toFixed(9)}m/` +
+          `${(challenge.voxelConfig.size * CUTTER_GRID_RUCKIG_SPATIAL_LIMITS_V3.maxEndEffectorSampleDeltaInVoxels).toFixed(9)}m).`,
         context,
       );
     }

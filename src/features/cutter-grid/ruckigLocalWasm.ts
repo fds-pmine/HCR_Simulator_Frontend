@@ -3,7 +3,9 @@ export const RUCKIG_LOCAL_WASM_DOF = 5;
 const INPUT_VECTOR_COUNT = 9;
 const OUTPUT_VECTOR_COUNT = 4;
 const INPUT_DOUBLE_COUNT = RUCKIG_LOCAL_WASM_DOF * INPUT_VECTOR_COUNT + 1;
-const OUTPUT_DOUBLE_STRIDE = RUCKIG_LOCAL_WASM_DOF * OUTPUT_VECTOR_COUNT;
+const OUTPUT_TIME_OFFSET = 0;
+const OUTPUT_VECTOR_OFFSET = 1;
+const OUTPUT_DOUBLE_STRIDE = OUTPUT_VECTOR_OFFSET + RUCKIG_LOCAL_WASM_DOF * OUTPUT_VECTOR_COUNT;
 const MAX_SAMPLE_COUNT = 65_536;
 
 export type RuckigLocalFiveAxisVector = readonly [number, number, number, number, number];
@@ -41,6 +43,8 @@ export interface RuckigLocalTrajectoryResult {
   resultCode: number;
   durationSeconds: number;
   samples: RuckigLocalTrajectorySample[];
+  /** Exact absolute times of the local samples, including jerk-switch points. */
+  sampleTimesSeconds?: number[];
 }
 
 /**
@@ -112,16 +116,36 @@ export function sampleRuckigLocalStateToState(
       throw new RuckigLocalWasmError('Local Ruckig did not honor the requested minimum duration.', resultCode);
     }
     const dataStart = heapOffset(outputPointer);
-    const samples = Array.from({ length: input.sampleCount }, (_, sampleIndex) => {
+    const samples: RuckigLocalTrajectorySample[] = [];
+    const sampleTimesSeconds: number[] = [];
+    for (let sampleIndex = 0; sampleIndex < input.sampleCount; sampleIndex += 1) {
       const offset = dataStart + sampleIndex * OUTPUT_DOUBLE_STRIDE;
-      return {
-        position: readVector(module.HEAPF64, offset),
-        velocity: readVector(module.HEAPF64, offset + RUCKIG_LOCAL_WASM_DOF),
-        acceleration: readVector(module.HEAPF64, offset + 2 * RUCKIG_LOCAL_WASM_DOF),
-        jerk: readVector(module.HEAPF64, offset + 3 * RUCKIG_LOCAL_WASM_DOF),
-      } satisfies RuckigLocalTrajectorySample;
-    });
-    return { resultCode, durationSeconds, samples };
+      const timeSeconds = module.HEAPF64[offset + OUTPUT_TIME_OFFSET];
+      if (timeSeconds < 0) break;
+      if (
+        !Number.isFinite(timeSeconds) ||
+        timeSeconds < 0 ||
+        timeSeconds > durationSeconds + 1e-9 ||
+        (sampleTimesSeconds.length > 0 && timeSeconds <= sampleTimesSeconds.at(-1)!)
+      ) {
+        throw new RuckigLocalWasmError('Local Ruckig returned invalid or non-monotonic sample times.', resultCode);
+      }
+      sampleTimesSeconds.push(timeSeconds);
+      samples.push({
+        position: readVector(module.HEAPF64, offset + OUTPUT_VECTOR_OFFSET),
+        velocity: readVector(module.HEAPF64, offset + OUTPUT_VECTOR_OFFSET + RUCKIG_LOCAL_WASM_DOF),
+        acceleration: readVector(module.HEAPF64, offset + OUTPUT_VECTOR_OFFSET + 2 * RUCKIG_LOCAL_WASM_DOF),
+        jerk: readVector(module.HEAPF64, offset + OUTPUT_VECTOR_OFFSET + 3 * RUCKIG_LOCAL_WASM_DOF),
+      });
+    }
+    if (
+      samples.length < 2 ||
+      Math.abs(sampleTimesSeconds[0] ?? Number.NaN) > 1e-9 ||
+      Math.abs((sampleTimesSeconds.at(-1) ?? Number.NaN) - durationSeconds) > 1e-9
+    ) {
+      throw new RuckigLocalWasmError('Local Ruckig did not return a complete time-stamped trajectory.', resultCode);
+    }
+    return { resultCode, durationSeconds, samples, sampleTimesSeconds };
   } finally {
     if (outputPointer !== undefined) module._free(outputPointer);
     if (durationPointer !== undefined) module._free(durationPointer);

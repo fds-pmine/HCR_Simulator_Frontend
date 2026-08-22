@@ -253,9 +253,16 @@ export function retimeCutterGridTrajectoryV3(
     motionLimitsSignature: cutterGridMotionLimitsSignatureV3(challenge, motionLimits),
     diagnostics,
   };
+  return finalizeCutterGridTrajectoryPlanV3(unsigned);
+}
+
+/** Re-sign a fully certified V3 plan after replacing only its timing stream. */
+export function finalizeCutterGridTrajectoryPlanV3(
+  plan: Omit<CutterTrajectoryPlanV3, 'trajectorySignature'>,
+): CutterTrajectoryPlanV3 {
   return {
-    ...unsigned,
-    trajectorySignature: motionTrajectorySignature(unsigned),
+    ...plan,
+    trajectorySignature: motionTrajectorySignature(plan),
   };
 }
 
@@ -316,6 +323,13 @@ export function evaluateCutterTrajectoryStepV3At(
   if (step.motion.interpolation === 'hold') {
     return step.waypoints.at(-1) ?? holdWaypoint(challenge, step.motion.geometryWaypoints[0]);
   }
+  if (step.motion.interpolation === 'ruckig-local-sampled') {
+    return evaluateCutterTrajectoryRuckigSampledV3At(
+      challenge,
+      step.waypoints,
+      clamp(targetTimeMs, 0, step.motion.durationMs),
+    );
+  }
   return evaluateStepMotionAt(
     challenge,
     step.motion,
@@ -329,11 +343,136 @@ export function evaluateCutterGridPositioningV3At(
   positioning: CutterGridPositioningMotionV3,
   targetTimeMs: number,
 ): CutterTrajectoryWaypointV3 {
+  if (positioning.motion.interpolation === 'ruckig-local-sampled') {
+    return evaluateCutterTrajectoryRuckigSampledV3At(
+      challenge,
+      positioning.waypoints,
+      clamp(targetTimeMs, 0, positioning.durationMs),
+    );
+  }
   return evaluateStepMotionAt(
     challenge,
     positioning.motion,
     clamp(targetTimeMs, 0, positioning.durationMs),
   ).waypoint;
+}
+
+/**
+ * C2, absolute-time reconstruction for a frozen local-Ruckig stream. Each
+ * span uses the exact q/v/a returned at its endpoints; there is no mutable
+ * frame delta and no new IK choice during playback. Callers must certify the
+ * reconstructed spans before accepting them into a V3 plan.
+ */
+export function evaluateCutterTrajectorySampledV3At(
+  challenge: Challenge,
+  waypoints: readonly CutterTrajectoryWaypointV3[],
+  targetTimeMs: number,
+  interpolation: 'quintic' | 'ruckig-constant-jerk' = 'quintic',
+): CutterTrajectoryWaypointV3 {
+  const first = waypoints[0];
+  const last = waypoints.at(-1);
+  if (!first || !last) {
+    throw new CutterGridMotionV3Error(
+      'time-parameterization-infeasible',
+      'Cutter Grid V3 sampled motion has no certified waypoints.',
+    );
+  }
+  const boundedTime = clamp(targetTimeMs, first.timeMs, last.timeMs);
+  if (boundedTime <= first.timeMs) return cloneV3Waypoint(first);
+  if (boundedTime >= last.timeMs) return cloneV3Waypoint(last);
+  const endIndex = sampledWaypointEndIndex(waypoints, boundedTime);
+  const end = waypoints[endIndex];
+  const start = waypoints[endIndex - 1];
+  if (!start || !end || end.timeMs <= start.timeMs) {
+    throw new CutterGridMotionV3Error(
+      'time-parameterization-infeasible',
+      'Cutter Grid V3 sampled motion has a non-increasing waypoint time.',
+    );
+  }
+  // A frozen Ruckig boundary is authoritative. Returning it verbatim avoids a
+  // harmless but signature-visible ~1e-14 polynomial rounding drift exactly
+  // at a Step checkpoint or final planned sample.
+  if (boundedTime === end.timeMs) return cloneV3Waypoint(end);
+  if (boundedTime === start.timeMs) return cloneV3Waypoint(start);
+  const spanSeconds = (end.timeMs - start.timeMs) / 1_000;
+  const elapsedSeconds = (boundedTime - start.timeMs) / 1_000;
+  const jointAngles = {} as Record<JointId, number>;
+  const jointVelocitiesDegPerSec = {} as Record<JointId, number>;
+  const jointAccelerationsDegPerSec2 = {} as Record<JointId, number>;
+  const jointJerksDegPerSec3 = {} as Record<JointId, number>;
+  for (const joint of challenge.robotConfig.joints) {
+    const curve = interpolation === 'ruckig-constant-jerk'
+      ? evaluateConstantJerk(
+        start.jointAngles[joint.id],
+        start.jointVelocitiesDegPerSec[joint.id],
+        start.jointAccelerationsDegPerSec2[joint.id],
+        start.jointJerksDegPerSec3[joint.id],
+        elapsedSeconds,
+      )
+      : evaluateQuintic(
+        quinticCoefficients(
+          start.jointAngles[joint.id],
+          end.jointAngles[joint.id],
+          spanSeconds,
+          start.jointVelocitiesDegPerSec[joint.id],
+          start.jointAccelerationsDegPerSec2[joint.id],
+          end.jointVelocitiesDegPerSec[joint.id],
+          end.jointAccelerationsDegPerSec2[joint.id],
+        ),
+        elapsedSeconds,
+      );
+    jointAngles[joint.id] = curve.position;
+    jointVelocitiesDegPerSec[joint.id] = curve.first;
+    jointAccelerationsDegPerSec2[joint.id] = curve.second;
+    jointJerksDegPerSec3[joint.id] = curve.third;
+  }
+  const safeJointAngles = snapNumericalJointLimitNoise(challenge, jointAngles);
+  return {
+    timeMs: boundedTime,
+    jointAngles: safeJointAngles,
+    jointVelocitiesDegPerSec,
+    jointAccelerationsDegPerSec2,
+    jointJerksDegPerSec3,
+    endEffector: computeRobotPose(challenge.robotConfig, safeJointAngles).endEffector,
+  };
+}
+
+/**
+ * Ruckig exposes a piecewise constant-jerk trajectory. Its ABI v3 samples
+ * every material jerk switch, so integrating the right-hand jerk from the
+ * start q/v/a of each interval is its exact cubic representation. This is
+ * C2 at a switch and avoids manufacturing a tiny quintic overshoot merely
+ * from floating-point endpoint round-off near a dynamic limit.
+ */
+export function evaluateCutterTrajectoryRuckigSampledV3At(
+  challenge: Challenge,
+  waypoints: readonly CutterTrajectoryWaypointV3[],
+  targetTimeMs: number,
+): CutterTrajectoryWaypointV3 {
+  return evaluateCutterTrajectorySampledV3At(
+    challenge,
+    waypoints,
+    targetTimeMs,
+    'ruckig-constant-jerk',
+  );
+}
+
+/** Locate the first immutable q/v/a boundary at or after an absolute time. */
+function sampledWaypointEndIndex(
+  waypoints: readonly CutterTrajectoryWaypointV3[],
+  targetTimeMs: number,
+): number {
+  let low = 1;
+  let high = waypoints.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if ((waypoints[middle]?.timeMs ?? Number.POSITIVE_INFINITY) < targetTimeMs) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+  return low;
 }
 
 type EffectiveMotionLimits = Record<JointId, {
@@ -1178,6 +1317,27 @@ function evaluateQuintic(curve: QuinticCurve, t: number): {
   };
 }
 
+function evaluateConstantJerk(
+  position: number,
+  velocity: number,
+  acceleration: number,
+  jerk: number,
+  timeSeconds: number,
+): {
+  position: number;
+  first: number;
+  second: number;
+  third: number;
+} {
+  const timeSquared = timeSeconds * timeSeconds;
+  return {
+    position: position + velocity * timeSeconds + acceleration * timeSquared / 2 + jerk * timeSquared * timeSeconds / 6,
+    first: velocity + acceleration * timeSeconds + jerk * timeSquared / 2,
+    second: acceleration + jerk * timeSeconds,
+    third: jerk,
+  };
+}
+
 function samplesMeetSpatialResolution(
   challenge: Challenge,
   waypoints: readonly CutterTrajectoryWaypointV3[],
@@ -1260,6 +1420,17 @@ function motionTrajectorySignature(plan: Omit<CutterTrajectoryPlanV3, 'trajector
       waypoints: step.waypoints.map(signatureWaypoint),
     })),
   }));
+}
+
+function cloneV3Waypoint(waypoint: CutterTrajectoryWaypointV3): CutterTrajectoryWaypointV3 {
+  return {
+    timeMs: waypoint.timeMs,
+    jointAngles: { ...waypoint.jointAngles },
+    jointVelocitiesDegPerSec: { ...waypoint.jointVelocitiesDegPerSec },
+    jointAccelerationsDegPerSec2: { ...waypoint.jointAccelerationsDegPerSec2 },
+    jointJerksDegPerSec3: { ...waypoint.jointJerksDegPerSec3 },
+    endEffector: [...waypoint.endEffector] as Vec3Tuple,
+  };
 }
 
 function cutterGridGeometrySignatureV3(

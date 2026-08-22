@@ -350,7 +350,13 @@ export interface CutterTrajectoryGeometryV3 {
  * executor evaluates this immutable data rather than accumulating frame deltas.
  */
 export interface CutterTrajectoryStepMotionV3 {
-  interpolation: 'global-c2-quintic-time-law' | 'hold';
+  /**
+   * `ruckig-local-sampled` retains Ruckig's q/v/a boundary samples. The
+   * player reconstructs each neighbouring sample pair as a quintic Hermite
+   * span, so arbitrary rAF timestamps remain C2 rather than snapping to a
+   * five-millisecond lookup table.
+   */
+  interpolation: 'global-c2-quintic-time-law' | 'ruckig-local-sampled' | 'hold';
   durationMs: number;
   geometryWaypoints: CutterTrajectoryWaypointV2[];
   geometry?: CutterTrajectoryGeometryV3;

@@ -6,14 +6,19 @@ import {
 } from './trajectory';
 import { CutterGridLadderPlanningError, planCutterGridLadderTrajectory } from './ladderPlanner';
 import { CutterGridMotionV3Error, retimeCutterGridTrajectoryV3 } from './motionV3';
+import { sampleRuckigLocalStateToState } from './ruckigLocalWasm';
+import { loadRuckigLocalWorkerModule } from './ruckigLocalWorker';
+import { retimeCutterGridPlanWithLocalRuckigV3 } from './ruckigPlanV3';
 import { CUTTER_GRID_LADDER_PLANNER_VERSION, CUTTER_GRID_PROFILE_V2_VERSION } from './types';
 import type { CutterGridWorkerRequest, CutterGridWorkerResponse } from './workerProtocol';
 
 const worker = self as DedicatedWorkerGlobalScope;
+const useLocalRuckigTrial = import.meta.env.VITE_HCR_CUTTER_GRID_RUCKIG_TRIAL === '1';
 
 worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
   const request = event.data;
   if (request.type === 'plan-v3') {
+    void (async () => {
     try {
       // V3 deliberately reuses the V2 global graph only to obtain one frozen,
       // collision-safe geometry branch.  All timing work afterwards is pure
@@ -41,7 +46,7 @@ worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
           } satisfies CutterGridWorkerResponse),
         },
       );
-      const plan = retimeCutterGridTrajectoryV3(
+      const analyticPlan = retimeCutterGridTrajectoryV3(
         request.challenge,
         v2Plan,
         request.profile.motionLimits,
@@ -56,6 +61,15 @@ worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
           } satisfies CutterGridWorkerResponse),
         },
       );
+      let plan = analyticPlan;
+      if (useLocalRuckigTrial) {
+        const localRuckig = await loadRuckigLocalWorkerModule();
+        plan = retimeCutterGridPlanWithLocalRuckigV3(
+          request.challenge,
+          analyticPlan,
+          { sample: (input) => sampleRuckigLocalStateToState(localRuckig, input) },
+        );
+      }
       worker.postMessage({
         type: 'planned-v3',
         requestId: request.requestId,
@@ -77,6 +91,7 @@ worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
         ...details,
       } satisfies CutterGridWorkerResponse);
     }
+    })();
     return;
   }
   if (request.type === 'plan-v2') {

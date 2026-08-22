@@ -64,7 +64,11 @@ describe('Cutter Grid V3 local Ruckig segment retiming', () => {
     expect(retimed.maximumJerkRatio).toBe(0);
     for (const [index, segment] of retimed.segments.entries()) {
       expect(segment.durationSeconds).toBeGreaterThanOrEqual(segment.requestedMinimumDurationSeconds);
-      expect(segment.samples).toHaveLength(Math.ceil(segment.durationSeconds / 0.005) + 1);
+      // The local ABI reserves deterministic capacity for all exact jerk
+      // switches in addition to the 5ms base grid.
+      expect(segment.samples.length).toBeGreaterThanOrEqual(
+        Math.ceil(segment.durationSeconds / 0.005) + 1 + 45,
+      );
       if (index > 0) {
         const previous = retimed.segments[index - 1];
         expectVectorsNear(segment.samples[0]?.position, previous.samples.at(-1)?.position);
@@ -85,13 +89,24 @@ describe('Cutter Grid V3 local Ruckig segment retiming', () => {
     expect(secondMinimum).toBeCloseTo((firstMinimum ?? 0) * 1.1, 12);
   }, 60_000);
 
-  it('fails closed without duration retries for a Ruckig-invalid shared boundary', () => {
+  it('regularizes the whole path after a Ruckig-invalid shared boundary', () => {
     const solver = new DeterministicRuckigSolver(1, -100);
+
+    const retimed = retimeCutterGridGeometryWithRuckigV3(challenge, geometry, limits, solver, 8);
+
+    expect(retimed.segments).toHaveLength(8);
+    expect(solver.inputs).toHaveLength(17);
+    expect(solver.inputs[1]?.current.acceleration).toEqual([0, 0, 0, 0, 0]);
+    expect(solver.inputs[1]?.target.acceleration).toEqual([0, 0, 0, 0, 0]);
+  }, 60_000);
+
+  it('fails closed after every deterministic boundary profile is rejected', () => {
+    const solver = new DeterministicRuckigSolver(5, -100);
 
     expect(() => retimeCutterGridGeometryWithRuckigV3(challenge, geometry, limits, solver, 8)).toThrow(
       CutterGridRuckigRetimingError,
     );
-    expect(solver.inputs).toHaveLength(1);
+    expect(solver.inputs).toHaveLength(5);
   }, 60_000);
 
   it('does not retry after the caller rejects a spatially invalid local segment', () => {

@@ -8,6 +8,7 @@ import { planCutterGridLadderTrajectory } from '../../src/features/cutter-grid/l
 import {
   CutterGridMotionV3Error,
   evaluateCutterGridPositioningV3At,
+  evaluateCutterTrajectorySampledV3At,
   evaluateCutterTrajectoryGeometryV3AtParameter,
   evaluateCutterTrajectoryStepV3At,
   retimeCutterGridTrajectoryV3,
@@ -183,6 +184,39 @@ describe('Cutter Grid V3 jerk-limited retiming', () => {
       cutterGridMotionLimitsSignatureV3(challenge, limits),
     );
   });
+
+  it('reconstructs frozen Ruckig q/v/a samples with C2 continuity at an absolute timestamp', () => {
+    const plan = retimeCutterGridTrajectoryV3(
+      challenge,
+      v2Plan,
+      frontendTrialMotionLimitsV3(challenge),
+    );
+    const source = plan.steps.find((step) => step.kind === 'move-cell');
+    if (!source || source.waypoints.length < 5) throw new Error('Expected a certified V3 move.');
+    const middleIndex = Math.floor(source.waypoints.length / 2);
+    const sampled = [source.waypoints[0], source.waypoints[middleIndex], source.waypoints.at(-1)]
+      .filter((waypoint): waypoint is NonNullable<typeof waypoint> => waypoint !== undefined);
+    const middle = sampled[1];
+    if (!middle) throw new Error('Expected an interior frozen sample.');
+    const epsilonMs = 1e-5;
+    const epsilonSeconds = epsilonMs / 1_000;
+
+    const exact = evaluateCutterTrajectorySampledV3At(challenge, sampled, middle.timeMs);
+    const justBefore = evaluateCutterTrajectorySampledV3At(challenge, sampled, middle.timeMs - epsilonMs);
+    const justAfter = evaluateCutterTrajectorySampledV3At(challenge, sampled, middle.timeMs + epsilonMs);
+    expect(exact.jointAngles).toEqual(middle.jointAngles);
+    for (const joint of challenge.robotConfig.joints) {
+      const limit = plan.motionLimits.joints[joint.id];
+      expect(Math.abs(justBefore.jointVelocitiesDegPerSec[joint.id] - exact.jointVelocitiesDegPerSec[joint.id]))
+        .toBeLessThanOrEqual(limit.maxAccelerationDegPerSec2 * epsilonSeconds + 1e-7);
+      expect(Math.abs(justAfter.jointVelocitiesDegPerSec[joint.id] - exact.jointVelocitiesDegPerSec[joint.id]))
+        .toBeLessThanOrEqual(limit.maxAccelerationDegPerSec2 * epsilonSeconds + 1e-7);
+      expect(Math.abs(justBefore.jointAccelerationsDegPerSec2[joint.id] - exact.jointAccelerationsDegPerSec2[joint.id]))
+        .toBeLessThanOrEqual(limit.maxJerkDegPerSec3 * epsilonSeconds + 1e-7);
+      expect(Math.abs(justAfter.jointAccelerationsDegPerSec2[joint.id] - exact.jointAccelerationsDegPerSec2[joint.id]))
+        .toBeLessThanOrEqual(limit.maxJerkDegPerSec3 * epsilonSeconds + 1e-7);
+    }
+  }, 60_000);
 
   it('keeps the two-cell Right program enabled by the Practice workbench inside the fixed path tube', () => {
     const profile = registeredCutterGridProfileV2(challenge);

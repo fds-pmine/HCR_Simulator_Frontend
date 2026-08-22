@@ -62,25 +62,40 @@ async function runWorkerProbe(browserName, options) {
           input[40 + joint] = 200;
         }
         input[45] = 2;
-        const sampleCount = 3;
+        // 401 regular samples certify the 2s trajectory at 5ms; the other
+        // 45 rows reserve every exact five-axis jerk switch in ABI v3.
+        const sampleCount = 446;
         const inputPointer = instance._malloc(input.byteLength);
         const durationPointer = instance._malloc(Float64Array.BYTES_PER_ELEMENT);
-        const outputPointer = instance._malloc(sampleCount * 20 * Float64Array.BYTES_PER_ELEMENT);
+        const outputPointer = instance._malloc(sampleCount * 21 * Float64Array.BYTES_PER_ELEMENT);
         try {
           instance.HEAPF64.set(input, inputPointer / Float64Array.BYTES_PER_ELEMENT);
           const status = instance._ruckig_sample_5d(inputPointer, sampleCount, durationPointer, outputPointer);
           const duration = instance.HEAPF64[durationPointer / Float64Array.BYTES_PER_ELEMENT];
-          const output = Array.from(instance.HEAPF64.slice(
-            outputPointer / Float64Array.BYTES_PER_ELEMENT,
-            outputPointer / Float64Array.BYTES_PER_ELEMENT + sampleCount * 20,
-          ));
+          const rawOutput = instance.HEAPF64;
+          const outputOffset = outputPointer / Float64Array.BYTES_PER_ELEMENT;
+          const rows = [];
+          for (let sample = 0; sample < sampleCount; sample += 1) {
+            const offset = outputOffset + sample * 21;
+            const time = rawOutput[offset];
+            if (time < 0) break;
+            rows.push({
+              time,
+              position: Array.from(rawOutput.slice(offset + 1, offset + 6)),
+              velocity: Array.from(rawOutput.slice(offset + 6, offset + 11)),
+              acceleration: Array.from(rawOutput.slice(offset + 11, offset + 16)),
+            });
+          }
+          const first = rows[0];
+          const last = rows.at(-1);
           self.postMessage({
             status,
             duration,
-            first: output.slice(0, 5),
-            last: output.slice(40, 45),
-            endVelocity: output.slice(45, 50),
-            endAcceleration: output.slice(50, 55),
+            sampleTimes: rows.map((row) => row.time),
+            first: first?.position,
+            last: last?.position,
+            endVelocity: last?.velocity,
+            endAcceleration: last?.acceleration,
           });
         } finally {
           instance._free(outputPointer);
@@ -106,6 +121,12 @@ async function runWorkerProbe(browserName, options) {
     if (
       result.status < 0 ||
       !(result.duration >= 2) ||
+      result.sampleTimes.length < 2 ||
+      !isNear(result.sampleTimes[0], 0) ||
+      !isNear(result.sampleTimes.at(-1), result.duration) ||
+      result.sampleTimes.some((time, index) => (
+        index > 0 && (time <= result.sampleTimes[index - 1] || time - result.sampleTimes[index - 1] > 0.005000001)
+      )) ||
       !result.first.every((value) => isNear(value, 0)) ||
       !result.last.every((value, index) => isNear(value, expectedTarget[index])) ||
       !result.endVelocity.every((value) => isNear(value, 0)) ||
