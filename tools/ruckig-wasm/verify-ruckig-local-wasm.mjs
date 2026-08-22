@@ -53,7 +53,7 @@ async function runWorkerProbe(browserName, options) {
       const workerSource = `
         import createRuckig from '${base}/hcr_ruckig_local.mjs';
         const instance = await createRuckig({ locateFile: (file) => '${base}/' + file });
-        const input = new Float64Array(45);
+        const input = new Float64Array(46);
         const target = [10, -5, 3, 1, -2];
         for (let joint = 0; joint < 5; joint += 1) {
           input[15 + joint] = target[joint];
@@ -61,6 +61,7 @@ async function runWorkerProbe(browserName, options) {
           input[35 + joint] = 50;
           input[40 + joint] = 200;
         }
+        input[45] = 2;
         const sampleCount = 3;
         const inputPointer = instance._malloc(input.byteLength);
         const durationPointer = instance._malloc(Float64Array.BYTES_PER_ELEMENT);
@@ -104,7 +105,7 @@ async function runWorkerProbe(browserName, options) {
     const isNear = (actual, expected) => Math.abs(actual - expected) <= 1e-9;
     if (
       result.status < 0 ||
-      !(result.duration > 0) ||
+      !(result.duration >= 2) ||
       !result.first.every((value) => isNear(value, 0)) ||
       !result.last.every((value, index) => isNear(value, expectedTarget[index])) ||
       !result.endVelocity.every((value) => isNear(value, 0)) ||

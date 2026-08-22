@@ -1,4 +1,5 @@
 #include <array>
+#include <cmath>
 #include <cstddef>
 
 #include <ruckig/ruckig.hpp>
@@ -14,6 +15,7 @@ namespace {
 
 constexpr std::size_t kDegreesOfFreedom = 5;
 constexpr std::size_t kInputVectorCount = 9;
+constexpr std::size_t kMinimumDurationOffset = kDegreesOfFreedom * kInputVectorCount;
 constexpr std::size_t kOutputVectorCount = 4;
 constexpr std::size_t kOutputStride = kDegreesOfFreedom * kOutputVectorCount;
 
@@ -52,8 +54,9 @@ void write_vector(double* values, std::size_t offset, const Vector& source) {
  * Generate one local, offline, synchronized Ruckig state-to-state trajectory.
  *
  * `input` is nine contiguous five-double vectors in this order: current
- * q/v/a, target q/v/a, and max v/a/j. `output` is sample-major q/v/a/j data
- * with a twenty-double stride. The browser controls every input and owns all
+ * q/v/a, target q/v/a, and max v/a/j, followed by one non-negative minimum
+ * duration in seconds. `output` is sample-major q/v/a/j data with a
+ * twenty-double stride. The browser controls every input and owns all
  * allocations; this ABI contains no path, scene, program, or network data.
  *
  * Return values are Ruckig's numeric Result codes. A non-negative return is
@@ -69,6 +72,14 @@ extern "C" HCR_RUCKIG_EXPORT int ruckig_sample_5d(
   if (!input || !duration_seconds || !output || sample_count < 2) {
     return static_cast<int>(ruckig::Result::ErrorInvalidInput);
   }
+  for (std::size_t index = 0; index <= kMinimumDurationOffset; ++index) {
+    if (!std::isfinite(input[index])) {
+      return static_cast<int>(ruckig::Result::ErrorInvalidInput);
+    }
+  }
+  if (input[kMinimumDurationOffset] < 0.0) {
+    return static_cast<int>(ruckig::Result::ErrorInvalidInput);
+  }
 
   ruckig::InputParameter<kDegreesOfFreedom> parameters;
   parameters.current_position = read_vector(input, CurrentPosition);
@@ -81,6 +92,9 @@ extern "C" HCR_RUCKIG_EXPORT int ruckig_sample_5d(
   parameters.max_acceleration = read_vector(input, MaxAcceleration);
   parameters.max_jerk = read_vector(input, MaxJerk);
   parameters.synchronization = ruckig::Synchronization::Time;
+  if (input[kMinimumDurationOffset] > 0.0) {
+    parameters.minimum_duration = input[kMinimumDurationOffset];
+  }
 
   ruckig::Ruckig<kDegreesOfFreedom> solver;
   ruckig::Trajectory<kDegreesOfFreedom> trajectory;

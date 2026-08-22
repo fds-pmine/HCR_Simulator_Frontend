@@ -2,7 +2,7 @@
 export const RUCKIG_LOCAL_WASM_DOF = 5;
 const INPUT_VECTOR_COUNT = 9;
 const OUTPUT_VECTOR_COUNT = 4;
-const INPUT_DOUBLE_COUNT = RUCKIG_LOCAL_WASM_DOF * INPUT_VECTOR_COUNT;
+const INPUT_DOUBLE_COUNT = RUCKIG_LOCAL_WASM_DOF * INPUT_VECTOR_COUNT + 1;
 const OUTPUT_DOUBLE_STRIDE = RUCKIG_LOCAL_WASM_DOF * OUTPUT_VECTOR_COUNT;
 const MAX_SAMPLE_COUNT = 65_536;
 
@@ -24,6 +24,8 @@ export interface RuckigLocalStateToStateInput {
     acceleration: RuckigLocalFiveAxisVector;
     jerk: RuckigLocalFiveAxisVector;
   };
+  /** Ruckig minimum duration, used for deterministic 1.1x extension retries. */
+  minimumDurationSeconds?: number;
   sampleCount: number;
 }
 
@@ -103,6 +105,12 @@ export function sampleRuckigLocalStateToState(
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
       throw new RuckigLocalWasmError('Local Ruckig returned an invalid trajectory duration.', resultCode);
     }
+    if (
+      input.minimumDurationSeconds !== undefined &&
+      durationSeconds < input.minimumDurationSeconds - 1e-9
+    ) {
+      throw new RuckigLocalWasmError('Local Ruckig did not honor the requested minimum duration.', resultCode);
+    }
     const dataStart = heapOffset(outputPointer);
     const samples = Array.from({ length: input.sampleCount }, (_, sampleIndex) => {
       const offset = dataStart + sampleIndex * OUTPUT_DOUBLE_STRIDE;
@@ -126,6 +134,12 @@ function assertInput(input: RuckigLocalStateToStateInput): void {
     throw new RuckigLocalWasmError(
       `Local Ruckig sampleCount must be an integer in [2, ${MAX_SAMPLE_COUNT}].`,
     );
+  }
+  if (
+    input.minimumDurationSeconds !== undefined &&
+    (!Number.isFinite(input.minimumDurationSeconds) || input.minimumDurationSeconds < 0)
+  ) {
+    throw new RuckigLocalWasmError('Local Ruckig minimumDurationSeconds must be finite and non-negative.');
   }
   const vectors = [
     input.current.position,
@@ -159,6 +173,7 @@ function serializeInput(input: RuckigLocalStateToStateInput): Float64Array {
     ...input.maximum.velocity,
     ...input.maximum.acceleration,
     ...input.maximum.jerk,
+    input.minimumDurationSeconds ?? 0,
   ]);
 }
 

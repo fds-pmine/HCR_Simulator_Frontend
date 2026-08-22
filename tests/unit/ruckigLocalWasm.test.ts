@@ -41,6 +41,7 @@ describe('local Ruckig WASM ABI adapter', () => {
       ...input.maximum.velocity,
       ...input.maximum.acceleration,
       ...input.maximum.jerk,
+      0,
     ]);
     expect(result.resultCode).toBe(0);
     expect(result.durationSeconds).toBe(1.5);
@@ -82,6 +83,14 @@ describe('local Ruckig WASM ABI adapter', () => {
     expect(module.allocatedPointers).toEqual([]);
   });
 
+  it('serializes the optional minimum duration after the nine fixed vectors', () => {
+    const module = new FakeRuckigModule(0, undefined, 2);
+
+    sampleRuckigLocalStateToState(module, { ...input, minimumDurationSeconds: 2 });
+
+    expect(module.capturedInput.at(-1)).toBe(2);
+  });
+
   it('releases already allocated buffers when a later allocation fails', () => {
     const module = new FakeRuckigModule(0, 2);
 
@@ -101,6 +110,7 @@ class FakeRuckigModule implements RuckigLocalWasmModule {
   constructor(
     private readonly resultCode = 0,
     private readonly failAllocationAt?: number,
+    private readonly durationSeconds = 1.5,
   ) {}
 
   _malloc(byteCount: number): number {
@@ -121,9 +131,9 @@ class FakeRuckigModule implements RuckigLocalWasmModule {
     durationPointer: number,
     outputPointer: number,
   ): number {
-    this.capturedInput = Array.from(this.HEAPF64.slice(inputPointer / 8, inputPointer / 8 + 45));
+    this.capturedInput = Array.from(this.HEAPF64.slice(inputPointer / 8, inputPointer / 8 + 46));
     if (this.resultCode < 0) return this.resultCode;
-    this.HEAPF64[durationPointer / 8] = 1.5;
+    this.HEAPF64[durationPointer / 8] = this.durationSeconds;
     for (let sample = 0; sample < sampleCount; sample += 1) {
       const offset = outputPointer / 8 + sample * 20;
       const progress = sample / (sampleCount - 1);

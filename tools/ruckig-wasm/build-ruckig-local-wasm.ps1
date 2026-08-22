@@ -108,6 +108,7 @@ $manifest = [ordered]@{
   license = 'MIT'
   emscriptenVersion = $EmscriptenVersion
   cloudClientCompiled = $false
+  abiVersion = 'ruckig-local-5d-v2'
   licenseFile = 'RUCKIG_LICENSE.txt'
   moduleBytes = (Get-Item -LiteralPath $moduleOutput).Length
   wasmBytes = (Get-Item -LiteralPath $wasmOutput).Length

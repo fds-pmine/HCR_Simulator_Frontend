@@ -4,7 +4,7 @@
 
 - 上游：`pantor/ruckig` `v0.19.4`，固定提交 `a8db97a4e9c55e5160a3855f739fa3b270df8e4c`，MIT。
 - 工具链：Emscripten `4.0.20`，发布映射 `c387d7a7e9537d0041d2c3ae71b7538cc978104e`。
-- ABI：仅五关节、离线、同步的 state-to-state `q/v/a → q/v/a`；输出逐样本 `q/v/a/j`。不接受路径、场景、程序、头发或网络数据。
+- ABI：仅五关节、离线、同步的 state-to-state `q/v/a → q/v/a`；九组五关节向量之后可选一个最小持续时间秒数，输出逐样本 `q/v/a/j`。不接受路径、场景、程序、头发或网络数据。
 - 隔离：`cloud_client.cpp` 不编译，Ruckig 的 cloud waypoint 功能也不在 ABI 中；构建产物禁用文件系统，目标环境限定为 Worker。
 - 产物：`out/` 是忽略的生成目录，包含 `.mjs`、`.wasm`、上游 `RUCKIG_LICENSE.txt` 和带 SHA-256 的 manifest；不得提交。
 
