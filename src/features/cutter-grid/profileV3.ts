@@ -21,11 +21,15 @@ export function frontendTrialMotionLimitsV3(challenge: Challenge): CutterGridMot
     requestedSpeedScale: 1.25,
     joints: Object.fromEntries(challenge.robotConfig.joints.map((joint) => {
       const nominalVelocityDegPerSec = joint.speedDegPerSec * 4;
-      // The browser trial uses intentionally permissive acceleration and jerk
-      // ceilings so velocity remains the visual-speed limiter.  They are still
-      // finite, signed into the profile, and verified at every sample.
-      const nominalAccelerationDegPerSec2 = joint.speedDegPerSec * 5_000;
-      const nominalJerkDegPerSec3 = joint.speedDegPerSec * 1_000_000;
+      // Keep the requested 1.25x visual velocity, but do not let a one-cell
+      // move consume it through an almost instantaneous acceleration pulse.
+      // The former 5,000x / 1,000,000x browser ceilings allowed 50ms moves
+      // that appeared as a wrist twitch even though every sampled pose was
+      // legal. Reducing acceleration to one quarter and jerk to one fifth
+      // gives the shortest moves about five 60Hz frames, while longer straight runs still use the velocity
+      // budget. They are profile-signed and verified at every sample.
+      const nominalAccelerationDegPerSec2 = joint.speedDegPerSec * 1_250;
+      const nominalJerkDegPerSec3 = joint.speedDegPerSec * 200_000;
       return [joint.id, {
         nominalVelocityDegPerSec,
         nominalAccelerationDegPerSec2,

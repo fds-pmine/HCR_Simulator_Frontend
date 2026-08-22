@@ -57,11 +57,19 @@ describe('Cutter Grid V3 jerk-limited retiming', () => {
     );
     // Cross-language fixture value: the future Rust implementation must emit
     // this digest for the registered Neat Short Haircut V3 profile.
-    expect(first.motionLimitsSignature).toBe('f22c09b1ef4fbcbb');
+    expect(first.motionLimitsSignature).toBe('06fe1423cf92ad30');
     expect(first.endCoord).toEqual(v2Plan.endCoord);
     expect(first.entryOptionId).toBe(v2Plan.entryOptionId);
     expect(first.expectedResultVoxels).toEqual(v2Plan.expectedResultVoxels);
     expect(first.estimatedDurationMs).toBeLessThan(v2Plan.estimatedDurationMs * 0.85);
+    // No V3 cell may collapse into a three-frame visual jump again. This
+    // regression program previously included a 56ms move; the signed jerk
+    // limit now keeps every atomic player motion observable across five 60Hz frames.
+    expect(Math.min(
+      ...first.steps
+        .filter((step) => step.kind === 'move-cell')
+        .map((step) => step.durationMs),
+    )).toBeGreaterThanOrEqual(90);
     expect(first.diagnostics.maximumVelocityRatio).toBeLessThanOrEqual(1 + 1e-7);
     expect(first.diagnostics.maximumAccelerationRatio).toBeLessThanOrEqual(1 + 1e-7);
     expect(first.diagnostics.maximumJerkRatio).toBeLessThanOrEqual(1 + 1e-7);
