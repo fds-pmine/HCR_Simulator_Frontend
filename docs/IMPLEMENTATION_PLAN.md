@@ -295,8 +295,8 @@ tests/
 
 ### Cutter Grid Compact PTP V4 Phase 2 — 分组 IR 与协议
 
-- [ ] 实现 `CutterGridExecutableActionV2`、稳定 occurrence、500 逻辑成本、V4 Profile/Plan/错误/进度与 `plan-v4` Worker 协议。
-- [ ] 保持 V1–V3 fail closed，暂不切换 V3 运行入口。
+- [x] 实现 `CutterGridExecutableActionV2`、稳定 occurrence、500 逻辑成本、V4 Profile/Plan/错误/进度与 `plan-v4` Worker 协议。
+- [x] 保持 V1–V3 fail closed，暂不切换 V3 运行入口；Phase 2 的 V4 Worker 结构化返回 `planner-not-ready`，不会回退为旧规划器。
 
 阶段出口：纯领域 V4 输入输出可构造、序列化和测试。
 

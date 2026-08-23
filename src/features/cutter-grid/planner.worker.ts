@@ -17,6 +17,19 @@ const useLocalRuckigTrial = import.meta.env.VITE_HCR_CUTTER_GRID_RUCKIG_TRIAL ==
 
 worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
   const request = event.data;
+  if (request.type === 'plan-v4') {
+    // Phase 2 declares the isolated V4 transport before its sparse endpoint
+    // planner exists. Failing closed here is intentional: a V4 request must
+    // never fall through to the V1–V3 Cartesian/dense planning pipelines.
+    worker.postMessage({
+      type: 'failed',
+      requestId: request.requestId,
+      code: 'planner-not-ready',
+      message: 'Cutter Grid compact PTP planning is not available yet.',
+      stage: 'profile',
+    } satisfies CutterGridWorkerResponse);
+    return;
+  }
   if (request.type === 'plan-v3') {
     void (async () => {
     try {

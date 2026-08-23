@@ -2,7 +2,7 @@
 
 ## 状态与范围
 
-- 状态：Phase 1 已完成；Phase 2 待开始。
+- 状态：Phase 1–2 已完成；Phase 3 待开始。
 - 规划器版本：`cutter-grid-compact-ptp-v4`。
 - 本计划取代 V3 中“每个逻辑格严格 Cartesian 直线、每格零速停车、密集姿态轨迹可作为输出”的运动契约。V3 文档、测试和 fixture 保留为历史基线。
 - Servo、后端 wire schema、Session、Match、Versus、Electron 下发和固件均不在 V4 前端实施范围内。
@@ -75,8 +75,11 @@ interface CutterArmMotionProgramV1 {
 
 ### Phase 2：分组 IR、V4 类型与 Worker 协议
 
-- [ ] 生成稳定 occurrence 的分组 action，保留 500 逻辑成本；定义 V4 Profile/Plan/错误/进度/签名接口。
-- [ ] 增加 `plan-v4` Worker 协议并保持 V1–V3 fail closed。
+- [x] 实施前已重读 V4 契约、v0.3 的 15.2–15.4、实施计划、验收清单、现有 V1–V3 类型/编译器/Worker/客户端/Profile 注册表及其单元测试；确认现有生产入口仍只调用 `plan-v3`，本阶段未改变该选择。
+- [x] 从现有可序列化 `CutterGridProgramV1` 生成 `CompiledCutterGridProgramV2`：每个展开后的 Move N 只产生一个带稳定 occurrence、起止逻辑坐标、方向、距离和 `logicalCommandCount=N` 的 action；Wait 产生一个独立 action 且成本为 1。Repeat 只展开叶子 occurrence，500 上限继续按逻辑成本而非 action 数计算。
+- [x] 定义仅由 V4 接受的 Profile、同步 PTP primitive、分组轨迹 action/plan、诊断、错误和进度类型；计划不含密集认证采样，并以新版本/签名字段与 V1–V3 隔离。
+- [x] 增加 `plan-v4` Worker 协议和客户端方法。Phase 2 的 Worker 结构化地返回 `planner-not-ready`，不会回退执行 V1–V3；界面尚不调用该入口。
+- [x] 以纯领域测试固定 occurrence、Move N 坐标与成本、Repeat/500 限制、V4 版本边界，以及客户端对 V4 进度、失败和取消的传递。
 - 出口：不切换运行入口时，可用纯领域测试构造和序列化 V4 输入输出。
 
 ### Phase 3：端点 IK、稀疏图与 PTP 路径

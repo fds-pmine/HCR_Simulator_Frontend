@@ -18,6 +18,16 @@ export const CUTTER_GRID_PROFILE_V2_VERSION = 2;
 export const CUTTER_GRID_JERK_LIMITED_PLANNER_VERSION = 'cutter-grid-ladder-v3';
 export const CUTTER_GRID_PROFILE_V3_VERSION = 3;
 
+/**
+ * V4 is intentionally a separate compact PTP contract.  It cannot be fed to
+ * the historical V1–V3 Cartesian / dense-trajectory execution paths.
+ */
+export const CUTTER_GRID_COMPACT_PTP_PLANNER_VERSION = 'cutter-grid-compact-ptp-v4';
+export const CUTTER_GRID_PROFILE_V4_VERSION = 4;
+export const CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE = 1.5;
+export const CUTTER_GRID_COMPACT_PTP_MIN_PRIMITIVE_DURATION_MS = 160;
+export const CUTTER_GRID_COMPACT_PTP_MAX_PRIMITIVES_PER_MOVE = 2;
+
 export type CutterGridDirection =
   | 'right'
   | 'left'
@@ -295,7 +305,8 @@ export type CutterGridPlanningErrorCodeV2 =
 export type AnyCutterGridPlanningErrorCode =
   | CutterGridPlanningErrorCode
   | CutterGridPlanningErrorCodeV2
-  | CutterGridPlanningErrorCodeV3;
+  | CutterGridPlanningErrorCodeV3
+  | CutterGridPlanningErrorCodeV4;
 
 /** Per-joint dynamic limits are explicitly part of a V3 profile. */
 export interface CutterGridJointMotionLimitsV3 {
@@ -433,3 +444,186 @@ export type CutterGridPlanningErrorCodeV3 =
   | 'trajectory-smoothing-path-deviation'
   | 'trajectory-smoothing-search-exhausted'
   | 'playback-clock-invalid';
+
+/**
+ * The Blockly program remains V1 because its source-tree schema has not
+ * changed.  The planner version is narrowed here so a V4 Worker can reject a
+ * program stamped for a historical Cutter Grid planner before it plans.
+ */
+export interface CutterGridProgramV4 extends CutterGridProgramV1 {
+  plannerVersion: typeof CUTTER_GRID_COMPACT_PTP_PLANNER_VERSION;
+}
+
+/** A visible, repeat-expanded leaf action.  Move N is deliberately not split. */
+export interface CutterGridExecutableMoveActionV2 {
+  type: 'move';
+  occurrenceId: string;
+  sourceBlockId: string;
+  direction: CutterGridDirection;
+  distance: number;
+  startCoord: CutterGridCoord;
+  endCoord: CutterGridCoord;
+  logicalCommandCount: number;
+}
+
+export interface CutterGridExecutableWaitActionV2 {
+  type: 'wait';
+  occurrenceId: string;
+  sourceBlockId: string;
+  durationMs: number;
+  logicalCommandCount: 1;
+}
+
+export type CutterGridExecutableActionV2 =
+  | CutterGridExecutableMoveActionV2
+  | CutterGridExecutableWaitActionV2;
+
+/**
+ * V4's input to the planner.  `executedCommandCount` stays the player's
+ * logical command cost, whereas `executableActions` gives Step one visible
+ * Move or Wait at a time.
+ */
+export interface CompiledCutterGridProgramV2 {
+  program: CutterGridProgramV4;
+  executableActions: CutterGridExecutableActionV2[];
+  executedCommandCount: number;
+}
+
+export interface CutterGridRoadmapNodeV4 {
+  id: string;
+  jointAngles: Record<JointId, number>;
+  minimumHeadClearance: number;
+}
+
+export interface CutterGridRoadmapEdgeV4 {
+  fromNodeId: string;
+  toNodeId: string;
+}
+
+/** Static, signed joint-space escape graph used only after a direct PTP fails. */
+export interface CutterGridRoadmapV4 {
+  nodes: CutterGridRoadmapNodeV4[];
+  edges: CutterGridRoadmapEdgeV4[];
+  signature: string;
+}
+
+export interface CutterGridMotionLimitsV4 {
+  requestedSpeedScale: typeof CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE;
+  joints: Record<JointId, CutterGridJointMotionLimitsV3>;
+}
+
+export interface CutterGridProfileV4 extends Omit<CutterGridProfileV2, 'version' | 'plannerVersion'> {
+  version: typeof CUTTER_GRID_PROFILE_V4_VERSION;
+  plannerVersion: typeof CUTTER_GRID_COMPACT_PTP_PLANNER_VERSION;
+  motionLimits: CutterGridMotionLimitsV4;
+  motionLimitsSignature: string;
+  roadmap: CutterGridRoadmapV4;
+  profileSignature: string;
+}
+
+export interface CutterTrajectoryBoundaryStateV4 {
+  jointAngles: Record<JointId, number>;
+  jointVelocitiesDegPerSec: Record<JointId, number>;
+  jointAccelerationsDegPerSec2: Record<JointId, number>;
+}
+
+/** One compact, synchronized quintic point-to-point command for all joints. */
+export interface CutterGridSyncPtpPrimitiveV4 {
+  kind: 'sync-ptp';
+  interpolation: 'synchronized-quintic';
+  durationMs: number;
+  start: CutterTrajectoryBoundaryStateV4;
+  end: CutterTrajectoryBoundaryStateV4;
+}
+
+export interface CutterGridContactEventV4 {
+  timeMs: number;
+  voxelKeys: VoxelKey[];
+}
+
+export interface CutterGridTrajectoryMoveActionV4 extends CutterGridExecutableMoveActionV2 {
+  primitives: CutterGridSyncPtpPrimitiveV4[];
+  contactEvents: CutterGridContactEventV4[];
+  expectedCutVoxels: VoxelKey[];
+}
+
+export interface CutterGridTrajectoryWaitActionV4 extends CutterGridExecutableWaitActionV2 {
+  expectedCutVoxels: [];
+}
+
+export type CutterGridTrajectoryActionV4 =
+  | CutterGridTrajectoryMoveActionV4
+  | CutterGridTrajectoryWaitActionV4;
+
+export interface CutterGridPositioningPlanV4 {
+  entryOptionId: string;
+  primitives: CutterGridSyncPtpPrimitiveV4[];
+  trajectorySignature: string;
+}
+
+export interface CutterGridPlanningDiagnosticsV4 {
+  endpointLayerCount: number;
+  candidateCounts: number[];
+  expandedActionIndex?: number;
+  directPrimitiveCount: number;
+  detourPrimitiveCount: number;
+  minimumHeadClearance: number;
+  minimumJointLimitMargin: number;
+  maximumNormalizedJointStep: number;
+  maximumEndEffectorDeviationFromEndpoint: number;
+}
+
+export interface CutterTrajectoryPlanV4 {
+  kind: 'cutter-grid-trajectory';
+  version: 4;
+  plannerVersion: typeof CUTTER_GRID_COMPACT_PTP_PLANNER_VERSION;
+  challengeSignature: string;
+  positioning: CutterGridPositioningPlanV4;
+  startCoord: CutterGridCoord;
+  endCoord: CutterGridCoord;
+  actions: CutterGridTrajectoryActionV4[];
+  expectedResultVoxels: VoxelKey[];
+  estimatedDurationMs: number;
+  executedCommandCount: number;
+  motionLimits: CutterGridMotionLimitsV4;
+  motionLimitsSignature: string;
+  diagnostics: CutterGridPlanningDiagnosticsV4;
+  trajectorySignature: string;
+}
+
+export type CutterGridPlanningErrorCodeV4 =
+  | 'planner-not-ready'
+  | 'profile-v4-mismatch'
+  | 'endpoint-ik-not-converged'
+  | 'endpoint-ik-search-exhausted'
+  | 'endpoint-ptp-disconnected'
+  | 'motion-primitive-budget-exhausted'
+  | 'ptp-collision'
+  | 'ptp-certificate-failed'
+  | 'actual-sweep-certification-failed'
+  | 'plan-signature-mismatch';
+
+export type CutterGridPlanningPhaseV4 =
+  | 'generating-endpoint-candidates'
+  | 'connecting-ptp-edges'
+  | 'selecting-compact-path'
+  | 'certifying-motion'
+  | 'certifying-sweep';
+
+export interface CutterGridPlanningProgressV4 {
+  type: 'progress-v4';
+  requestId: number;
+  phase: CutterGridPlanningPhaseV4;
+  completedActions: number;
+  totalActions: number;
+  expandedActionIndex?: number;
+}
+
+export type CutterGridPlanningStageV4 =
+  | 'profile'
+  | 'endpoint'
+  | 'ptp-edge'
+  | 'roadmap'
+  | 'motion-certificate'
+  | 'sweep-certificate'
+  | 'serialization';
