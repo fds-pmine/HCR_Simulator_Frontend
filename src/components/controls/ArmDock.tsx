@@ -15,6 +15,7 @@ import type {
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
   CutterTrajectoryPlanV3,
+  CutterTrajectoryPlanV4,
 } from '../../features/cutter-grid/types';
 import {
   armCall,
@@ -41,7 +42,7 @@ interface ArmDockProps {
    * program that has already been planned.
    */
   cutterPlan?: () => Promise<
-    CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | undefined
+    CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4 | undefined
   >;
 }
 
@@ -182,6 +183,10 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
       void guard(async () => {
         const trajectory = await cutterPlan?.();
         if (!trajectory) {
+          return;
+        }
+        if (trajectory.version === 4) {
+          setError('Cutter Grid V4 is simulation-only until firmware supports local synchronized PTP interpolation and the physical arm has passed hardware certification.');
           return;
         }
         if (trajectory.version === 3) {

@@ -610,6 +610,36 @@ export interface CutterTrajectoryPlanV4 {
   trajectorySignature: string;
 }
 
+/**
+ * Future hardware payload for one verified V4 plan. This is deliberately a
+ * frontend domain contract only: neither Electron nor ArmDock may submit it
+ * until firmware implements matching local synchronized interpolation.
+ */
+export interface CutterArmMotionProgramV1 {
+  kind: 'cutter-arm-motion-program';
+  version: 1;
+  robotProfileSignature: string;
+  trajectorySignature: string;
+  programSignature: string;
+  instructions: CutterArmMotionInstructionV1[];
+}
+
+export type CutterArmMotionInstructionV1 =
+  | {
+      kind: 'sync-ptp';
+      phase: 'positioning' | 'player';
+      durationMs: number;
+      sourceBlockId?: string;
+      start: CutterTrajectoryBoundaryStateV4;
+      end: CutterTrajectoryBoundaryStateV4;
+    }
+  | {
+      kind: 'wait';
+      phase: 'player';
+      durationMs: number;
+      sourceBlockId: string;
+    };
+
 export type CutterGridPlanningErrorCodeV4 =
   | 'planner-not-ready'
   | 'planning-cancelled'

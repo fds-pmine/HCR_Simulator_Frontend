@@ -124,7 +124,16 @@ export function planCutterGridCompactPtpV4(
       const selected = selectGlobalPath(challenge, profile, layers, candidates, neighborLimit, options);
       if (selected.path) {
         report(options, 'selecting-compact-path', layers.length, layers.length, expandedActionIndex);
-        return buildFrozenPlan(challenge, compiled, profile, layers, selected.path, candidates, expandedActionIndex);
+        return buildFrozenPlan(
+          challenge,
+          compiled,
+          profile,
+          layers,
+          selected.path,
+          candidates,
+          expandedActionIndex,
+          options,
+        );
       }
       firstDisconnectedLayer ??= selected.disconnectedLayer;
     }
@@ -441,6 +450,7 @@ function buildFrozenPlan(
   selected: CompactPath,
   candidates: readonly CutterGridIkCandidate[][],
   expandedActionIndex: number | undefined,
+  options: CutterGridCompactPtpPlannerV4Options,
 ): CutterTrajectoryPlanV4 {
   const connectionByAction = new Map(
     layers.map((layer, index) => [layer.actionIndex, selected.connections[index]]),
@@ -485,8 +495,8 @@ function buildFrozenPlan(
     startCoord: [0, 0, 0],
     endCoord: layers.at(-1)?.action.endCoord ?? [0, 0, 0],
     actions,
-    // Phase 4 replaces this unchanged result with certified actual-sweep
-    // contacts. V4 has no runtime entry before that replacement lands.
+    // Finalization below replaces this placeholder with certified actual-sweep
+    // contacts before the plan can leave the planner.
     expectedResultVoxels: [...challenge.initialHair.voxels].sort(),
     estimatedDurationMs: actions.reduce((sum, action) => sum + (
       action.type === 'wait'
@@ -498,10 +508,13 @@ function buildFrozenPlan(
     motionLimitsSignature: profile.motionLimitsSignature,
     diagnostics,
   };
-  return finalizeCutterGridCompactPtpPlanV4(challenge, {
+  report(options, 'certifying-motion', 0, actions.length, expandedActionIndex);
+  const finalized = finalizeCutterGridCompactPtpPlanV4(challenge, {
     ...unsigned,
     trajectorySignature: fnv1a64(JSON.stringify(unsigned)),
   });
+  report(options, 'certifying-sweep', actions.length, actions.length, expandedActionIndex);
+  return finalized;
 }
 
 function diagnosticsForPath(

@@ -190,8 +190,8 @@ export class CutterGridPlannerClient {
   }
 
   /**
-   * V4 is intentionally opt-in. No existing UI calls this method until the
-   * compact endpoint planner and V4 executor are committed together.
+   * V4 remains isolated from the Servo protocol. The Cutter Grid workbench
+   * uses this endpoint only after compiling its V4-only executable actions.
    */
   planV4(
     challenge: Challenge,

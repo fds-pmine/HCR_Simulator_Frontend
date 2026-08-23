@@ -11,6 +11,13 @@ const cutterGridRightWorkspaceState: Record<string, unknown> = {
         x: 40,
         y: 40,
         fields: { DISTANCE: 2 },
+        next: {
+          block: {
+            type: 'hcr_wait',
+            id: 'e2e-cutter-grid-wait',
+            fields: { DURATION: 100 },
+          },
+        },
       },
     ],
   },
@@ -357,14 +364,14 @@ test.describe('HCR Simulator workbench', () => {
       page.getByRole('button', { name: /Grid and planned path/ }),
     ).toHaveAttribute('aria-pressed', 'true');
 
-    await seedWorkspace(page, cutterGridRightWorkspaceState, 1);
+    await seedWorkspace(page, cutterGridRightWorkspaceState, 2);
     await servoMode.click();
     await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
     await cutterMode.click();
     await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
       timeout: 20_000,
     });
-    await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(1);
+    await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(2);
 
     await page.getByTestId('step-button').click();
     await expect(page.getByTestId('simulation-status')).toHaveText('Planning');
@@ -378,18 +385,16 @@ test.describe('HCR Simulator workbench', () => {
     await expect(page.getByTestId('simulation-status')).toHaveText('Paused', {
       timeout: 120_000,
     });
-    await expect(page.getByTestId('executed-command-count')).toHaveText('1');
+    await expect(page.getByTestId('executed-command-count')).toHaveText('2');
     const cutterGridSummary = page.locator('.cutter-grid-inspector > .cutter-grid-summary');
     await expect(cutterGridSummary).toContainText('1/2');
-    await expect(cutterGridSummary).toContainText('(1, 0, 0)');
+    await expect(cutterGridSummary).toContainText('(2, 0, 0)');
     await expect(cutterGridSummary).toContainText('Connected for this program');
     await expect(cutterGridSummary).toContainText('Branch');
-    const motionDiagnostics = page.getByTestId('cutter-grid-motion-diagnostics');
-    await expect(motionDiagnostics).toBeVisible();
-    await expect(motionDiagnostics).not.toHaveAttribute('open', '');
-    await motionDiagnostics.locator('summary').click();
-    await expect(motionDiagnostics).toContainText('Frames');
-    await expect(motionDiagnostics).toContainText('Max joint error');
+    await expect(cutterGridSummary).toContainText('Motion');
+    await expect(cutterGridSummary).toContainText('synchronized PTP');
+    await expect(cutterGridSummary).toContainText('Expected cuts');
+    await expect(cutterGridSummary).toContainText('Speed');
     await expect(page.getByTestId('final-score')).toHaveCount(0);
 
     const trajectoryBeforeReset = await page

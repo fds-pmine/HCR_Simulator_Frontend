@@ -3,9 +3,11 @@ import type {
   CutterGridProfileV1,
   CutterGridPositioningMotionV3,
   CutterGridPlanningDiagnosticsV2,
+  CutterGridPlanningDiagnosticsV4,
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
   CutterTrajectoryPlanV3,
+  CutterTrajectoryPlanV4,
   CutterTrajectoryStepV1,
   CutterTrajectoryWaypointV1,
 } from '../cutter-grid/types';
@@ -30,6 +32,10 @@ import type {
 import type { ScoreProvider } from '../../services/contracts';
 import { ProgramExecutor } from './programExecutor';
 import { CutterTrajectoryExecutor } from './cutterTrajectoryExecutor';
+import {
+  CutterCompactPtpExecutor,
+  cutterGridV4ActionDurationMs,
+} from './cutterCompactPtpExecutor';
 import {
   CutterGridMotionDiagnosticsRecorder,
   type CutterGridMotionDiagnostics,
@@ -98,7 +104,7 @@ export interface SimulationSnapshot {
     stepProgress: number;
     trajectorySignature?: string;
     entryOptionId?: string;
-    diagnostics?: CutterGridPlanningDiagnosticsV2;
+    diagnostics?: CutterGridPlanningDiagnosticsV2 | CutterGridPlanningDiagnosticsV4;
     motionDiagnostics?: CutterGridMotionDiagnosticsSummary;
   };
 }
@@ -112,6 +118,7 @@ export class SimulationEngine {
   readonly robotController: RobotController;
   private readonly executor: ProgramExecutor;
   private readonly cutterExecutor: CutterTrajectoryExecutor;
+  private readonly cutterCompactExecutor: CutterCompactPtpExecutor;
   private readonly listeners = new Set<Listener>();
   private status: SimulationStatus = 'idle';
   private hairVoxels: Set<VoxelKey>;
@@ -168,6 +175,7 @@ export class SimulationEngine {
     }
     this.executor = new ProgramExecutor(this.robotController);
     this.cutterExecutor = new CutterTrajectoryExecutor(this.robotController, challenge);
+    this.cutterCompactExecutor = new CutterCompactPtpExecutor(challenge);
     this.hairVoxels = new Set(challenge.initialHair.voxels);
     this.addLog('system', `Challenge "${challenge.name}" loaded.`);
     this.snapshot = this.createSnapshot();
@@ -232,7 +240,7 @@ export class SimulationEngine {
   }
 
   runCutterGrid(
-    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
+    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4,
     sourceBlockCount: number,
   ): void {
     if (
@@ -243,7 +251,10 @@ export class SimulationEngine {
       throw new Error(`Run is not allowed while status is "${this.status}".`);
     }
     this.prepareCutterGridPlan(plan, sourceBlockCount);
-    if (plan.version !== 1) {
+    if (plan.version === 4) {
+      this.beginCutterGridCompactPositioning(plan, 'run');
+      this.addLog('system', 'Positioning cutter for the selected compact PTP branch.');
+    } else if (plan.version !== 1) {
       this.beginCutterGridPositioning(plan, 'run');
       this.addLog('system', 'Positioning cutter for the selected Cutter Grid branch.');
     } else {
@@ -254,7 +265,7 @@ export class SimulationEngine {
   }
 
   stepCutterGrid(
-    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4,
     sourceBlockCount = 0,
   ): void {
     const resumable =
@@ -270,6 +281,12 @@ export class SimulationEngine {
       }
       if (!plan) throw new Error('A Cutter Grid trajectory is required for the first step.');
       this.prepareCutterGridPlan(plan, sourceBlockCount);
+      if (plan.version === 4) {
+        this.beginCutterGridCompactPositioning(plan, 'step');
+        this.addLog('system', 'Positioning cutter for the selected compact PTP branch.');
+        this.publish();
+        return;
+      }
       if (plan.version !== 1) {
         this.beginCutterGridPositioning(plan, 'step');
         this.addLog('system', 'Positioning cutter for the selected Cutter Grid branch.');
@@ -515,6 +532,7 @@ export class SimulationEngine {
     this.robotController.reset();
     this.executor.reset();
     this.cutterExecutor.reset();
+    this.cutterCompactExecutor.reset();
     this.hairVoxels = new Set(this.challenge.initialHair.voxels);
     this.metrics = {
       sourceBlockCount: 0,
@@ -604,19 +622,19 @@ export class SimulationEngine {
   }
 
   private prepareCutterGridPlan(
-    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
+    plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4,
     sourceBlockCount: number,
   ): void {
-    if (plan.steps.length === 0) throw new Error('Cutter Grid plan contains no actions.');
-    const startAngles = plan.steps
-      .flatMap((step) => step.waypoints)
-      .at(0)?.jointAngles;
-    if (!startAngles) {
-      throw new Error('Cutter Grid plan contains no trajectory start pose.');
-    }
+    const actionCount = plan.version === 4 ? plan.actions.length : plan.steps.length;
+    if (actionCount === 0) throw new Error('Cutter Grid plan contains no actions.');
+    const startAngles = plan.version === 4
+      ? plan.positioning.primitives[0]?.start.jointAngles
+      : plan.steps.flatMap((step) => step.waypoints).at(0)?.jointAngles;
+    if (!startAngles) throw new Error('Cutter Grid plan contains no trajectory start pose.');
     this.runGeneration += 1;
     this.executor.reset();
     this.cutterExecutor.reset();
+    this.cutterCompactExecutor.reset();
     this.hairVoxels = new Set(this.challenge.initialHair.voxels);
     this.scoreResult = undefined;
     this.logs = [];
@@ -631,7 +649,8 @@ export class SimulationEngine {
       ? new CutterGridMotionDiagnosticsRecorder()
       : undefined;
     this.lastCutterGridDiagnosticPlanTimeMs = undefined;
-    this.cutterExecutor.load(plan);
+    if (plan.version === 4) this.cutterCompactExecutor.load(plan);
+    else this.cutterExecutor.load(plan);
     if (plan.version === 1) {
       this.robotController.setTrajectoryAngles(startAngles);
     } else {
@@ -645,10 +664,14 @@ export class SimulationEngine {
       executedCommandCount: 0,
       estimatedDurationMs: plan.estimatedDurationMs,
     };
-    this.addLog('system', `Planning complete: ${plan.steps.length} atomic actions.`);
+    this.addLog('system', `Planning complete: ${actionCount} Cutter Grid actions.`);
   }
 
   private tickCutterGrid(deltaMs: number): void {
+    if (this.cutterCompactExecutor.getPlan()) {
+      this.tickCutterGridCompactPtp(deltaMs);
+      return;
+    }
     const maxSteps = this.stepTargetCommandCount === undefined ? undefined : 1;
     const result = this.cutterExecutor.advance(
       deltaMs,
@@ -686,7 +709,45 @@ export class SimulationEngine {
     }
   }
 
+  private tickCutterGridCompactPtp(deltaMs: number): void {
+    const maxActions = this.stepTargetCommandCount === undefined ? undefined : 1;
+    const result = this.cutterCompactExecutor.advance(
+      deltaMs,
+      {
+        onActionStart: (action, index) => this.handleCutterCompactActionStart(action, index),
+        onActionComplete: (action) => this.handleCutterCompactActionComplete(action),
+        onActionSample: (jointAngles) => this.robotController.setTrajectoryAngles(jointAngles),
+        onCertifiedContacts: (voxelKeys) => this.handleCertifiedCutterContacts(voxelKeys),
+      },
+      maxActions,
+    );
+    this.simulationTimeMs += result.consumedMs;
+    this.snapshotElapsedMs += result.consumedMs;
+    if (result.planCompleted) {
+      this.completeProgram();
+      return;
+    }
+    if (
+      this.stepTargetCommandCount !== undefined &&
+      this.cutterCompactExecutor.getActionIndex() >= this.stepTargetCommandCount
+    ) {
+      this.status = 'paused';
+      this.stepTargetCommandCount = undefined;
+      this.addLog('system', 'Single-step Cutter Grid action completed; program remains paused.');
+      this.publish();
+      return;
+    }
+    if (this.snapshotElapsedMs >= SNAPSHOT_INTERVAL_MS) {
+      this.snapshotElapsedMs = 0;
+      this.publish();
+    }
+  }
+
   private tickPositioning(deltaMs: number): void {
+    if (this.cutterCompactExecutor.getPlan()) {
+      this.tickCutterGridCompactPositioning(deltaMs);
+      return;
+    }
     try {
       if (!Number.isFinite(deltaMs) || deltaMs < 0) {
         throw new Error('Delta must be a finite non-negative number.');
@@ -750,6 +811,34 @@ export class SimulationEngine {
     }
   }
 
+  private tickCutterGridCompactPositioning(deltaMs: number): void {
+    try {
+      const result = this.cutterCompactExecutor.advancePositioning(deltaMs, {
+        onPositioningSample: (jointAngles) => this.robotController.setTrajectoryAngles(jointAngles),
+      });
+      this.snapshotElapsedMs += result.consumedMs;
+      if (!result.completed) {
+        if (this.snapshotElapsedMs >= SNAPSHOT_INTERVAL_MS) {
+          this.snapshotElapsedMs = 0;
+          this.publish();
+        }
+        return;
+      }
+      const completion = this.positioningCompletion;
+      this.positioningCompletion = 'idle';
+      this.status = completion === 'idle' ? 'idle' : 'running';
+      if (completion === 'step') {
+        this.stepTargetCommandCount = this.cutterCompactExecutor.getActionIndex() + 1;
+      }
+      this.addLog('system', completion === 'idle'
+        ? 'Cutter positioned at the certified compact grid origin.'
+        : 'Cutter positioned at the selected compact grid origin.');
+      this.publish();
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+
   private beginCutterGridPositioning(
     plan: CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
     completion: 'run' | 'step',
@@ -765,6 +854,44 @@ export class SimulationEngine {
     this.positioningWaypointIndex = 0;
     this.positioningCompletion = completion;
     this.robotController.setTrajectoryAngles(first.jointAngles);
+  }
+
+  private beginCutterGridCompactPositioning(
+    plan: CutterTrajectoryPlanV4,
+    completion: 'run' | 'step',
+  ): void {
+    const first = plan.positioning.primitives[0];
+    if (!first) throw new Error('The selected compact Cutter Grid entry trajectory is empty.');
+    this.status = 'positioning';
+    this.positioningWaypoints = [];
+    this.positioningMotionV3 = undefined;
+    this.positioningElapsedMs = 0;
+    this.positioningWaypointIndex = 0;
+    this.positioningCompletion = completion;
+    this.robotController.setTrajectoryAngles(first.start.jointAngles);
+  }
+
+  private handleCutterCompactActionStart(
+    action: CutterTrajectoryPlanV4['actions'][number],
+    index: number,
+  ): void {
+    this.addLog(
+      'command',
+      action.type === 'wait'
+        ? `#${index + 1} Wait ${action.durationMs}ms`
+        : `#${index + 1} Move ${action.distance} to (${action.endCoord.join(', ')})`,
+      action.sourceBlockId,
+    );
+  }
+
+  private handleCutterCompactActionComplete(
+    action: CutterTrajectoryPlanV4['actions'][number],
+  ): void {
+    this.metrics = {
+      ...this.metrics,
+      executedCommandCount: this.metrics.executedCommandCount + action.logicalCommandCount,
+    };
+    this.addLog('command', 'Compact Cutter Grid action completed.', action.sourceBlockId);
   }
 
   private handleCutterStepStart(step: CutterTrajectoryStepV1, index: number): void {
@@ -957,9 +1084,31 @@ export class SimulationEngine {
     const currentCommand = this.executor.getCurrentCommand();
     const currentCutterStep = this.cutterExecutor.getCurrentStep();
     const cutterPlan = this.cutterExecutor.getPlan();
+    const currentCompactAction = this.cutterCompactExecutor.getCurrentAction();
+    const compactPlan = this.cutterCompactExecutor.getPlan();
+    const compactCoords = compactPlan
+      ? cutterGridV4ActionCoordinates(compactPlan, this.cutterCompactExecutor.getActionIndex())
+      : undefined;
     const cutterGrid =
       this.executionMode === 'cutter-grid'
-        ? {
+        ? compactPlan
+          ? {
+            currentCoord: compactCoords?.currentCoord ?? compactPlan.endCoord,
+            ...(compactCoords?.nextCoord ? { nextCoord: compactCoords.nextCoord } : {}),
+            stepIndex: this.cutterCompactExecutor.getActionIndex(),
+            totalSteps: compactPlan.actions.length,
+            stepProgress: currentCompactAction
+              ? Math.min(
+                1,
+                this.cutterCompactExecutor.getElapsedInActionMs() /
+                  cutterGridV4ActionDurationMs(currentCompactAction),
+              )
+              : 0,
+            trajectorySignature: compactPlan.trajectorySignature,
+            entryOptionId: compactPlan.positioning.entryOptionId,
+            diagnostics: compactPlan.diagnostics,
+          }
+          : {
             currentCoord: currentCutterStep?.startCoord ??
               cutterPlan?.endCoord ?? [0, 0, 0] as const,
             ...(currentCutterStep
@@ -997,7 +1146,7 @@ export class SimulationEngine {
       targetVoxelCount: this.challenge.targetHair.voxels.size,
       currentBlockId:
         this.executionMode === 'cutter-grid'
-          ? currentCutterStep?.sourceBlockId
+          ? currentCompactAction?.sourceBlockId ?? currentCutterStep?.sourceBlockId
           : currentCommand?.sourceBlockId,
       activeJointId:
         currentCommand?.type === 'set-joint-angle'
@@ -1012,4 +1161,21 @@ export class SimulationEngine {
       ...(cutterGrid ? { cutterGrid } : {}),
     };
   }
+}
+
+function cutterGridV4ActionCoordinates(
+  plan: CutterTrajectoryPlanV4,
+  actionIndex: number,
+): {
+  currentCoord: CutterTrajectoryPlanV4['startCoord'];
+  nextCoord?: CutterTrajectoryPlanV4['endCoord'];
+} {
+  let currentCoord = plan.startCoord;
+  for (const action of plan.actions.slice(0, actionIndex)) {
+    if (action.type === 'move') currentCoord = action.endCoord;
+  }
+  const action = plan.actions[actionIndex];
+  return action?.type === 'move'
+    ? { currentCoord, nextCoord: action.endCoord }
+    : { currentCoord };
 }

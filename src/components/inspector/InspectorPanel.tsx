@@ -5,9 +5,11 @@ import type {
   CutterGridProfileV1,
   CutterGridProfileV2,
   CutterGridProfileV3,
+  CutterGridProfileV4,
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
   CutterTrajectoryPlanV3,
+  CutterTrajectoryPlanV4,
 } from '../../features/cutter-grid/types';
 
 interface InspectorPanelProps {
@@ -16,8 +18,8 @@ interface InspectorPanelProps {
   showTarget: boolean;
   onToggleTarget: () => void;
   cutterGrid?: {
-    profile: CutterGridProfileV1 | CutterGridProfileV2 | CutterGridProfileV3;
-    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3;
+    profile: CutterGridProfileV1 | CutterGridProfileV2 | CutterGridProfileV3 | CutterGridProfileV4;
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4;
     visible: boolean;
     onToggle: () => void;
   };
@@ -92,11 +94,18 @@ export function InspectorPanel({
             <div><dt>Next</dt><dd>{snapshot.cutterGrid?.nextCoord ? `(${snapshot.cutterGrid.nextCoord.join(', ')})` : '—'}</dd></div>
             <div><dt>Progress</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : 'Not planned'}</dd></div>
             <div><dt>Path state</dt><dd>{snapshot.cutterGrid?.diagnostics ? 'Connected for this program' : 'Static IK map only'}</dd></div>
-            <div><dt>Branch</dt><dd>{snapshot.cutterGrid?.entryOptionId ?? (cutterGrid.plan?.version !== undefined && cutterGrid.plan.version !== 1 ? cutterGrid.plan.entryOptionId : '—')}</dd></div>
-            {snapshot.cutterGrid?.diagnostics ? (
+            <div><dt>Branch</dt><dd>{snapshot.cutterGrid?.entryOptionId ?? cutterGridEntryOptionId(cutterGrid.plan)}</dd></div>
+            {snapshot.cutterGrid?.diagnostics && 'seedBudgetUsed' in snapshot.cutterGrid.diagnostics ? (
               <div><dt>Search</dt><dd>{`${snapshot.cutterGrid.diagnostics.seedBudgetUsed} seeds · ${snapshot.cutterGrid.diagnostics.candidateCounts.join('/')} candidates`}</dd></div>
             ) : null}
             <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
+            {cutterGrid.plan?.version === 4 ? (
+              <>
+                <div><dt>Motion</dt><dd>{`${cutterGrid.plan.actions.filter((action) => action.type === 'move').reduce((sum, action) => sum + action.primitives.length, 0)} synchronized PTP`}</dd></div>
+                <div><dt>Expected cuts</dt><dd>{cutterGrid.plan.actions.reduce((sum, action) => sum + action.expectedCutVoxels.length, 0)}</dd></div>
+                <div><dt>Speed</dt><dd>{`${formatNumber(cutterGrid.plan.diagnostics.actualSpeedScale, 2)}x requested ${formatNumber(cutterGrid.plan.diagnostics.requestedSpeedScale, 2)}x`}</dd></div>
+              </>
+            ) : null}
           </dl>
           {snapshot.cutterGrid?.motionDiagnostics ? (
             <details className="cutter-grid-motion-diagnostics" data-testid="cutter-grid-motion-diagnostics">
@@ -283,6 +292,18 @@ function ScoreBar({
       </div>
     </div>
   );
+}
+
+function cutterGridEntryOptionId(
+  plan:
+    | CutterTrajectoryPlanV1
+    | CutterTrajectoryPlanV2
+    | CutterTrajectoryPlanV3
+    | CutterTrajectoryPlanV4
+    | undefined,
+): string {
+  if (!plan || plan.version === 1) return '—';
+  return plan.version === 4 ? plan.positioning.entryOptionId : plan.entryOptionId;
 }
 
 function formatNumber(value: number | undefined, digits: number): string {

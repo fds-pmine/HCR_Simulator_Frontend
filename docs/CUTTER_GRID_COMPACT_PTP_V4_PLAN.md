@@ -2,7 +2,7 @@
 
 ## 状态与范围
 
-- 状态：Phase 1–4 已完成；Phase 5 待开始。
+- 状态：Phase 1–5 已完成；Phase 6 待开始。
 - 规划器版本：`cutter-grid-compact-ptp-v4`。
 - 本计划取代 V3 中“每个逻辑格严格 Cartesian 直线、每格零速停车、密集姿态轨迹可作为输出”的运动契约。V3 文档、测试和 fixture 保留为历史基线。
 - Servo、后端 wire schema、Session、Match、Versus、Electron 下发和固件均不在 V4 前端实施范围内。
@@ -102,8 +102,10 @@ interface CutterArmMotionProgramV1 {
 
 ### Phase 5：执行、UI 与硬件边界
 
-- [ ] 接入绝对时间 V4 执行器、按可见动作 Step、真实曲线与预计剪发 UI。
-- [ ] 定义并验证 `CutterArmMotionProgramV1`，但 ArmDock 继续拒绝 V4 下发。
+- [x] 实施前已重读 V4 契约、v0.3、实施计划、验收清单，以及 V1–V3 Worker/执行器/仿真引擎、Workbench、场景、Inspector、ArmDock 与硬件桥接；确认生产入口仍停留在 V3，V4 必须以独立执行器切换，不能把紧凑 primitive 展开为旧的逐格 waypoint。
+- [x] Worker 改为生成 V4 冻结计划；新增绝对时间同步 PTP 回放器，定位轨迹与玩家 action 均按同一解析曲线推进，Step 每次结束一个可见 Move 或 Wait。
+- [x] 将 V4 的认证接触事件、坐标/primitive 摘要、真实曲线路径和预计剪发接入场景与 Inspector，并验证 Run/Test/Step、暂停、长帧与取消的一致性。
+- [x] 定义、序列化并校验 `CutterArmMotionProgramV1`，但 ArmDock 对 V4 返回明确拒绝，绝不下发给 Electron、桥接或固件。
 - 出口：Run/Test/Step、暂停、隐藏页和取消回放同一 V4 计划。
 
 ### Phase 6：全量验收与发布准备

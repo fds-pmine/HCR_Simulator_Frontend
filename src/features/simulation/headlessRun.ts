@@ -1,5 +1,10 @@
 import type { CompiledProgram } from '../blockly/programTypes';
-import type { CutterTrajectoryPlanV1, CutterTrajectoryPlanV2, CutterTrajectoryPlanV3 } from '../cutter-grid/types';
+import type {
+  CutterTrajectoryPlanV1,
+  CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
+  CutterTrajectoryPlanV4,
+} from '../cutter-grid/types';
 import type { ScoreResult } from '../../types/domain';
 import type { SimulationEngine } from './SimulationEngine';
 
@@ -50,7 +55,7 @@ export async function runHeadless(
 
 export async function runCutterGridHeadless(
   engine: SimulationEngine,
-  plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3,
+  plan: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4,
   sourceBlockCount: number,
   budgetMs: number = DEFAULT_BUDGET_MS,
 ): Promise<ScoreResult | undefined> {

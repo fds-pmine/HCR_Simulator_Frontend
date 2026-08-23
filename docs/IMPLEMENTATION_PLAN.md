@@ -316,8 +316,8 @@ tests/
 
 ### Cutter Grid Compact PTP V4 Phase 5 — 执行、UI 与硬件边界
 
-- [ ] 接入按可见动作 Step 的绝对时间执行器、真实曲线/预计剪发 UI 与取消生命周期。
-- [ ] 实现并测试 `CutterArmMotionProgramV1`，但 ArmDock 继续拒绝 V4 下发。
+- [x] 接入按可见动作 Step 的绝对时间执行器、真实曲线/预计剪发 UI 与取消生命周期。
+- [x] 实现并测试 `CutterArmMotionProgramV1`，但 ArmDock 继续拒绝 V4 下发。
 
 阶段出口：Run/Test/Step 和不同 tick 回放同一 V4 计划，硬件未越权启用。
 

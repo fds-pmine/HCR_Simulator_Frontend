@@ -1,13 +1,26 @@
-import type { CutterGridProfileV1, CutterGridProfileV2, CutterGridProfileV3, CutterTrajectoryPlanV1, CutterTrajectoryPlanV2, CutterTrajectoryPlanV3 } from './types';
 import { Line } from '@react-three/drei';
+import type { Challenge, Vec3Tuple } from '../../types/domain';
+import { evaluateCutterGridSyncPtpV4 } from './compactPtpV4';
+import type {
+  CutterGridProfileV1,
+  CutterGridProfileV2,
+  CutterGridProfileV3,
+  CutterGridProfileV4,
+  CutterTrajectoryPlanV1,
+  CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
+  CutterTrajectoryPlanV4,
+} from './types';
 
 export function CutterGridOverlay({
+  challenge,
   profile,
   plan,
   executedStepCount = 0,
 }: {
-  profile: CutterGridProfileV1 | CutterGridProfileV2 | CutterGridProfileV3;
-  plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3;
+  challenge: Challenge;
+  profile: CutterGridProfileV1 | CutterGridProfileV2 | CutterGridProfileV3 | CutterGridProfileV4;
+  plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4;
   executedStepCount?: number;
 }) {
   const sampledNodes = profile.nodes.filter((_, index) => index % 24 === 0);
@@ -24,16 +37,7 @@ export function CutterGridOverlay({
   const boundsSize = min.map(
     (value, axis) => max[axis] - value,
   ) as [number, number, number];
-  const path = plan?.steps.flatMap((step, stepIndex) =>
-    step.kind === 'move-cell'
-      ? step.waypoints
-          .filter((_, index) => index % 3 === 0)
-          .map((waypoint) => ({ waypoint, stepIndex }))
-      : [],
-  );
-  const movePaths = plan?.steps
-    .map((step, stepIndex) => ({ step, stepIndex }))
-    .filter(({ step }) => step.kind === 'move-cell');
+  const movePaths = plannedMovePaths(challenge, plan);
   return (
     <group>
       <mesh position={boundsCenter}>
@@ -50,27 +54,55 @@ export function CutterGridOverlay({
           />
         </mesh>
       ))}
-      {movePaths?.map(({ step, stepIndex }) => (
+      {movePaths.map(({ id, points, stepIndex }) => (
         <Line
-          key={`path-${step.index}`}
-          points={step.waypoints.map((waypoint) => waypoint.endEffector)}
+          key={id}
+          points={points}
           color={stepIndex < executedStepCount ? '#38d6ce' : '#f3c75f'}
           lineWidth={2}
           transparent
           opacity={0.82}
         />
       ))}
-      {path?.map(({ waypoint, stepIndex }, index) => (
-        <mesh key={index} position={waypoint.endEffector}>
-          <sphereGeometry args={[0.018, 6, 4]} />
-          <meshBasicMaterial
-            color={stepIndex < executedStepCount ? '#38d6ce' : '#f3c75f'}
-            transparent
-            opacity={0.75}
-          />
-        </mesh>
-      ))}
       <axesHelper args={[0.48]} position={profile.originWorldPosition} />
     </group>
+  );
+}
+
+function plannedMovePaths(
+  challenge: Challenge,
+  plan:
+    | CutterTrajectoryPlanV1
+    | CutterTrajectoryPlanV2
+    | CutterTrajectoryPlanV3
+    | CutterTrajectoryPlanV4
+    | undefined,
+): Array<{ id: string; points: Vec3Tuple[]; stepIndex: number }> {
+  if (!plan) return [];
+  if (plan.version === 4) {
+    return plan.actions.flatMap((action, stepIndex) => {
+      if (action.type === 'wait') return [];
+      const points: Vec3Tuple[] = [];
+      for (const primitive of action.primitives) {
+        const samples = Math.max(4, Math.ceil(primitive.durationMs / 40));
+        for (let index = points.length === 0 ? 0 : 1; index <= samples; index += 1) {
+          points.push(evaluateCutterGridSyncPtpV4(
+            challenge,
+            primitive,
+            (primitive.durationMs * index) / samples,
+          ).endEffector);
+        }
+      }
+      return [{ id: `v4-${action.occurrenceId}`, points, stepIndex }];
+    });
+  }
+  return plan.steps.flatMap((step, stepIndex) =>
+    step.kind === 'move-cell'
+      ? [{
+        id: `v${plan.version}-${step.index}`,
+        points: step.waypoints.map((waypoint) => waypoint.endEffector),
+        stepIndex,
+      }]
+      : [],
   );
 }

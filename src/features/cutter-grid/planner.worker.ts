@@ -9,6 +9,8 @@ import { CutterGridMotionV3Error, retimeCutterGridTrajectoryV3 } from './motionV
 import { sampleRuckigLocalStateToState } from './ruckigLocalWasm';
 import { loadRuckigLocalWorkerModule } from './ruckigLocalWorker';
 import { retimeCutterGridPlanWithLocalRuckigV3 } from './ruckigPlanV3';
+import { planCutterGridCompactPtpV4 } from './compactPtpPlannerV4';
+import { CutterGridCompactPtpV4PlanningError } from './compactPtpV4';
 import { CUTTER_GRID_LADDER_PLANNER_VERSION, CUTTER_GRID_PROFILE_V2_VERSION } from './types';
 import type { CutterGridWorkerRequest, CutterGridWorkerResponse } from './workerProtocol';
 
@@ -18,16 +20,40 @@ const useLocalRuckigTrial = import.meta.env.VITE_HCR_CUTTER_GRID_RUCKIG_TRIAL ==
 worker.onmessage = (event: MessageEvent<CutterGridWorkerRequest>) => {
   const request = event.data;
   if (request.type === 'plan-v4') {
-    // Phase 2 declares the isolated V4 transport before its sparse endpoint
-    // planner exists. Failing closed here is intentional: a V4 request must
-    // never fall through to the V1–V3 Cartesian/dense planning pipelines.
-    worker.postMessage({
-      type: 'failed',
-      requestId: request.requestId,
-      code: 'planner-not-ready',
-      message: 'Cutter Grid compact PTP planning is not available yet.',
-      stage: 'profile',
-    } satisfies CutterGridWorkerResponse);
+    // V4 stays isolated from the V1–V3 Cartesian/dense pipelines even after
+    // its compact planner becomes active.
+    try {
+      const plan = planCutterGridCompactPtpV4(
+        request.challenge,
+        request.compiled,
+        request.profile,
+        {
+          onProgress: (progress) => worker.postMessage({
+            type: 'progress-v4',
+            requestId: request.requestId,
+            ...progress,
+          } satisfies CutterGridWorkerResponse),
+        },
+      );
+      worker.postMessage({
+        type: 'planned-v4',
+        requestId: request.requestId,
+        plan,
+      } satisfies CutterGridWorkerResponse);
+    } catch (error) {
+      const details = error instanceof CutterGridCompactPtpV4PlanningError
+        ? error.details
+        : {};
+      worker.postMessage({
+        type: 'failed',
+        requestId: request.requestId,
+        code: error instanceof CutterGridCompactPtpV4PlanningError
+          ? error.code
+          : 'ptp-certificate-failed',
+        message: error instanceof Error ? error.message : 'Cutter Grid V4 planning failed.',
+        ...details,
+      } satisfies CutterGridWorkerResponse);
+    }
     return;
   }
   if (request.type === 'plan-v3') {
