@@ -2,7 +2,7 @@
 
 ## 状态与范围
 
-- 状态：Phase 1–5 已完成；Phase 6 待开始。
+- 状态：Phase 1–6 已完成；V4 前端分支已具备审查条件。
 - 规划器版本：`cutter-grid-compact-ptp-v4`。
 - 本计划取代 V3 中“每个逻辑格严格 Cartesian 直线、每格零速停车、密集姿态轨迹可作为输出”的运动契约。V3 文档、测试和 fixture 保留为历史基线。
 - Servo、后端 wire schema、Session、Match、Versus、Electron 下发和固件均不在 V4 前端实施范围内。
@@ -110,15 +110,17 @@ interface CutterArmMotionProgramV1 {
 
 ### Phase 6：全量验收与发布准备
 
-- [ ] 完成质量门、Profile/几何/动态审计、Chrome/Edge 双分辨率人工验收。
-- [ ] 审计仅计划内前端变动、后端与硬件下发零变动；只推送 `feat/cutter-grid-control`。
+- [x] 已重新阅读本计划、v0.3、实施计划、验收清单、V4 规划/认证/执行测试和 Playwright 视觉配置，确认本阶段仅作验收与文档同步。
+- [x] 完成质量门与 Profile/几何/动态审计；独占单 Worker 五次冷启动 P95 为 `Right 2 = 1,671.8ms`、全局回归 `= 2,886.2ms`，均低于 `3s/10s` 门禁；冻结计划的玩家动画均测试为 ≤`5s`。
+- [x] 已在 Chrome/Edge 的 1280×720、1920×1080 生成并肉眼复核 V4 截图：PTP 曲线、Inspector、底部控制区和本地评分提示均清晰，无页面溢出。
+- [x] 已审计仅计划内前端变动、后端与硬件下发零变动；本验收文档将独立 commit，分支仅供审查而不合并 `main`。
 
 ## 量化验收目标
 
 - `Right 2` 五次冷 Worker 规划的 P95 不超过 `3s`；`Up 6 → Left 2 → Forward 3` 的 P95 不超过 `10s`。
 - 上述回归程序保持 3 个可见 Move action，玩家 primitive 总数不超过 6；若三条直接 PTP 均安全，必须为 3。
 - 当前 Challenge 中该回归程序的玩家动画不超过 `5s`；定位时间另行记录且不计分。
-- 运行 `npm run typecheck`、`npm run lint`、`npm test`、`npm run build`、`npm run test:e2e`，并在 Chrome/Edge 的 1280×720、1920×1080 验收曲线流畅度。
+- 运行 `npm run typecheck`、`npm run lint`、`npm test`、`npm run build`、`npm run test:e2e`、`npm run test:performance`，并在 Chrome/Edge 的 1280×720、1920×1080 验收曲线流畅度。
 
 ## 参考依据
 

@@ -323,8 +323,9 @@ tests/
 
 ### Cutter Grid Compact PTP V4 Phase 6 — 验收与发布准备
 
-- [ ] 完成全部质量门、Profile/几何/动态审计与 Chrome/Edge 双分辨率视觉验收。
-- [ ] 审计后端与硬件下发零改动，仅推送 `feat/cutter-grid-control`。
+- [x] 已重读 V4 计划、v0.3、验收清单、规划/认证/执行测试和 Playwright 配置，确认仅补充验收证据。
+- [x] 完成全部质量门、Profile/几何/动态审计，并以独占单 Worker 的五次冷启动 P95 完成性能测量：`Right 2 = 1,671.8ms`，全局回归 `= 2,886.2ms`；Chrome/Edge 双分辨率视觉验收通过。
+- [x] 已审计后端与硬件下发零改动；验收文档将独立 commit，分支仅供审查而不合并 `main`。
 
 阶段出口：V4 满足紧凑指令、流畅性、性能和安全门禁，可供分支审查。
 

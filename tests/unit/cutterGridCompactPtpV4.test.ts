@@ -99,6 +99,7 @@ describe('Cutter Grid compact PTP V4 geometry', () => {
     expect(first.diagnostics.maximumVelocityRatio).toBeLessThanOrEqual(1);
     expect(first.diagnostics.maximumAccelerationRatio).toBeLessThanOrEqual(1);
     expect(first.diagnostics.maximumJerkRatio).toBeLessThanOrEqual(1);
+    expect(first.estimatedDurationMs).toBeLessThanOrEqual(5_000);
     expect(first.diagnostics.adaptiveValidationSampleCount).toBeGreaterThan(0);
     expect(JSON.stringify(first)).not.toContain('"samples"');
     expect(moves.flatMap((action) => action.primitives).every((primitive) => primitive.durationMs >= 160)).toBe(true);
@@ -147,6 +148,7 @@ describe('Cutter Grid compact PTP V4 geometry', () => {
     });
 
     expect(score.completionScore).toBe(100);
+    expect(plan.estimatedDurationMs).toBeLessThanOrEqual(5_000);
     expect([...challenge.initialHair.voxels]
       .filter((key) => !plan.expectedResultVoxels.includes(key))
       .sort()).toEqual(
