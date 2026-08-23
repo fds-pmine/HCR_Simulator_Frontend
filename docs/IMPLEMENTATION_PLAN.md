@@ -285,6 +285,49 @@ tests/
 
 阶段出口：Rust 规划器是最终权威，前端仅负责请求、回放与可视化；跨语言签名、错误和接触结果一致。
 
+### Cutter Grid Compact PTP V4 Phase 1 — 契约、基线与失败测试
+
+- [x] 新增受 Git 管理的 V4 实施计划，并同步 v0.3、验收清单；明确 V3 固定 Cartesian 管道、逐格零速、`1.25x` 和密集输出只作历史基线。
+- [x] 固化全局 IK 回归的 V3 基线：11 个原子 Move、44 个 Cartesian 层、4,286 个认证样本、6,976ms 玩家计划时长、`1.25x` 动态请求、几何签名 `188fb68c5336a3b4` 和轨迹签名 `73549fa7dad52468`。
+- [x] 新增 V4 基线、预期失败与待实现性能门禁测试：Move N 分组、每 Move 1–2 条 primitive、`1.5x`、实际扫掠、`3s/10s/5s` 目标与 ArmDock 禁用。
+
+阶段出口：V4 设计、历史对照和测试入口可复核，不改变生产运行入口。
+
+### Cutter Grid Compact PTP V4 Phase 2 — 分组 IR 与协议
+
+- [ ] 实现 `CutterGridExecutableActionV2`、稳定 occurrence、500 逻辑成本、V4 Profile/Plan/错误/进度与 `plan-v4` Worker 协议。
+- [ ] 保持 V1–V3 fail closed，暂不切换 V3 运行入口。
+
+阶段出口：纯领域 V4 输入输出可构造、序列化和测试。
+
+### Cutter Grid Compact PTP V4 Phase 3 — 稀疏图与两指令规划
+
+- [ ] 实现端点 IK 候选、4/8/全部边扩展、同步五次直接 PTP、256 节点 roadmap 和单避障构型压缩。
+- [ ] 验证全程序入口选择、错误 Wrist 分支规避和每 Move 最多两条 primitive。
+
+阶段出口：生成确定性、紧凑、无碰撞的 V4 几何计划。
+
+### Cutter Grid Compact PTP V4 Phase 4 — 动态认证与实际扫掠
+
+- [ ] 实现 `1.5x` 时间律、C2 避障边界、保守自适应净空证明、实际 Hair 接触事件和 V4 fixture。
+- [ ] 重新认证 100 Completion 参考程序；密集认证样本不得进入序列化计划。
+
+阶段出口：冻结 V4 计划具有真实接触、动态限制和签名证据。
+
+### Cutter Grid Compact PTP V4 Phase 5 — 执行、UI 与硬件边界
+
+- [ ] 接入按可见动作 Step 的绝对时间执行器、真实曲线/预计剪发 UI 与取消生命周期。
+- [ ] 实现并测试 `CutterArmMotionProgramV1`，但 ArmDock 继续拒绝 V4 下发。
+
+阶段出口：Run/Test/Step 和不同 tick 回放同一 V4 计划，硬件未越权启用。
+
+### Cutter Grid Compact PTP V4 Phase 6 — 验收与发布准备
+
+- [ ] 完成全部质量门、Profile/几何/动态审计与 Chrome/Edge 双分辨率视觉验收。
+- [ ] 审计后端与硬件下发零改动，仅推送 `feat/cutter-grid-control`。
+
+阶段出口：V4 满足紧凑指令、流畅性、性能和安全门禁，可供分支审查。
+
 ## 4. 关键实现约定
 
 ### 仿真与 React

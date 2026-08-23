@@ -655,19 +655,21 @@ npm run test:e2e
 
 - 网格格距等于 `voxelConfig.size`；边界为初始 Hair 坐标包围盒每轴扩展两格，并包含认证起点。
 - 固定映射为 Right `+X`、Left `-X`、Up `+Y`、Down `-Y`、Forward `-Z`、Backward `+Z`，不随相机或工具姿态变化。
-- 六个 Move 积木分别接受 `1–12` 的整数距离；每格展开为一个原子动作。Wait、Repeat 分别沿用 `0–5000ms`、`1–20` 限制，展开后单格移动与 Wait 上限为 500。
+- 六个 Move 积木分别接受 `1–12` 的整数距离。展开仍按单格移动与 Wait 计算 500 上限和命令成本，但 V4 规划器把一个可见 Move N 合并为一个连续叶子动作；Wait、Repeat 分别沿用 `0–5000ms`、`1–20` 限制。
 - 剪发器始终启用，沿实际末端轨迹以现有 `toolRadius = 0.12` 删除全部接触 Hair；系统不绕发、不白名单删除，也不静默缩短移动。
-- Step 每次执行一个单格移动或 Wait；Move N 对 `executedCommandCount` 贡献 N。
+- V4 的 Step 每次执行一个展开后的可见 Move 或 Wait；Move N 一次连续完成 N 格，仍对 `executedCommandCount` 贡献 N。V3 的逐格 Step 仅作历史回归基线。
 
 ### 15.3 入场、规划和轨迹
 
 - 从 Servo 初始姿态进入最近的、已认证零头发接触格心；当前首选 Hair lattice 为 `(0,-5,8)`。入场使用 `positioning` 状态，不剪发、不计时、不计分。
-- Run/Test/Step 前进入 `planning`，在可取消 Web Worker 中对整段程序求解。相同规范化输入只生成一个冻结 `CutterTrajectoryPlanV1`，三个入口不得分别求解。
-- 每格世界轴直线按末端位移不大于 `voxelSize/4` 细分；使用五关节阻尼最小二乘 IK，最大 80 次迭代、`0.1°` 数值 Jacobian、阻尼 `0.05`、单次最大 `2°` 更新、最终 `0.1°` 量化，末端误差不大于 `voxelSize/16`。
-- 同方向连续段生成 C1 连续同步轨迹；转向格点切断切线。轨迹按关节速度统一拉伸，并以最大 `0.5°` 关节变化和 `voxelSize/4` 末端位移重新采样验证。
-- 任一关节限位、IK 收敛、头部碰撞、路径偏差或连续性失败都在执行前定位首个来源积木并拒绝整段程序；不得执行可行前缀或在运行时重新规划。
+- Run/Test/Step 前进入 `planning`，在可取消 Web Worker 中对整段程序求解。相同规范化输入只生成一个冻结计划，三个入口不得分别求解或运行时重新规划。
+- V4 只把认证入口和每个可见 Move 的最终格心作为 IK 硬目标；终点误差不大于 `voxelSize/16`。末端中间路径允许是已认证的曲线，不再要求逐格世界轴直线。
+- 每个 Move 默认生成一条、最多两条同步五关节 PTP primitive。直接 PTP 碰头时只允许一个认证避障构型；无法压缩到两条 primitive 时整段计划失败。
+- 任一关节限位、IK、头部碰撞、动态限制、工作空间或接触认证失败都在执行前定位首个来源积木并拒绝整段程序；不得执行可行前缀。
 
-### 15.3.1 全局多分支 IK 修复（实施中）
+### 15.3.1 全局多分支 IK 修复（V2，V4 的历史基线）
+
+V4 继续要求入口和整段程序共同选择连续无碰撞构型链，但以可见 Move 终点层、较小的固定候选预算和紧凑 PTP 边替代 V2 的逐格 Cartesian 分层、`24 → 96 → 384` 默认枚举及密集边认证。本节仅保留 V2 已知错误分支和历史 fixture 的解释。
 
 - 首版 `cutter-grid-dls-v1` 的单一前序构型贪心和静态 `reachable` 节点预筛选已知会错误拒绝 `Up 6 → Left 2 → Forward 3`：末端在 `(-2,6,-3)` 的第三个四分层有无碰撞低 Wrist 解，但高 Wrist 局部分支会提前走入死路。静态存在 IK 解不再等价于从任何入场姿态、沿任何程序路径均可达。
 - 新版本为 `cutter-grid-ladder-v2`。它在 Worker 内为每个 Cartesian 分层保留多组无碰撞 IK 候选，并以程序兼容的认证入口作为图第 0 层，在全段路径上选择连续构型链；不得接入 ROS、MoveIt、Tesseract、后端或任意外部规划服务。
@@ -676,7 +678,9 @@ npm run test:e2e
 - V2 Profile 保存最多 32 个安全原点构型及各自认证的零接触入场轨迹。Run、Test 与 idle 下首次 Step 把所有入口和完整玩家路径一并规划；入场属于冻结计划且不剪发、不计命令、不计玩家耗时或成绩。
 - V2 区分静态 `Safe IK known` / `No safe IK found` 与当前 `Program connected` / `Program disconnected`。候选不存在、入口不兼容、连续边不存在与有限搜索预算耗尽必须分别报告，搜索耗尽不得表述为物理不可达。
 
-### 15.3.2 限 jerk 运动稳定试验（V3，前端验证中）
+### 15.3.2 限 jerk 运动稳定试验（V3，历史基线）
+
+V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请求、逐格 5ms 认证和原有精确接触集约束已被 V4 取代。保留本节仅用于解释既有 fixture、Ruckig Spike 与回归证据；不得把本节的直线、逐格停车或密集 waypoint 条款作为 V4 实现要求。
 
 - V3 保持 V2 已选定的无碰撞 IK 构型链和玩家指定 Cartesian 轴向路径；重定时、平滑或渲染播放不得重新选择 IK 分支、缩短距离、抄近路或改变扫掠接触集合。
 - V3 先在前端以纯领域函数完成确定性试验。所有规划输入、输出、诊断、签名和误差必须可序列化且不依赖 DOM、Worker 或渲染时钟；经前端回归验证后，同一领域契约迁移到 Rust `hcr_sim`，由后端成为最终路径规划权威。
@@ -693,11 +697,23 @@ npm run test:e2e
 - 渲染以单调的绝对计划时间采样冻结轨迹；隐藏页、暂停和调试时冻结计划时间，恢复时不追赶墙钟。接触、评分与原子动作事件由计划扫掠区间驱动，不依赖某个中间渲染帧是否出现。
 - V3 前端在每个实际播放 rAF 后以有界、只读的诊断环记录渲染时间、计划时间、阶段/单格、入口分支、解析的五关节 `q/v/a/j`、控制器关节/末端跟踪误差及帧间隔。长帧阈值为 `50ms`；诊断副本不参与 Worker、轨迹签名、碰撞或评分，Inspector 默认折叠显示其摘要。
 
-### 15.3.3 Rust 迁移边界
+### 15.3.3 紧凑同步 PTP（V4，前端实施中）
 
-- 前端 V3 仅是验证和可视化实现，不是最终规划权威。稳定后在 `hcr-backend/crates/hcr_sim` 实现相同的纯 Rust V3 领域规划器；后端 API、Session、Match 与实体机械臂桥接在 Rust 规划器完成、跨语言向量一致且另行授权前保持现状。
-- 前端与 Rust 必须共享版本化 JSON fixture：输入 Challenge、已引用的版本化 Profile fixture、Program 和动态限制；每个成功向量输出完整 V3 计划的轨迹/几何签名、原子检查点、预计接触集合及诊断摘要，失败向量输出结构化错误。为避免重复存储每 `5ms` 认证样本，fixture 可省略完整 waypoint 数组，但 Rust 必须重建完整计划并匹配签名和所有摘要字段。任何浮点容差、枚举顺序、量化规则和签名字段改变都必须先更新 fixture 并在两端通过。
-- UI 只消费可序列化 V3 计划并作绝对时间显示；它不得以浏览器特有状态修补或改变 Rust 规划结果。
+- V4 版本为 `cutter-grid-compact-ptp-v4`。它在 Worker 中只为认证入口和每个可见 Move 终点建立全局多分支 IK 图；Wait 不创建 IK 层。候选首轮使用固定入口/前态/中位/12 个 Halton seed、最多 12 个候选，首个断开层扩展为累计 48 个 seed、最多 24 个候选。
+- 相邻端点层固定按最近 4 条、最近 8 条、全部候选边的顺序验证。完整程序共同选择入口和构型链，不能按 Move 贪心锁定错误 Wrist 分支。
+- 每条直接边使用同步五次 PTP：`q(u)=q0+(q1-q0)(10u³-15u⁴+6u⁵)`。五关节共享时间参数，默认动态请求为额定 `1.5x`，并受 Profile 速度、加速度、jerk 硬上限及每 primitive `160ms` 最短时长限制。
+- 直接边碰撞时，V4 查询 Profile V4 内固定 256 个 Halton 节点、每节点最多 8 条安全边的关节空间 roadmap。搜索结果必须 shortcut 到至多一个内部构型，因此每个 Move 最多两条 PTP primitive；超出预算返回 `motion-primitive-budget-exhausted`。
+- V4 按实际末端曲线和 `toolRadius=0.12` 生成扫掠接触事件与剪发结果。旧直线路径的接触集合不再是硬约束；执行前必须展示预计曲线和预计剪发集合。
+- 认证采样只在 Worker 内进行：普通区域最大关节变化/末端位移分别为 `1°`/`voxelSize/8`，接近头部时收紧为 `0.25°`/`voxelSize/16`，并以保守连杆运动上界证明区间净空。无法证明时 fail closed。
+- `CutterTrajectoryPlanV4` 只序列化入口、分组 actions、每 action 的 1–2 条 analytic primitive、边界 `q/v/a`、认证接触事件、真实结果、诊断与签名；密集认证样本不得传给主线程或作为硬件指令。
+- Step 每次完成一个可见 Move 或 Wait。Run、Test、Step 以单调绝对计划时间回放同一 V4 计划；隐藏页和暂停冻结计划时间，恢复时不追赶墙钟。
+- 当前 Cutter Grid 仍只在 Practice 与 Lessons 本地评分。ArmDock 必须拒绝 V4：现有固件不能本地执行同步五次轨迹且没有完整五关节映射。未来硬件协议为 `CutterArmMotionProgramV1`，一次批量包含每 Move 1–2 条 `sync-ptp` 和 Wait，禁止浏览器或 Electron 高频姿态流。
+
+### 15.3.4 Rust 迁移边界
+
+- V4 当前仅是前端纯领域规划与可视化实现，不修改 `hcr-backend`。稳定后如获单独授权，可在 `hcr-backend/crates/hcr_sim` 实现同一 V4 领域规划器；后端 API、Session、Match 与实体机械臂桥接在跨语言向量一致和实机控制器就绪前保持现状。
+- 前端与未来 Rust 实现必须共享版本化 JSON fixture：输入 Challenge、V4 Profile、Program、动态限制；成功向量输出紧凑 primitive、接触事件、真实结果、诊断和签名，失败向量输出结构化错误。密集认证样本可不写入 fixture，但两端必须重建并匹配签名和摘要字段。
+- UI 只消费可序列化 V4 计划并作绝对时间显示；它不得以浏览器特有状态修补或改变规划结果。
 
 ### 15.4 版本化边界
 
@@ -706,6 +722,7 @@ npm run test:e2e
 - `CutterTrajectoryPlanV1` 保存单格同步 waypoints、每关节同步速度、逻辑坐标、预计剪发集合、预计时间和稳定轨迹签名；角度量化到 `0.1°`，时间使用整数毫秒，速度以六位小数稳定序列化，集合稳定排序。执行器以冻结的角度和速度作 Hermite 回放，不在运行时重新规划。
 - 内部 IK waypoint 不计玩家命令数；预计时间按冻结同步轨迹加 Wait 计算。Cutter Grid 完成后只使用本地评分器。
 - 过渡期内 V1 Profile、V1 轨迹和 V1 签名不得被 V2 Worker 接受；V2 运行资产必须使用独立 `CutterGridProfileV2`、`CutterTrajectoryPlanV2`、入口 ID 和覆盖入场的稳定签名。Servo Program IR、后端 wire schema、Session/Match、Versus 和 ArmDock 不变。
+- V4 运行资产必须使用独立 `CutterGridProfileV4`、`CutterTrajectoryPlanV4`、紧凑 primitive、实际接触事件和 V4 签名。V1–V3 Cutter Grid 计划和签名对 V4 fail closed；Servo Program IR、后端 wire schema、Session/Match 和 Versus 不变，ArmDock 对 V4 保持禁用。
 
 ### 15.5 启用门禁
 
