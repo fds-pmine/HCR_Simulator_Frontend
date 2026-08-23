@@ -1,6 +1,6 @@
 # HCR Simulator Demo 验收清单
 
-> Servo Phase 1–6、五关节/头部防穿模增量、自动化集成及 Cutter Grid 首版 Phase 0–5 已实施。全局多分支 IK 修复以下列独立门禁继续推进；功能项只在具有直接验证证据时勾选。
+> Servo Phase 1–6、五关节/头部防穿模增量、自动化集成、Cutter Grid 首版 Phase 0–5 与紧凑同步 PTP V4 Phase 1–6 均已实施并验收。全局多分支 IK 与限 jerk 条目仅保留为 V4 取代前的历史证据；功能项只在具有直接验证证据时勾选。
 
 ## 文档基线
 

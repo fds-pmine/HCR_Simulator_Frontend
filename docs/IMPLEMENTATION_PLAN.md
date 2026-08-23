@@ -1,6 +1,6 @@
 # HCR Simulator Demo 实施计划
 
-> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门，以及 Cutter Grid 首版 Phase 0–5 已完成；全局多分支 IK 修复按下列独立阶段实施。
+> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门、Cutter Grid 首版 Phase 0–5，以及紧凑同步 PTP V4 Phase 1–6 已完成；全局多分支 IK 与限 jerk 阶段保留为 V4 取代前的历史记录。
 
 ## 1. 实施原则
 
