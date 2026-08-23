@@ -584,6 +584,12 @@ export interface CutterGridPlanningDiagnosticsV4 {
   minimumJointLimitMargin: number;
   maximumNormalizedJointStep: number;
   maximumEndEffectorChordDeviation: number;
+  requestedSpeedScale: number;
+  actualSpeedScale: number;
+  maximumVelocityRatio: number;
+  maximumAccelerationRatio: number;
+  maximumJerkRatio: number;
+  adaptiveValidationSampleCount: number;
 }
 
 export interface CutterTrajectoryPlanV4 {

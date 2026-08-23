@@ -6,6 +6,7 @@ import {
   CutterGridCompactPtpV4PlanningError,
   evaluateCutterGridSyncPtpV4,
 } from './compactPtpV4';
+import { finalizeCutterGridCompactPtpPlanV4 } from './compactPtpMotionV4';
 import { cutterGridBoundsContain, cutterGridCoordToWorld } from './grid';
 import {
   enumerateCutterGridIkCandidates,
@@ -497,7 +498,10 @@ function buildFrozenPlan(
     motionLimitsSignature: profile.motionLimitsSignature,
     diagnostics,
   };
-  return { ...unsigned, trajectorySignature: fnv1a64(JSON.stringify(unsigned)) };
+  return finalizeCutterGridCompactPtpPlanV4(challenge, {
+    ...unsigned,
+    trajectorySignature: fnv1a64(JSON.stringify(unsigned)),
+  });
 }
 
 function diagnosticsForPath(
@@ -515,6 +519,12 @@ function diagnosticsForPath(
     minimumJointLimitMargin: Math.min(...selected.connections.map((connection) => connection.minimumJointLimitMargin)),
     maximumNormalizedJointStep: Math.max(...selected.connections.map((connection) => connection.maximumNormalizedJointStep)),
     maximumEndEffectorChordDeviation: Math.max(...selected.connections.map((connection) => connection.chordDeviation)),
+    requestedSpeedScale: 1.5,
+    actualSpeedScale: 0,
+    maximumVelocityRatio: Number.POSITIVE_INFINITY,
+    maximumAccelerationRatio: Number.POSITIVE_INFINITY,
+    maximumJerkRatio: Number.POSITIVE_INFINITY,
+    adaptiveValidationSampleCount: 0,
   };
 }
 

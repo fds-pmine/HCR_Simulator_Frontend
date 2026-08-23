@@ -2,7 +2,7 @@
 
 ## 状态与范围
 
-- 状态：Phase 1–3 已完成；Phase 4 待开始。
+- 状态：Phase 1–4 已完成；Phase 5 待开始。
 - 规划器版本：`cutter-grid-compact-ptp-v4`。
 - 本计划取代 V3 中“每个逻辑格严格 Cartesian 直线、每格零速停车、密集姿态轨迹可作为输出”的运动契约。V3 文档、测试和 fixture 保留为历史基线。
 - Servo、后端 wire schema、Session、Match、Versus、Electron 下发和固件均不在 V4 前端实施范围内。
@@ -93,8 +93,11 @@ interface CutterArmMotionProgramV1 {
 
 ### Phase 4：时间律、实际扫掠与认证
 
-- [ ] 实现 `1.5×` 动态限制、C2 避障连接、自适应碰撞证明和实际接触事件。
-- [ ] 生成 V4 fixture 和新的 100 Completion 参考程序门禁。
+- [x] 实施前已重读 V4 契约、v0.3、实施计划、验收清单、现有 PTP 几何、体素扫掠、评分和 V3 动态/接触认证；确认 V4 的 Worker 内认证样本只能产生压缩诊断与接触事件，不能进入计划、主线程或硬件指令。
+- [x] 将紧凑 primitive 重定时到 Profile 的 `1.5×` 请求与 `v/a/j` 硬限，必要时确定性延长时长；两段避障 Move 在同向时以共享的非零 `q/v/a` 边界保持 C2，反向时显式零速转向。
+- [x] 以递归自适应采样和保守连杆位移上界认证每一段的限位与头部净空；普通/近头部阈值分别为 `1°`、`voxelSize/8` 与 `0.25°`、`voxelSize/16`，不能证明则 fail closed。
+- [x] 从已认证的实际曲线生成按 action 相对时间排序的 `CutterGridContactEventV4`，以 `0.12` 刀头更新预计剪发和剩余 Hair；Wait 与系统入场必须零剪发。
+- [x] 固化 V4 fixture 和默认 Challenge 参考程序 100 Completion、精确 12 格、零附带剪除的门禁；fixture 只包含紧凑 primitive、接触事件、诊断和签名。
 - 出口：冻结 V4 计划具有真实接触和动态安全证据，不序列化密集样本。
 
 ### Phase 5：执行、UI 与硬件边界

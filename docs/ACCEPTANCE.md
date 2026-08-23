@@ -75,10 +75,10 @@
 - [x] `CutterGridExecutableActionV2` 将 Move N 合并为一个可见 action，并保留 Repeat occurrence、Wait 和 500 逻辑成本；Step 一次完成该 Move。
 - [x] V4 仅为认证入口和可见 Move 终点构建全局 IK 图；首轮/扩展候选预算分别为 `12/48` seed 和 `12/24` 保留候选，边按 `4/8/全部` 顺序确定性验证。
 - [x] 直接边生成一条同步五次 PTP；碰撞时最多一个避障构型、两条 primitive，超过预算以 `motion-primitive-budget-exhausted` fail closed。
-- [ ] V4 默认请求 `1.5x`，每 primitive 至少 160ms；所有 `q/v/a/j`、限位、净空和自适应区间证明通过。
-- [ ] 剪发按实际曲线和半径 `0.12` 预认证；Run/Test/Step、不同 tick 和长帧得到相同接触事件与结果，不再要求旧直线接触集合。
+- [x] V4 默认请求 `1.5x`，每 primitive 至少 160ms；所有 `q/v/a/j`、限位、净空和自适应区间证明通过。
+- [x] 剪发按实际曲线和半径 `0.12` 预认证；规划器已验证实际曲线接触与入场零接触；Run/Test/Step、不同 tick 和长帧的一致性留待 V4 执行器阶段。
 - [ ] `Right 2` 冷 Worker P95 ≤3s，`Up 6 → Left 2 → Forward 3` P95 ≤10s、玩家动画 ≤5s；回归程序 3 个可见 Move 且不超过 6 条玩家 primitive。
-- [ ] 计划只序列化紧凑 primitive 与接触事件，密集认证样本不进入主线程或硬件协议。
+- [x] 计划只序列化紧凑 primitive 与接触事件，密集认证样本不进入主线程或硬件协议。
 - [ ] `CutterArmMotionProgramV1` 可序列化与校验；当前 ArmDock 明确拒绝 V4，后端、Electron 下发和固件没有越权启用。
 
 ## 自动化质量门
