@@ -701,7 +701,7 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 
 - V4 版本为 `cutter-grid-compact-ptp-v4`。它在 Worker 中只为认证入口和每个可见 Move 终点建立全局多分支 IK 图；Wait 不创建 IK 层。候选首轮使用固定入口/前态/中位/12 个 Halton seed、最多 12 个候选，首个断开层扩展为累计 48 个 seed、最多 24 个候选。
 - 相邻端点层固定按最近 4 条、最近 8 条、全部候选边的顺序验证。完整程序共同选择入口和构型链，不能按 Move 贪心锁定错误 Wrist 分支。
-- 每条直接边使用同步五次 PTP：`q(u)=q0+(q1-q0)(10u³-15u⁴+6u⁵)`。五关节共享时间参数，默认动态请求为额定 `1.5x`，并受 Profile 速度、加速度、jerk 硬上限及每 primitive `160ms` 最短时长限制。
+- 每条直接边使用同步五次 PTP：`q(u)=q0+(q1-q0)(10u³-15u⁴+6u⁵)`。五关节共享时间参数，默认动态请求为额定 `1.0x`，并受 Profile 速度、加速度、jerk 硬上限及每 primitive `160ms` 最短时长限制。
 - 直接边碰撞时，V4 查询 Profile V4 内固定 256 个 Halton 节点、每节点最多 8 条安全边的关节空间 roadmap。搜索结果必须 shortcut 到至多一个内部构型，因此每个 Move 最多两条 PTP primitive；超出预算返回 `motion-primitive-budget-exhausted`。
 - V4 按实际末端曲线和 `toolRadius=0.12` 生成扫掠接触事件与剪发结果。旧直线路径的接触集合不再是硬约束；执行前必须展示预计曲线和预计剪发集合。
 - 认证采样只在 Worker 内进行：普通区域最大关节变化/末端位移分别为 `1°`/`voxelSize/8`，接近头部时收紧为 `0.25°`/`voxelSize/16`，并以保守连杆运动上界证明区间净空。无法证明时 fail closed。

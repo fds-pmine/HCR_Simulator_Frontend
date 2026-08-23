@@ -16,6 +16,7 @@ import {
 import { cutterGridProfileV4MatchesChallenge } from './profileV4';
 import { fnv1a64 } from './signature';
 import {
+  CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE,
   CUTTER_GRID_COMPACT_PTP_PLANNER_VERSION,
   type CompiledCutterGridProgramV2,
   type CutterGridCoord,
@@ -532,7 +533,7 @@ function diagnosticsForPath(
     minimumJointLimitMargin: Math.min(...selected.connections.map((connection) => connection.minimumJointLimitMargin)),
     maximumNormalizedJointStep: Math.max(...selected.connections.map((connection) => connection.maximumNormalizedJointStep)),
     maximumEndEffectorChordDeviation: Math.max(...selected.connections.map((connection) => connection.chordDeviation)),
-    requestedSpeedScale: 1.5,
+    requestedSpeedScale: CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE,
     actualSpeedScale: 0,
     maximumVelocityRatio: Number.POSITIVE_INFINITY,
     maximumAccelerationRatio: Number.POSITIVE_INFINITY,

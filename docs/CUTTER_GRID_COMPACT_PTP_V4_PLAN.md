@@ -3,6 +3,7 @@
 ## 状态与范围
 
 - 状态：Phase 1–6 已完成；V4 前端分支已具备审查条件。
+- 维护变更（已完成）：默认动态请求由额定 `1.5×` 调整为额定 `1.0×`，优先保证运动平滑与未来实体机械臂的保守动态边界；重新认证后参考程序时长为 `1,443ms`、轨迹签名为 `88e26d5a60d3591d`，五次冷启动 Worker 的 `Right 2`/全局回归 P95 分别为 `1,716.5ms`/`2,344.3ms`。该变更不改变每 Move 至多两条紧凑 PTP 指令、实际扫掠、碰撞认证或 ArmDock 禁用边界。
 - 规划器版本：`cutter-grid-compact-ptp-v4`。
 - 本计划取代 V3 中“每个逻辑格严格 Cartesian 直线、每格零速停车、密集姿态轨迹可作为输出”的运动契约。V3 文档、测试和 fixture 保留为历史基线。
 - Servo、后端 wire schema、Session、Match、Versus、Electron 下发和固件均不在 V4 前端实施范围内。
@@ -15,7 +16,7 @@
 - Step 执行一个展开后的 Move 或 Wait；Move N 不在内部格点停车。Run、Test 和 Step 使用同一冻结 V4 计划。
 - 刀头半径保持 `0.12`，按最终实际曲线的真实扫掠删除 Hair Voxel；Worker 在执行前生成确定性接触事件和预计结果集合。
 - 运动默认采用 1 条同步五关节 PTP primitive；直接 PTP 与现有头部碰撞时最多允许 1 个避障构型，即每个 Move 最多 2 条 primitive。超出预算必须失败。
-- 默认动态请求是额定 `1.5×`。所有速度、加速度和 jerk 仍受 Profile 硬上限约束；每个 primitive 最短 `160ms`。
+- 默认动态请求是额定 `1.0×`。所有速度、加速度和 jerk 仍受 Profile 硬上限约束；每个 primitive 最短 `160ms`。
 - 认证密集采样只属于 Worker 内部安全证据，不得成为主线程、Electron 或未来硬件的姿态指令流。
 
 ## 版本化接口
@@ -94,7 +95,7 @@ interface CutterArmMotionProgramV1 {
 ### Phase 4：时间律、实际扫掠与认证
 
 - [x] 实施前已重读 V4 契约、v0.3、实施计划、验收清单、现有 PTP 几何、体素扫掠、评分和 V3 动态/接触认证；确认 V4 的 Worker 内认证样本只能产生压缩诊断与接触事件，不能进入计划、主线程或硬件指令。
-- [x] 将紧凑 primitive 重定时到 Profile 的 `1.5×` 请求与 `v/a/j` 硬限，必要时确定性延长时长；两段避障 Move 在同向时以共享的非零 `q/v/a` 边界保持 C2，反向时显式零速转向。
+- [x] 将紧凑 primitive 重定时到 Profile 的 `1.0×` 请求与 `v/a/j` 硬限，必要时确定性延长时长；两段避障 Move 在同向时以共享的非零 `q/v/a` 边界保持 C2，反向时显式零速转向。
 - [x] 以递归自适应采样和保守连杆位移上界认证每一段的限位与头部净空；普通/近头部阈值分别为 `1°`、`voxelSize/8` 与 `0.25°`、`voxelSize/16`，不能证明则 fail closed。
 - [x] 从已认证的实际曲线生成按 action 相对时间排序的 `CutterGridContactEventV4`，以 `0.12` 刀头更新预计剪发和剩余 Hair；Wait 与系统入场必须零剪发。
 - [x] 固化 V4 fixture 和默认 Challenge 参考程序 100 Completion、精确 12 格、零附带剪除的门禁；fixture 只包含紧凑 primitive、接触事件、诊断和签名。

@@ -1,9 +1,9 @@
 {
   "plannerVersion": "cutter-grid-compact-ptp-v4",
-  "trajectorySignature": "ea43de8589fe4f82",
+  "trajectorySignature": "88e26d5a60d3591d",
   "entryOptionId": "entry-06",
   "executedCommandCount": 22,
-  "estimatedDurationMs": 1034,
+  "estimatedDurationMs": 1443,
   "movePrimitiveCounts": [1, 1, 1, 1, 1],
   "cutVoxels": [
     "-2,1,4",
@@ -20,8 +20,8 @@
     "-3,4,1"
   ],
   "resultVoxelCount": 229,
-  "maximumVelocityRatio": 0.9894704747035044,
-  "maximumAccelerationRatio": 0.03631170391082933,
-  "maximumJerkRatio": 0.009331170117138958,
+  "maximumVelocityRatio": 0.9890282710298163,
+  "maximumAccelerationRatio": 0.057128458609785285,
+  "maximumJerkRatio": 0.022086918051393716,
   "adaptiveValidationSampleCount": 784
 }

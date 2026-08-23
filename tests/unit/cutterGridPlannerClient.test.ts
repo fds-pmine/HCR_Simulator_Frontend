@@ -16,7 +16,11 @@ import {
   CutterGridCompactPtpV4PlanningError,
 } from '../../src/features/cutter-grid/compactPtpV4';
 import { CutterGridPlanningError } from '../../src/features/cutter-grid/trajectory';
-import type { CutterGridProfileV3, CutterGridProfileV4 } from '../../src/features/cutter-grid/types';
+import {
+  CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE,
+  type CutterGridProfileV3,
+  type CutterGridProfileV4,
+} from '../../src/features/cutter-grid/types';
 import type { CutterGridWorkerRequest, CutterGridWorkerResponse } from '../../src/features/cutter-grid/workerProtocol';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge } from '../../src/types/domain';
@@ -352,7 +356,7 @@ function phaseTwoV4Profile(
       positioningSignature: entry.positioningSignature,
       minimumHeadClearance: entry.minimumHeadClearance,
     })),
-    motionLimits: { ...profile.motionLimits, requestedSpeedScale: 1.5 },
+    motionLimits: { ...profile.motionLimits, requestedSpeedScale: CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE },
     roadmap: { nodes: [], edges: [], signature: 'phase-2-only' },
   };
 }

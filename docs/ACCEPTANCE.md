@@ -75,9 +75,9 @@
 - [x] `CutterGridExecutableActionV2` 将 Move N 合并为一个可见 action，并保留 Repeat occurrence、Wait 和 500 逻辑成本；Step 一次完成该 Move。
 - [x] V4 仅为认证入口和可见 Move 终点构建全局 IK 图；首轮/扩展候选预算分别为 `12/48` seed 和 `12/24` 保留候选，边按 `4/8/全部` 顺序确定性验证。
 - [x] 直接边生成一条同步五次 PTP；碰撞时最多一个避障构型、两条 primitive，超过预算以 `motion-primitive-budget-exhausted` fail closed。
-- [x] V4 默认请求 `1.5x`，每 primitive 至少 160ms；所有 `q/v/a/j`、限位、净空和自适应区间证明通过。
+- [x] V4 默认请求 `1.0x`，每 primitive 至少 160ms；已重新确认所有 `q/v/a/j`、限位、净空和自适应区间证明。
 - [x] 剪发按实际曲线和半径 `0.12` 预认证；Run/Test/Step 回放同一冻结计划，已覆盖小 tick、长 tick、单动作 Step、入场零接触，以及 Chrome/Edge 双视口的实际曲线与 Inspector。
-- [x] 独占单 Worker 五次冷启动的 `Right 2` P95 为 `1,671.8ms`（≤3s），`Up 6 → Left 2 → Forward 3` P95 为 `2,886.2ms`（≤10s）；两条回归的玩家动画均由测试限制为 ≤5s，参考程序为 `1,034ms`，且回归程序保持 3 个可见 Move、至多 6 条玩家 primitive。
+- [x] 独占单 Worker 五次冷启动的 `Right 2` P95 为 `1,716.5ms`（≤3s），`Up 6 → Left 2 → Forward 3` P95 为 `2,344.3ms`（≤10s）；两条回归的玩家动画均由测试限制为 ≤5s，参考程序为 `1,443ms`，且回归程序保持 3 个可见 Move、至多 6 条玩家 primitive。
 - [x] 计划只序列化紧凑 primitive 与接触事件，密集认证样本不进入主线程或硬件协议。
 - [x] `CutterArmMotionProgramV1` 可序列化与校验；当前 ArmDock 明确拒绝 V4，后端、Electron 下发和固件没有越权启用。
 

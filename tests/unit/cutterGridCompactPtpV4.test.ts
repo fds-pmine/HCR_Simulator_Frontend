@@ -19,7 +19,10 @@ import {
   cutterGridProfileV4MatchesChallenge,
   upgradeCutterGridProfileV2ToV4,
 } from '../../src/features/cutter-grid/profileV4';
-import type { CutterGridProfileV4 } from '../../src/features/cutter-grid/types';
+import {
+  CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE,
+  type CutterGridProfileV4,
+} from '../../src/features/cutter-grid/types';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge } from '../../src/types/domain';
 
@@ -94,8 +97,9 @@ describe('Cutter Grid compact PTP V4 geometry', () => {
     expect(moves.every((action) => action.primitives.length >= 1 && action.primitives.length <= 2)).toBe(true);
     expect(moves.reduce((sum, action) => sum + action.primitives.length, 0)).toBeLessThanOrEqual(6);
     expect(moves.at(-1)?.primitives.at(-1)?.end.jointAngles.wrist).toBeLessThan(100);
-    expect(first.diagnostics.requestedSpeedScale).toBe(1.5);
-    expect(first.diagnostics.actualSpeedScale).toBeLessThanOrEqual(1.5);
+    expect(CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE).toBe(1);
+    expect(first.diagnostics.requestedSpeedScale).toBe(CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE);
+    expect(first.diagnostics.actualSpeedScale).toBeLessThanOrEqual(CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE);
     expect(first.diagnostics.maximumVelocityRatio).toBeLessThanOrEqual(1);
     expect(first.diagnostics.maximumAccelerationRatio).toBeLessThanOrEqual(1);
     expect(first.diagnostics.maximumJerkRatio).toBeLessThanOrEqual(1);
