@@ -512,9 +512,18 @@ export interface CutterGridMotionLimitsV4 {
   joints: Record<JointId, CutterGridJointMotionLimitsV3>;
 }
 
-export interface CutterGridProfileV4 extends Omit<CutterGridProfileV2, 'version' | 'plannerVersion'> {
+export interface CutterGridEntryOptionV4 {
+  id: string;
+  jointAngles: Record<JointId, number>;
+  positioningPrimitive: CutterGridSyncPtpPrimitiveV4;
+  positioningSignature: string;
+  minimumHeadClearance: number;
+}
+
+export interface CutterGridProfileV4 extends Omit<CutterGridProfileV2, 'version' | 'plannerVersion' | 'entryOptions'> {
   version: typeof CUTTER_GRID_PROFILE_V4_VERSION;
   plannerVersion: typeof CUTTER_GRID_COMPACT_PTP_PLANNER_VERSION;
+  entryOptions: CutterGridEntryOptionV4[];
   motionLimits: CutterGridMotionLimitsV4;
   motionLimitsSignature: string;
   roadmap: CutterGridRoadmapV4;
@@ -541,8 +550,12 @@ export interface CutterGridContactEventV4 {
   voxelKeys: VoxelKey[];
 }
 
+export type CutterGridMovePrimitivesV4 =
+  | readonly [CutterGridSyncPtpPrimitiveV4]
+  | readonly [CutterGridSyncPtpPrimitiveV4, CutterGridSyncPtpPrimitiveV4];
+
 export interface CutterGridTrajectoryMoveActionV4 extends CutterGridExecutableMoveActionV2 {
-  primitives: CutterGridSyncPtpPrimitiveV4[];
+  primitives: CutterGridMovePrimitivesV4;
   contactEvents: CutterGridContactEventV4[];
   expectedCutVoxels: VoxelKey[];
 }
@@ -570,7 +583,7 @@ export interface CutterGridPlanningDiagnosticsV4 {
   minimumHeadClearance: number;
   minimumJointLimitMargin: number;
   maximumNormalizedJointStep: number;
-  maximumEndEffectorDeviationFromEndpoint: number;
+  maximumEndEffectorChordDeviation: number;
 }
 
 export interface CutterTrajectoryPlanV4 {
@@ -593,7 +606,9 @@ export interface CutterTrajectoryPlanV4 {
 
 export type CutterGridPlanningErrorCodeV4 =
   | 'planner-not-ready'
+  | 'planning-cancelled'
   | 'profile-v4-mismatch'
+  | 'out-of-bounds'
   | 'endpoint-ik-not-converged'
   | 'endpoint-ik-search-exhausted'
   | 'endpoint-ptp-disconnected'

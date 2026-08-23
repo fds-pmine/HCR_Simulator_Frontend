@@ -10,7 +10,6 @@ import {
 import {
   enumerateCutterGridIkCandidates,
   type CutterGridIkCandidate,
-  type CutterGridSeedBudget,
 } from './ik';
 import { cutterGridBoundsContain, cutterGridCoordToWorld, moveCutterGridCoord } from './grid';
 import { fnv1a64 } from './signature';
@@ -30,6 +29,7 @@ import {
 
 const SUBDIVISIONS_PER_CELL = 4;
 const NUMBER_TOLERANCE = 1e-12;
+type CutterGridLadderSeedBudget = 24 | 96 | 384;
 
 export class CutterGridLadderPlanningError extends Error {
   constructor(
@@ -42,7 +42,7 @@ export class CutterGridLadderPlanningError extends Error {
       startCoord?: CutterGridCoord;
       targetCoord?: CutterGridCoord;
       stage?: 'candidate' | 'entry' | 'edge' | 'serialization';
-      seedBudget?: CutterGridSeedBudget;
+      seedBudget?: CutterGridLadderSeedBudget;
     } = {},
   ) {
     super(message);
@@ -56,7 +56,7 @@ export interface CutterGridLadderPlannerOptions {
     phase: CutterGridPlanningPhaseV2;
     completedLayers: number;
     totalLayers: number;
-    seedBudget: CutterGridSeedBudget;
+    seedBudget: CutterGridLadderSeedBudget;
     disconnectedLayer?: number;
   }) => void;
 }
@@ -226,7 +226,7 @@ function generateLayerCandidates(
   challenge: Challenge,
   profile: CutterGridProfileV2,
   layers: readonly CartesianLayer[],
-  seedBudget: CutterGridSeedBudget,
+  seedBudget: CutterGridLadderSeedBudget,
   options: CutterGridLadderPlannerOptions,
 ): CutterGridIkCandidate[][] {
   const result: CutterGridIkCandidate[][] = [];
@@ -442,7 +442,7 @@ function buildFrozenPlan(
   layers: readonly CartesianLayer[],
   allCandidates: readonly CutterGridIkCandidate[][],
   selected: LadderPath,
-  seedBudget: CutterGridSeedBudget,
+  seedBudget: CutterGridLadderSeedBudget,
   expandedRange: readonly [number, number] | undefined,
 ): CutterTrajectoryPlanV2 {
   const selectedEntry = profile.entryOptions[selected.entryIndex];
@@ -593,7 +593,7 @@ function diagnosticsForPath(
   challenge: Challenge,
   selected: LadderPath,
   candidates: readonly CutterGridIkCandidate[][],
-  seedBudget: CutterGridSeedBudget,
+  seedBudget: CutterGridLadderSeedBudget,
   expandedRange: readonly [number, number] | undefined,
 ): CutterGridPlanningDiagnosticsV2 {
   const score = scorePath(challenge, selected.entryIndex, selected.candidates, selected.edgeMetrics);
@@ -726,7 +726,7 @@ function throwIfCancelled(options: CutterGridLadderPlannerOptions): void {
   }
 }
 
-function layerDetails(layer: CartesianLayer, stage: 'candidate' | 'entry' | 'edge' | 'serialization', seedBudget: CutterGridSeedBudget) {
+function layerDetails(layer: CartesianLayer, stage: 'candidate' | 'entry' | 'edge' | 'serialization', seedBudget: CutterGridLadderSeedBudget) {
   return {
     sourceBlockId: layer.sourceBlockId,
     actionIndex: layer.actionIndex,

@@ -73,8 +73,8 @@
 - [x] 受 Git 管理的 V4 计划、v0.3、实施计划和本清单已同步，且明确取代 V3 严格直线、逐格停车与密集输出条款。
 - [x] 历史 V3 基线已由自动测试固定：全局 IK 回归有 11 个原子 Move、44 个 Cartesian 层、4,286 个认证样本、6,976ms 玩家计划时长、`1.25x` 动态请求、几何签名 `188fb68c5336a3b4` 和轨迹签名 `73549fa7dad52468`。
 - [x] `CutterGridExecutableActionV2` 将 Move N 合并为一个可见 action，并保留 Repeat occurrence、Wait 和 500 逻辑成本；Step 一次完成该 Move。
-- [ ] V4 仅为认证入口和可见 Move 终点构建全局 IK 图；首轮/扩展候选预算分别为 `12/48` seed 和 `12/24` 保留候选，边按 `4/8/全部` 顺序确定性验证。
-- [ ] 直接边生成一条同步五次 PTP；碰撞时最多一个避障构型、两条 primitive，超过预算以 `motion-primitive-budget-exhausted` fail closed。
+- [x] V4 仅为认证入口和可见 Move 终点构建全局 IK 图；首轮/扩展候选预算分别为 `12/48` seed 和 `12/24` 保留候选，边按 `4/8/全部` 顺序确定性验证。
+- [x] 直接边生成一条同步五次 PTP；碰撞时最多一个避障构型、两条 primitive，超过预算以 `motion-primitive-budget-exhausted` fail closed。
 - [ ] V4 默认请求 `1.5x`，每 primitive 至少 160ms；所有 `q/v/a/j`、限位、净空和自适应区间证明通过。
 - [ ] 剪发按实际曲线和半径 `0.12` 预认证；Run/Test/Step、不同 tick 和长帧得到相同接触事件与结果，不再要求旧直线接触集合。
 - [ ] `Right 2` 冷 Worker P95 ≤3s，`Up 6 → Left 2 → Forward 3` P95 ≤10s、玩家动画 ≤5s；回归程序 3 个可见 Move 且不超过 6 条玩家 primitive。

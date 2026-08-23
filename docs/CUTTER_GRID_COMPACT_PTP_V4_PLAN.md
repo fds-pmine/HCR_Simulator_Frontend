@@ -2,7 +2,7 @@
 
 ## 状态与范围
 
-- 状态：Phase 1–2 已完成；Phase 3 待开始。
+- 状态：Phase 1–3 已完成；Phase 4 待开始。
 - 规划器版本：`cutter-grid-compact-ptp-v4`。
 - 本计划取代 V3 中“每个逻辑格严格 Cartesian 直线、每格零速停车、密集姿态轨迹可作为输出”的运动契约。V3 文档、测试和 fixture 保留为历史基线。
 - Servo、后端 wire schema、Session、Match、Versus、Electron 下发和固件均不在 V4 前端实施范围内。
@@ -84,8 +84,11 @@ interface CutterArmMotionProgramV1 {
 
 ### Phase 3：端点 IK、稀疏图与 PTP 路径
 
-- [ ] 实现端点候选、全局图、同步五次 PTP、Profile V4 roadmap 和单避障构型压缩。
-- [ ] 证明每个 Move 最多两条 primitive，且回归程序规避错误 Wrist 分支。
+- [x] 实施前已重读 V4 契约、v0.3、实施计划、验收清单，以及 V2 全局 IK、候选去重/多样性、认证入场、头部碰撞、运动学和回归测试；确认 V4 未复用 V2 的逐格 Cartesian 层或 Hermite 直线路径验证。
+- [x] 只为可见 Move 终点建立 `12` seed/`12` 候选的稀疏 IK 层；首个断开层按确定性 `48` seed/`24` 候选重新搜索，相邻层按最近 `4`、`8`、全部候选的固定顺序连接。
+- [x] 实现与回放共享的同步五次 PTP 求值及内部碰撞/限位认证；直接边失败时从固定 256 节点、8 邻接的安全 roadmap 中只接受一个能形成两条 PTP 的避障构型。
+- [x] 从 V2 认证入口派生 V4 直接 PTP 入场和 roadmap 签名，且 V4 Profile 不再携带 V2 的密集入场轨迹作为输出。
+- [x] 以纯领域测试固定直接/单避障 primitive 上限、端点全局分支选择、候选/边扩展确定性、碰撞拒绝和 `Up 6 → Left 2 → Forward 3` 的低 Wrist 回归。
 - 出口：纯规划器生成紧凑、确定性、无碰撞的 V4 几何计划。
 
 ### Phase 4：时间律、实际扫掠与认证

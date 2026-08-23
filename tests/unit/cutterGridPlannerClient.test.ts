@@ -11,9 +11,12 @@ import {
   registeredCutterGridProfileV3,
 } from '../../src/features/cutter-grid/profileRegistry';
 import { CutterGridMotionV3Error } from '../../src/features/cutter-grid/motionV3';
-import { CutterGridCompactPtpV4PlanningError } from '../../src/features/cutter-grid/compactPtpV4';
+import {
+  createCutterGridSyncPtpPrimitiveV4,
+  CutterGridCompactPtpV4PlanningError,
+} from '../../src/features/cutter-grid/compactPtpV4';
 import { CutterGridPlanningError } from '../../src/features/cutter-grid/trajectory';
-import type { CutterGridProfileV4 } from '../../src/features/cutter-grid/types';
+import type { CutterGridProfileV3, CutterGridProfileV4 } from '../../src/features/cutter-grid/types';
 import type { CutterGridWorkerRequest, CutterGridWorkerResponse } from '../../src/features/cutter-grid/workerProtocol';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge } from '../../src/types/domain';
@@ -221,16 +224,7 @@ describe('Cutter Grid Profile registry and Worker client', () => {
     const client = new CutterGridPlannerClient(() => worker);
     const v3Profile = registeredCutterGridProfileV3(challenge);
     if (!v3Profile) throw new Error('Expected bundled V3 Profile.');
-    const profile: CutterGridProfileV4 = {
-      ...v3Profile,
-      version: 4,
-      plannerVersion: 'cutter-grid-compact-ptp-v4',
-      motionLimits: {
-        ...v3Profile.motionLimits,
-        requestedSpeedScale: 1.5,
-      },
-      roadmap: { nodes: [], edges: [], signature: 'phase-2-only' },
-    };
+    const profile = phaseTwoV4Profile(challenge, v3Profile);
     const progress = vi.fn();
     const pending = client.planV4(
       challenge,
@@ -297,13 +291,7 @@ describe('Cutter Grid Profile registry and Worker client', () => {
     const client = new CutterGridPlannerClient(() => worker);
     const v3Profile = registeredCutterGridProfileV3(challenge);
     if (!v3Profile) throw new Error('Expected bundled V3 Profile.');
-    const profile: CutterGridProfileV4 = {
-      ...v3Profile,
-      version: 4,
-      plannerVersion: 'cutter-grid-compact-ptp-v4',
-      motionLimits: { ...v3Profile.motionLimits, requestedSpeedScale: 1.5 },
-      roadmap: { nodes: [], edges: [], signature: 'phase-2-only' },
-    };
+    const profile = phaseTwoV4Profile(challenge, v3Profile);
     const pending = client.planV4(
       challenge,
       {
@@ -341,3 +329,30 @@ describe('Cutter Grid Profile registry and Worker client', () => {
     expect(worker.terminate).toHaveBeenCalledOnce();
   });
 });
+
+function phaseTwoV4Profile(
+  challenge: Challenge,
+  profile: CutterGridProfileV3,
+): CutterGridProfileV4 {
+  return {
+    ...profile,
+    version: 4,
+    plannerVersion: 'cutter-grid-compact-ptp-v4',
+    entryOptions: profile.entryOptions.map((entry) => ({
+      id: entry.id,
+      jointAngles: entry.jointAngles,
+      positioningPrimitive: createCutterGridSyncPtpPrimitiveV4(
+        challenge,
+        challenge.robotConfig.joints.reduce((angles, joint) => ({
+          ...angles,
+          [joint.id]: joint.initialAngleDeg,
+        }), {} as Record<string, number>),
+        entry.jointAngles,
+      ),
+      positioningSignature: entry.positioningSignature,
+      minimumHeadClearance: entry.minimumHeadClearance,
+    })),
+    motionLimits: { ...profile.motionLimits, requestedSpeedScale: 1.5 },
+    roadmap: { nodes: [], edges: [], signature: 'phase-2-only' },
+  };
+}

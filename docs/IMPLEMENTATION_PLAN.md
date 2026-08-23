@@ -302,8 +302,8 @@ tests/
 
 ### Cutter Grid Compact PTP V4 Phase 3 — 稀疏图与两指令规划
 
-- [ ] 实现端点 IK 候选、4/8/全部边扩展、同步五次直接 PTP、256 节点 roadmap 和单避障构型压缩。
-- [ ] 验证全程序入口选择、错误 Wrist 分支规避和每 Move 最多两条 primitive。
+- [x] 实现端点 IK 候选、4/8/全部边扩展、同步五次直接 PTP、256 节点 roadmap 和单避障构型压缩。
+- [x] 验证全程序入口选择、错误 Wrist 分支规避和每 Move 最多两条 primitive。
 
 阶段出口：生成确定性、紧凑、无碰撞的 V4 几何计划。
 
