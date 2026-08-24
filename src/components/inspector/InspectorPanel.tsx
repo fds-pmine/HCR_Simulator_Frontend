@@ -11,6 +11,7 @@ import type {
   CutterTrajectoryPlanV3,
   CutterTrajectoryPlanV4,
 } from '../../features/cutter-grid/types';
+import type { CutterGridPlannerSource } from '../../features/cutter-grid/plannerProvider';
 
 interface InspectorPanelProps {
   challenge: Challenge;
@@ -20,6 +21,7 @@ interface InspectorPanelProps {
   cutterGrid?: {
     profile: CutterGridProfileV1 | CutterGridProfileV2 | CutterGridProfileV3 | CutterGridProfileV4;
     plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4;
+    plannerSource?: CutterGridPlannerSource;
     visible: boolean;
     onToggle: () => void;
   };
@@ -99,6 +101,9 @@ export function InspectorPanel({
               <div><dt>Search</dt><dd>{`${snapshot.cutterGrid.diagnostics.seedBudgetUsed} seeds · ${snapshot.cutterGrid.diagnostics.candidateCounts.join('/')} candidates`}</dd></div>
             ) : null}
             <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
+            {cutterGrid.plannerSource ? (
+              <div><dt>Planner</dt><dd>{cutterGrid.plannerSource === 'rust-backend' ? 'Rust backend' : 'TypeScript fallback'}</dd></div>
+            ) : null}
             {cutterGrid.plan?.version === 4 ? (
               <>
                 <div><dt>Motion</dt><dd>{`${cutterGrid.plan.actions.filter((action) => action.type === 'move').reduce((sum, action) => sum + action.primitives.length, 0)} synchronized PTP`}</dd></div>

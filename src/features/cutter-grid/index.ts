@@ -16,6 +16,7 @@ export * from './profileV2';
 export * from './profileV3';
 export * from './profileRegistry';
 export * from './plannerClient';
+export * from './plannerProvider';
 export * from './referenceProgram';
 export * from './ruckigLocalWasm';
 export * from './ruckigLocalWorker';

@@ -29,7 +29,11 @@ import {
   compileCutterGridExecutableProgramV2,
   CutterGridCompilationError,
 } from '../../features/cutter-grid/programCompiler';
-import { CutterGridPlannerClient } from '../../features/cutter-grid/plannerClient';
+import {
+  CutterGridPlannerProvider,
+  CutterGridRemotePlanningError,
+  type CutterGridPlannerSource,
+} from '../../features/cutter-grid/plannerProvider';
 import { registeredCutterGridProfileV4 } from '../../features/cutter-grid/profileRegistry';
 import { CutterGridCompactPtpV4PlanningError } from '../../features/cutter-grid/compactPtpV4';
 import { CutterGridPlanningError } from '../../features/cutter-grid/trajectory';
@@ -116,12 +120,13 @@ export function SimulationWorkbench({
   initialProgrammingMode = 'servo',
 }: SimulationWorkbenchProps) {
   const editorRef = useRef<BlocklyEditorHandle>(null);
-  const plannerRef = useRef(new CutterGridPlannerClient());
+  const plannerRef = useRef(new CutterGridPlannerProvider());
   const cutterPlanRef = useRef<
     | {
         workspaceVersion: number;
         compiled: CompiledCutterGridProgramV2;
         plan: CutterTrajectoryPlanV4;
+        source: CutterGridPlannerSource;
       }
     | undefined
   >(undefined);
@@ -130,6 +135,8 @@ export function SimulationWorkbench({
   const [compileError, setCompileError] = useState<string>();
   const [testing, setTesting] = useState(false);
   const [cutterPlan, setCutterPlan] = useState<CutterTrajectoryPlanV4>();
+  const [cutterPlanChallengeSignature, setCutterPlanChallengeSignature] = useState<string>();
+  const [cutterPlannerSource, setCutterPlannerSource] = useState<CutterGridPlannerSource>();
   const [planningProgress, setPlanningProgress] = useState<
     Omit<CutterGridPlanningProgressV4, 'type' | 'requestId'>
   >();
@@ -154,6 +161,9 @@ export function SimulationWorkbench({
     programmingMode === 'cutter-grid'
       ? registeredCutterGridProfileV4(challenge)
       : undefined;
+  const displayedCutterPlan = cutterPlanChallengeSignature === cutterProfile?.challengeSignature
+    ? cutterPlan
+    : undefined;
   const editorLocked =
     snapshot.status === 'running' ||
     snapshot.status === 'paused' ||
@@ -173,6 +183,8 @@ export function SimulationWorkbench({
       workspaceVersionRef.current += 1;
       cutterPlanRef.current = undefined;
       setCutterPlan(undefined);
+      setCutterPlanChallengeSignature(undefined);
+      setCutterPlannerSource(undefined);
       setPlanningProgress(undefined);
       plannerRef.current.cancel();
       if (engine.getSnapshot().status === 'planning') engine.cancelPlanning();
@@ -276,11 +288,13 @@ export function SimulationWorkbench({
     engine.beginPlanning();
     setPlanningProgress(undefined);
     try {
-      const plan = await plannerRef.current.planV4(challenge, compiled, profile, setPlanningProgress);
+      const result = await plannerRef.current.planV4(challenge, compiled, profile, setPlanningProgress);
       if (workspaceVersion !== workspaceVersionRef.current) return undefined;
-      const frozen = { workspaceVersion, compiled, plan };
+      const frozen = { workspaceVersion, compiled, plan: result.plan, source: result.source };
       cutterPlanRef.current = frozen;
-      setCutterPlan(plan);
+      setCutterPlan(result.plan);
+      setCutterPlanChallengeSignature(profile.challengeSignature);
+      setCutterPlannerSource(result.source);
       engine.cancelPlanning();
       setPlanningProgress(undefined);
       return frozen;
@@ -303,6 +317,9 @@ export function SimulationWorkbench({
         editorRef.current?.locateError({
           blockId: error.details.sourceBlockId,
         });
+      }
+      if (error instanceof CutterGridRemotePlanningError) {
+        editorRef.current?.locateError({ blockId: error.sourceBlockId });
       }
       return undefined;
     }
@@ -411,6 +428,8 @@ export function SimulationWorkbench({
     engine.reset();
     cutterPlanRef.current = undefined;
     setCutterPlan(undefined);
+    setCutterPlanChallengeSignature(undefined);
+    setCutterPlannerSource(undefined);
     plannerRef.current.cancel();
     setPlanningProgress(undefined);
     setProgrammingMode(nextMode);
@@ -488,8 +507,8 @@ export function SimulationWorkbench({
             ? {
                 cutterGrid: {
                   profile: cutterProfile,
-                  ...(cutterPlan
-                    ? { plan: cutterPlan }
+                  ...(displayedCutterPlan
+                    ? { plan: displayedCutterPlan }
                     : {}),
                   visible: showCutterGrid,
                 },
@@ -580,8 +599,11 @@ export function SimulationWorkbench({
               ? {
                   cutterGrid: {
                     profile: cutterProfile,
-                    ...(cutterPlan
-                      ? { plan: cutterPlan }
+                    ...(displayedCutterPlan
+                      ? { plan: displayedCutterPlan }
+                      : {}),
+                    ...(cutterPlannerSource
+                      ? { plannerSource: cutterPlannerSource }
                       : {}),
                     visible: showCutterGrid,
                     onToggle: toggleCutterGrid,
