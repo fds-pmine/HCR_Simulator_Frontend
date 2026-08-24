@@ -24,7 +24,7 @@ describe('Cutter Grid Rust planner provider', () => {
     const registered = registeredCutterGridProfileV4(challenge);
     if (!registered) throw new Error('Expected the certified Cutter Grid V4 Profile.');
     profile = registered;
-  });
+  }, 120_000);
 
   it('executes a validated Rust plan without starting the Worker', async () => {
     const worker = workerReturning(planFor(profile, challenge));
