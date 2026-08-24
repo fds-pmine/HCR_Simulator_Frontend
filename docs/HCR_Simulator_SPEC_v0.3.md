@@ -57,7 +57,7 @@ HCR Simulator 是一个纯前端可运行的 Web 3D 编程 Demo：用户通过 B
 
 ### 3.2 明确不做
 
-- 后端、账户、数据库、工作区持久化、导入导出。
+- 账户、数据库、工作区持久化、导入导出，以及除 Cutter Grid V4 Practice 规划接口外的后端功能。
 - HTTP API 的真实调用或网络作为运行前提。
 - ESP、真实舵机、MQTT、PWM、WebSerial、WebBluetooth。
 - 通用任意 Cartesian Move、运行时 IK 或 Servo 模式中的多个舵机并发运动。Cutter Grid 只允许本文第 15 节定义的固定轴单格移动、编译期 IK 和冻结同步轨迹。
@@ -711,9 +711,12 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 
 ### 15.3.4 Rust 迁移边界
 
-- V4 当前仅是前端纯领域规划与可视化实现，不修改 `hcr-backend`。稳定后如获单独授权，可在 `hcr-backend/crates/hcr_sim` 实现同一 V4 领域规划器；后端 API、Session、Match 与实体机械臂桥接在跨语言向量一致和实机控制器就绪前保持现状。
-- 前端与未来 Rust 实现必须共享版本化 JSON fixture：输入 Challenge、V4 Profile、Program、动态限制；成功向量输出紧凑 primitive、接触事件、真实结果、诊断和签名，失败向量输出结构化错误。密集认证样本可不写入 fixture，但两端必须重建并匹配签名和摘要字段。
-- UI 只消费可序列化 V4 计划并作绝对时间显示；它不得以浏览器特有状态修补或改变规划结果。
+- Rust V4 规划迁移使用独立的 `POST /api/v1/cutter-grid/plans` 契约。请求只含 `challengeId`、`challengeVersion` 和 `CutterGridProgramV4`；服务端按 Challenge 签名选择自己持有的认证 `CutterGridProfileV4`，客户端不得上传 Profile、roadmap、IK 候选或轨迹。响应为 `CutterGridPlanResponseV1`，必须标明 `hcr-sim-rust`、构建标识、Profile 签名与计划耗时；耗时和实现来源不参与轨迹签名。
+- `hcr_sim` 只在 `std + planner` feature 下包含纯领域 V4 规划器，固件/no_std 不包含它。现有 V2“客户端上传轨迹、后端审计”协议保持只读兼容，不扩展；Servo Program IR 和既有 V2 DTO 不变。
+- 在线 Practice 默认优先调用 Rust，显式离线模式直接调用 TypeScript Worker。仅网络错误、30 秒客户端等待超时、HTTP 429 或 5xx 可以回退 Worker；400/404/422、版本或签名不匹配、以及畸形成功响应必须 fail closed。Provider 返回 `rust-backend` 或 `typescript-fallback` 供 Inspector 显示，但不得进入计划签名。
+- Run、Test、Step 必须重放同一冻结 V4 计划；编辑工作区、切换模式或 Challenge 时取消旧请求。远程规划显示同一 `planning` 状态，不增加 SSE、轮询或以墙钟改变搜索结果。
+- 前端与 Rust 必须共享版本化 JSON fixture：输入 Challenge、V4 Profile、Program、动态限制；成功向量输出紧凑 primitive、接触事件、真实结果、诊断和各自稳定签名，失败向量输出结构化错误。密集认证样本可不写入 fixture，但两端必须重建并匹配规定的语义和摘要容差。
+- 首期 Cutter Grid 仍只本地评分：不得发送评分、Session、Match 或 Program IR，Versus 与 ArmDock 继续拒绝 V4。UI 只消费可序列化计划并作绝对时间显示；不得以浏览器特有状态修补或改变规划结果。
 
 ### 15.4 版本化边界
 

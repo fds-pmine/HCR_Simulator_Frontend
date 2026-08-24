@@ -81,6 +81,27 @@
 - [x] 计划只序列化紧凑 primitive 与接触事件，密集认证样本不进入主线程或硬件协议。
 - [x] `CutterArmMotionProgramV1` 可序列化与校验；当前 ArmDock 明确拒绝 V4，后端、Electron 下发和固件没有越权启用。
 
+## Cutter Grid V4 Rust 后端规划迁移
+
+### Phase 1 — 契约、基线与失败测试
+
+- [x] 前端与后端从重新 fetch 的基线分别创建 `feat/cutter-grid-rust-planner-client` 和 `feat/cutter-grid-v4-rust-planner`；未写入或推送 `main`。
+- [x] 独立 V4 `POST /api/v1/cutter-grid/plans` 请求/响应、同步 PTP、Profile、Plan、诊断及 `TRAJECTORY_PLANNING_FAILED` 契约已写入前后端 schema 和规范；V2 verification-only 契约保持兼容。
+- [x] 失败错误保留 `plannerCode`、阶段、来源积木、可见 action、展开 action 与逻辑坐标，并映射 HTTP 422。
+- [ ] 固化 Rust/TS 跨语言 fixture：参考程序、六方向、Right 2、Repeat/Wait、直接/单避障 PTP、500 上限和全部 V4 失败阶段。
+- [ ] 外部工作区依赖可用后，运行后端 `cargo fmt --all -- --check`、clippy、workspace test、planner feature 测试和服务构建；不得用本地伪造的 `arona` 替代缺失依赖。
+
+阶段出口：P1 只交付契约和失败测试，不启用 HTTP 路由、前端网络调用、后端评分、Session、Match、Versus 或 ArmDock。
+
+### 后续验收门禁
+
+- [ ] Rust 规划成功响应通过版本、Challenge/Profile 签名、Program/action 对应关系及本实现轨迹签名校验后才由前端执行。
+- [ ] TypeScript 回退只发生在网络、30 秒超时、429 或 5xx；4xx、签名错误与畸形响应不得回退。
+- [ ] Rust/TS 对 action、occurrence、来源积木、逻辑坐标、入口 ID、每 Move primitive 数、接触 voxel、剩余 Hair、评分和失败定位一致；数值满足迁移计划容差。
+- [ ] 参考程序保持 `entry-06`、22 个逻辑命令、5 个 Move primitive、1,443ms、精确 12 格、零附带剪除、100 Completion；`Up 6 → Left 2 → Forward 3` 走低 Wrist 安全分支至 `(-2,6,-3)`。
+- [ ] 性能：Rust 及端到端 `Right 2` P95 ≤3s、全局回归 P95 ≤10s、玩家动画 ≤5s；Practice 保持 1× 默认速度。
+- [ ] 回归确认 Servo、V2 只读兼容、Session、Match、Versus、Electron、固件和 ArmDock 行为不变，且无构建产物进入提交。
+
 ## 自动化质量门
 
 - [x] `npm run typecheck`
