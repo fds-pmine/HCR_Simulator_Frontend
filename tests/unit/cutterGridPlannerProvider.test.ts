@@ -46,6 +46,24 @@ describe('Cutter Grid Rust planner provider', () => {
     });
   });
 
+  it('sends the pinned challenge version instead of a provider constant', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(responseFor(profile, challenge)));
+    const provider = new CutterGridPlannerProvider({
+      config: { baseUrl: 'http://planner.test' },
+      challengeVersion: 7,
+      fetchImpl,
+      worker: workerReturning(planFor(profile, challenge)),
+    });
+
+    await provider.planV4(challenge, compiledFor(profile), profile);
+
+    expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body))).toMatchObject({
+      challengeVersion: 7,
+    });
+  });
+
   it.each([429, 500])('falls back to the Worker for retryable HTTP %s', async (status) => {
     const fallbackPlan = planFor(profile, challenge);
     const worker = workerReturning(fallbackPlan);
@@ -130,6 +148,48 @@ describe('Cutter Grid Rust planner provider', () => {
 
     await expect(provider.planV4(challenge, compiledFor(profile), profile)).rejects.toThrow('trajectory signature');
     expect(worker.planV4).not.toHaveBeenCalled();
+  });
+
+  it('rejects a signed plan whose boundary omits a required joint', async () => {
+    const malformed = responseFor(profile, challenge);
+    const primitive = malformed.plan.positioning.primitives[0];
+    delete (primitive.start.jointAngles as Partial<Record<string, number>>).baseYaw;
+    malformed.plan.positioning.trajectorySignature =
+      cutterGridRustPrimitiveSignatureV4(primitive);
+    malformed.plan.trajectorySignature = cutterGridRustPlanSignatureV4(
+      malformed.plan,
+    );
+    const worker = workerReturning(planFor(profile, challenge));
+    const provider = new CutterGridPlannerProvider({
+      config: { baseUrl: 'http://planner.test' },
+      fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(malformed)),
+      worker,
+    });
+
+    await expect(
+      provider.planV4(challenge, compiledFor(profile), profile),
+    ).rejects.toThrow('contains invalid values');
+    expect(worker.planV4).not.toHaveBeenCalled();
+  });
+
+  it('rejects a re-signed zero-duration primitive', async () => {
+    const malformed = responseFor(profile, challenge);
+    const primitive = malformed.plan.positioning.primitives[0];
+    primitive.durationMs = 0;
+    malformed.plan.positioning.trajectorySignature =
+      cutterGridRustPrimitiveSignatureV4(primitive);
+    malformed.plan.trajectorySignature = cutterGridRustPlanSignatureV4(
+      malformed.plan,
+    );
+    const provider = new CutterGridPlannerProvider({
+      config: { baseUrl: 'http://planner.test' },
+      fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(malformed)),
+      worker: workerReturning(planFor(profile, challenge)),
+    });
+
+    await expect(
+      provider.planV4(challenge, compiledFor(profile), profile),
+    ).rejects.toThrow('contains invalid values');
   });
 
   it('fails closed when a Rust response changes the compiled action map', async () => {

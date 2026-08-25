@@ -331,41 +331,43 @@ tests/
 
 ## Cutter Grid V4 Rust 后端规划迁移
 
-本迁移以 `docs/CUTTER_GRID_RUST_BACKEND_PLANNER_MIGRATION_PLAN.md`（顶层非 Git 文档）为准。每个阶段均须遵循：阅读相关计划与代码、更新本节及验收项、修改、测试、在各自仓库独立 commit；不得写入或推送 `main`。
+本迁移及 CAT/机械校准后续以 `docs/BACKEND_CUTTER_GRID_V4_MIGRATION_PLAN.md` 为准。每个阶段均须遵循：阅读相关计划与代码、更新本节及验收项、修改、测试、在各自仓库独立 commit；不得写入或推送 `main`。
+
+2026-08-25 合并后审计：后端 `54a8582` 已包含下列 Phase 2–5 的实现，前端 `a45a832` 已包含 Provider。原清单落后于代码；本轮已补上 CAT 的 mode-pinned Session、显式 Practice 路由、Challenge version 透传和畸形成功响应校验。Rust 全仓质量门仍需在后端仓库单独执行后才能把 Phase 7 标为完成。
 
 ### Phase 1 — 契约、基线与失败测试（进行中）
 
 - [x] 前端从包含 V4 的 `origin/feat/cutter-grid-control` 创建 `feat/cutter-grid-rust-planner-client`；后端从最新 `origin/main` 创建 `feat/cutter-grid-v4-rust-planner`。实施前已重新 `fetch`，基线分别为前端 `5e614cf`、后端 `501a995`。
 - [x] 定义独立 `CutterGridPlanRequestV1` / `CutterGridPlanResponseV1`、V4 Profile/Plan/同步 PTP/诊断 DTO 与 `TRAJECTORY_PLANNING_FAILED` 错误映射；V2 客户端上传轨迹审计仅保留历史兼容。
-- [ ] 固化跨语言 JSON fixture 与预期失败向量；当前阶段不增加运行时路由或前端网络调用。
-- [ ] Rust 质量门待外部工作区依赖恢复后执行：当前 `cargo test --workspace` 在加载既有路径依赖 `C:\Code\Site\FDS\arona\Cargo.toml` 时失败，禁止通过修改 Cargo 配置或伪造依赖绕过。
+- [x] 固化跨语言 JSON fixture 与预期失败向量；运行时路由已在后续阶段启用。
+- [ ] Rust 质量门待外部工作区依赖恢复后执行：2026-08-25 对最新后端运行 `cargo test -p hcr_qbank -p hcr_service` 时，加载同级路径依赖 `/private/tmp/arona/Cargo.toml` 失败；禁止通过修改 Cargo 配置或伪造依赖绕过。
 
 阶段出口：契约、错误定位与版本边界有测试覆盖，前后端文档同步；不改变 Practice 的 Worker 入口。
 
 ### Phase 2 — 程序编译、几何与 IK
 
-- [ ] 在 `hcr_sim` 的 `std + planner` 纯领域模块移植分组 action 编译、坐标转换、运动学、头部净空、Halton seed、多解 DLS 与确定性候选排序。
-- [ ] 固定六方向、Repeat、500 上限以及低 Wrist 回归；使用跨语言 fixture 比较 action、坐标、命令数、候选分支与结构化失败。
+- [x] 在 `hcr_sim` 的 `std + planner` 纯领域模块移植分组 action 编译、坐标转换、运动学、头部净空、Halton seed、多解 DLS 与确定性候选排序。
+- [x] 固定六方向、Repeat、500 上限以及低 Wrist 回归；使用跨语言 fixture 比较 action、坐标、命令数、候选分支与结构化失败。
 
 ### Phase 3 — Profile 与紧凑 PTP 图搜索
 
-- [ ] 在服务端注册认证 V4 Profile，移植入口选择、端点图、直接 PTP 和单避障 roadmap；每个可见 Move 严格限制为 1–2 条 primitive。
-- [ ] 对 Profile、roadmap、无 Profile 和断开边建立独立测试，且客户端不得上传任何 Profile 资产。
+- [x] 在服务端注册认证 V4 Profile，移植入口选择、端点图、直接 PTP 和单避障 roadmap；每个可见 Move 严格限制为 1–2 条 primitive。
+- [x] 对 Profile、roadmap、无 Profile 和断开边建立独立测试，且客户端不得上传任何 Profile 资产。
 
 ### Phase 4 — 动态认证、扫掠与序列化
 
-- [ ] 移植 `1.0x` 同步五次时间律、`q/v/a/j` 限制、自适应碰撞认证、实际 `0.12` 刀头扫掠、接触事件和 Rust 本地轨迹签名。
-- [ ] 建立 TS/Rust 成功/失败向量的语义与数值容差门禁；不要求跨实现签名字节相同。
+- [x] 移植 `1.0x` 同步五次时间律、`q/v/a/j` 限制、自适应碰撞认证、实际 `0.12` 刀头扫掠、接触事件和 Rust 本地轨迹签名。
+- [x] 建立 TS/Rust 成功/失败向量的语义与数值容差门禁；不要求跨实现签名字节相同。
 
 ### Phase 5 — 服务端规划接口
 
-- [ ] 实现 Profile 注册表、`POST /api/v1/cutter-grid/plans`、64KiB 请求上限、受限 `spawn_blocking` 并发池（默认 2）以及 HTTP 422/429 错误映射。
-- [ ] 该接口只为 Practice 生成计划；不评分、不提交、不创建 Session/Match 状态，也不接触 ArmDock。
+- [x] 实现 Profile 注册表、`POST /api/v1/cutter-grid/plans`、64KiB 请求上限、受限 `spawn_blocking` 并发池（默认 2）以及 HTTP 422/429 错误映射。
+- [x] 该接口只为 Practice 生成计划；不评分、不提交、不创建 Session/Match 状态，也不接触 ArmDock。
 
 ### Phase 6 — 前端主备 Provider
 
-- [ ] 新增 `CutterGridPlannerProvider`，使 Workbench 不直接依赖 Worker；在线默认 Rust、离线显式 Worker。
-- [ ] 仅网络、30 秒超时、429 或 5xx 回退 TypeScript。确定性 4xx、签名错误和畸形成功响应 fail closed；Inspector 显示来源。
+- [x] 新增 `CutterGridPlannerProvider`，使 Workbench 不直接依赖 Worker；默认本地，只有在线 Practice 显式 Rust，离线仍为 Worker。
+- [x] 仅网络、30 秒超时、429 或 5xx 回退 TypeScript。确定性 4xx、签名错误和畸形成功响应 fail closed；Inspector 显示来源。
 
 ### Phase 7 — 全量验收与发布准备
 

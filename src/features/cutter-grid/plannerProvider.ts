@@ -192,7 +192,7 @@ export class CutterGridPlannerProvider {
           { fallbackAllowed: false, status: response.status },
         );
       }
-      return validateRustPlanResponse(body, compiled, profile);
+      return validateRustPlanResponse(body, challenge, compiled, profile);
     } finally {
       clearTimeout(timeout);
       if (this.#activeRemote === active) this.#activeRemote = undefined;
@@ -229,6 +229,7 @@ async function readError(response: Response): Promise<{ message: string; sourceB
 
 function validateRustPlanResponse(
   response: unknown,
+  challenge: Challenge,
   compiled: CompiledCutterGridProgramV2,
   profile: CutterGridProfileV4,
 ): CutterTrajectoryPlanV4 {
@@ -280,7 +281,7 @@ function validateRustPlanResponse(
   if (!sameCoord(plan.startCoord, [0, 0, 0]) || !sameCoord(plan.endCoord, expectedEndCoord(compiled))) {
     throw malformed('The Rust Cutter Grid plan has an unexpected logical endpoint.');
   }
-  assertPlanShape(plan);
+  assertPlanShape(plan, challenge, profile);
   if (plan.positioning.trajectorySignature !== cutterGridRustPrimitiveSignatureV4(plan.positioning.primitives[0])) {
     throw malformed('The Rust Cutter Grid positioning signature is invalid.');
   }
@@ -308,16 +309,211 @@ function expectedEndCoord(compiled: CompiledCutterGridProgramV2): readonly numbe
   return lastMove?.type === 'move' ? lastMove.endCoord : [0, 0, 0];
 }
 
-function assertPlanShape(plan: CutterTrajectoryPlanV4): void {
-  const finite = (value: unknown): boolean => {
-    if (typeof value === 'number') return Number.isFinite(value);
-    if (Array.isArray(value)) return value.every(finite);
-    if (value && typeof value === 'object') return Object.values(value).every(finite);
-    return typeof value === 'string' || typeof value === 'boolean' || value === null;
-  };
-  if (!finite(plan) || !isSignature(plan.trajectorySignature) || !isSignature(plan.positioning.trajectorySignature)) {
-    throw malformed('The Rust Cutter Grid plan contains invalid values.');
+function assertPlanShape(
+  plan: CutterTrajectoryPlanV4,
+  challenge: Challenge,
+  profile: CutterGridProfileV4,
+): void {
+  const joints = challenge.robotConfig.joints;
+  const jointIds = joints.map((joint) => joint.id).sort();
+  const initialAngles = Object.fromEntries(
+    joints.map((joint) => [joint.id, joint.initialAngleDeg]),
+  );
+
+  assertMotionLimits(plan.motionLimits, profile.motionLimits, jointIds);
+  const positioning = plan.positioning.primitives[0];
+  assertPrimitive(positioning, joints, jointIds);
+  assertSameAngles(positioning.start.jointAngles, initialAngles, jointIds);
+
+  let previousAngles = positioning.end.jointAngles;
+  const cutVoxels = new Set<string>();
+  let estimatedDurationMs = 0;
+  for (const action of plan.actions) {
+    if (action.type === 'wait') {
+      if (!positiveFinite(action.durationMs)) throw invalidValues();
+      estimatedDurationMs += action.durationMs;
+      continue;
+    }
+    const actionDurationMs = action.primitives.reduce((sum, primitive) => {
+      assertPrimitive(primitive, joints, jointIds);
+      assertSameAngles(primitive.start.jointAngles, previousAngles, jointIds);
+      previousAngles = primitive.end.jointAngles;
+      return sum + primitive.durationMs;
+    }, 0);
+    const contactVoxels = assertContactEvents(action.contactEvents, actionDurationMs);
+    assertVoxelKeys(action.expectedCutVoxels);
+    if (!sameStrings([...contactVoxels].sort(), [...action.expectedCutVoxels].sort())) {
+      throw invalidValues();
+    }
+    for (const key of action.expectedCutVoxels) {
+      if (!challenge.initialHair.voxels.has(key) || cutVoxels.has(key)) {
+        throw invalidValues();
+      }
+      cutVoxels.add(key);
+    }
+    estimatedDurationMs += actionDurationMs;
   }
+
+  if (!approximately(plan.estimatedDurationMs, estimatedDurationMs)) throw invalidValues();
+  assertVoxelKeys(plan.expectedResultVoxels);
+  const expectedResult = [...challenge.initialHair.voxels]
+    .filter((key) => !cutVoxels.has(key))
+    .sort();
+  if (!sameStrings([...plan.expectedResultVoxels].sort(), expectedResult)) throw invalidValues();
+  assertDiagnostics(plan, plan.actions.filter((action) => action.type === 'move').length);
+  if (!isSignature(plan.trajectorySignature) || !isSignature(plan.positioning.trajectorySignature)) {
+    throw invalidValues();
+  }
+}
+
+function assertPrimitive(
+  primitive: unknown,
+  joints: Challenge['robotConfig']['joints'],
+  jointIds: string[],
+): asserts primitive is CutterTrajectoryPlanV4['positioning']['primitives'][number] {
+  if (!primitive || typeof primitive !== 'object' || Array.isArray(primitive)) {
+    throw invalidValues();
+  }
+  const candidate = primitive as Partial<
+    CutterTrajectoryPlanV4['positioning']['primitives'][number]
+  >;
+  if (
+    candidate.kind !== 'sync-ptp' ||
+    candidate.interpolation !== 'synchronized-quintic' ||
+    !positiveFinite(candidate.durationMs) ||
+    !candidate.start ||
+    !candidate.end
+  ) throw invalidValues();
+  for (const boundary of [candidate.start, candidate.end]) {
+    for (const values of [
+      boundary.jointAngles,
+      boundary.jointVelocitiesDegPerSec,
+      boundary.jointAccelerationsDegPerSec2,
+    ]) assertFiniteJointMap(values, jointIds);
+    for (const joint of joints) {
+      const angle = boundary.jointAngles[joint.id];
+      if (angle < joint.minAngleDeg || angle > joint.maxAngleDeg) throw invalidValues();
+    }
+  }
+}
+
+function assertFiniteJointMap(values: unknown, jointIds: string[]): asserts values is Record<string, number> {
+  const map = record(values, 'joint map');
+  if (
+    !sameStrings(Object.keys(map).sort(), jointIds) ||
+    !Object.values(map).every((value) => typeof value === 'number' && Number.isFinite(value))
+  ) throw invalidValues();
+}
+
+function assertMotionLimits(
+  actual: CutterTrajectoryPlanV4['motionLimits'],
+  expected: CutterGridProfileV4['motionLimits'],
+  jointIds: string[],
+): void {
+  if (
+    actual.requestedSpeedScale !== expected.requestedSpeedScale ||
+    !sameStrings(Object.keys(actual.joints).sort(), jointIds)
+  ) throw invalidValues();
+  for (const id of jointIds) {
+    const left = record(actual.joints[id], 'motion limits');
+    const right = record(expected.joints[id], 'motion limits');
+    if (
+      !sameStrings(Object.keys(left).sort(), Object.keys(right).sort()) ||
+      Object.keys(right).some((key) => left[key] !== right[key]) ||
+      !Object.values(left).every(positiveFinite)
+    ) throw invalidValues();
+  }
+}
+
+function assertContactEvents(
+  events: unknown,
+  durationMs: number,
+): Set<string> {
+  if (!Array.isArray(events)) throw invalidValues();
+  let previousTime = -1;
+  const voxels = new Set<string>();
+  for (const value of events) {
+    const event = record(value, 'contact event');
+    if (
+      typeof event.timeMs !== 'number' ||
+      !Number.isFinite(event.timeMs) ||
+      event.timeMs < previousTime ||
+      event.timeMs < 0 ||
+      event.timeMs > durationMs ||
+      !Array.isArray(event.voxelKeys)
+    ) throw invalidValues();
+    assertVoxelKeys(event.voxelKeys);
+    for (const key of event.voxelKeys) voxels.add(key);
+    previousTime = event.timeMs;
+  }
+  return voxels;
+}
+
+function assertVoxelKeys(values: unknown): asserts values is string[] {
+  if (
+    !Array.isArray(values) ||
+    new Set(values).size !== values.length ||
+    !values.every((value) => typeof value === 'string' && /^-?\d+,-?\d+,-?\d+$/.test(value))
+  ) throw invalidValues();
+}
+
+function assertDiagnostics(plan: CutterTrajectoryPlanV4, moveCount: number): void {
+  const diagnostics = plan.diagnostics;
+  const integerFields = [
+    diagnostics.endpointLayerCount,
+    diagnostics.directPrimitiveCount,
+    diagnostics.detourPrimitiveCount,
+    diagnostics.adaptiveValidationSampleCount,
+    ...diagnostics.candidateCounts,
+  ];
+  const finiteFields = [
+    diagnostics.minimumHeadClearance,
+    diagnostics.minimumJointLimitMargin,
+    diagnostics.maximumNormalizedJointStep,
+    diagnostics.maximumEndEffectorChordDeviation,
+    diagnostics.requestedSpeedScale,
+    diagnostics.actualSpeedScale,
+    diagnostics.maximumVelocityRatio,
+    diagnostics.maximumAccelerationRatio,
+    diagnostics.maximumJerkRatio,
+  ];
+  if (
+    !Array.isArray(diagnostics.candidateCounts) ||
+    diagnostics.endpointLayerCount !== diagnostics.candidateCounts.length ||
+    diagnostics.directPrimitiveCount + diagnostics.detourPrimitiveCount !== moveCount ||
+    integerFields.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+    finiteFields.some((value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0) ||
+    diagnostics.requestedSpeedScale !== plan.motionLimits.requestedSpeedScale ||
+    diagnostics.actualSpeedScale > diagnostics.requestedSpeedScale ||
+    (diagnostics.expandedActionIndex !== undefined &&
+      (!Number.isSafeInteger(diagnostics.expandedActionIndex) ||
+        diagnostics.expandedActionIndex < 0 ||
+        diagnostics.expandedActionIndex >= plan.actions.length))
+  ) throw invalidValues();
+}
+
+function assertSameAngles(
+  actual: Readonly<Record<string, number>>,
+  expected: Readonly<Record<string, number>>,
+  jointIds: string[],
+): void {
+  if (jointIds.some((id) => !approximately(actual[id], expected[id]))) throw invalidValues();
+}
+
+function approximately(left: number, right: number): boolean {
+  return Number.isFinite(left) && Number.isFinite(right) && Math.abs(left - right) <= 1e-9;
+}
+
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function positiveFinite(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function invalidValues(): CutterGridRemotePlanningError {
+  return malformed('The Rust Cutter Grid plan contains invalid values.');
 }
 
 function isSignature(value: unknown): value is string {

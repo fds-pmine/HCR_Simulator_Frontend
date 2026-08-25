@@ -1,4 +1,5 @@
 import type { Challenge, ChallengeDefinition } from '../../types/domain';
+import type { ProgrammingMode } from '../../features/blockly/programmingMode';
 import { normalizeChallenge } from '../normalizeChallenge';
 import { validateChallengeDefinition } from '../validation';
 
@@ -10,8 +11,17 @@ import { validateChallengeDefinition } from '../validation';
  */
 export interface ChallengeMeta {
   version: number;
-  calibration: string;
+  irt?: {
+    discrimination: number;
+    difficulty: number;
+    guessing: number;
+  };
+  calibration: 'provisional' | 'online' | 'calibrated' | 'retired' | string;
+  responseCount?: number;
+  dimensions?: string[];
+  masteryThreshold?: number;
   hardwareCompatible: boolean;
+  programmingModes?: ProgrammingMode[];
 }
 
 export type ChallengeDefinitionDto = ChallengeDefinition & {

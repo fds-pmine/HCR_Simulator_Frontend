@@ -8,10 +8,7 @@ import type { CompiledProgram } from '../blockly/programTypes';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { runHeadless } from '../simulation/headlessRun';
 import { withBlankCanvas } from '../blockly/blankCanvas';
-import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
-import { initialThetaFrom } from './initialTheta';
 import { PracticePanel } from './PracticePanel';
-import { registeredCutterGridProfileV2 } from '../cutter-grid/profileRegistry';
 
 interface PracticeRunProps {
   onExit: () => void;
@@ -23,16 +20,13 @@ interface PracticeRunProps {
  * It used to open the head of the catalog and stop there: no "next", no sense
  * of getting anywhere. Now the *server* decides what comes next.
  *
- * # One fixed challenge first, then adaptation
+ * # The server owns warmup and adaptation
  *
- * Practice opens on the authored challenge for everybody. With no responses θ
- * carries no information, so an "adaptively" chosen first item would come from a
- * prior rather than from the learner — and the authored challenge is the one
- * that ships a starter program, which makes it the gentlest way in.
- *
- * Its score then seeds the session (`initialThetaFrom`), and from the second
- * item onwards the CAT engine chooses: finish something easily and something
- * harder arrives.
+ * The CAT engine already has a warmup selector and an EAP prior. Starting with
+ * a client-scored fixed opener bypassed both, seeded θ from an unpinned local
+ * score, and made the first recorded response invisible to the server. A
+ * session now starts before any item is served and every response follows the
+ * signed itemRef path.
  *
  * Offline there is no estimator, so the sequence is the lessons in written
  * order — the same shape, labelled honestly.
@@ -47,8 +41,6 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState<string>();
   const [attempted, setAttempted] = useState(0);
-  /** The fixed opener is item zero; the session starts once it is scored. */
-  const [introDone, setIntroDone] = useState(false);
 
   // Strict Mode invokes effects twice in development; without this the app
   // would open two sessions and quietly halve the item budget.
@@ -76,22 +68,26 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     [challengeProvider, sessionProvider],
   );
 
-  // Load the fixed opener. No session exists yet — it is that challenge's score
-  // that decides where the session starts from.
+  // Open one mode-pinned session, then let its CAT selector serve item zero.
+  // Cutter Grid remains unavailable here until V4 submissions are accepted by
+  // the backend; planning alone is not an authoritative CAT response.
   useEffect(() => {
     if (started.current) {
       return;
     }
     started.current = true;
-    void challengeProvider
-      .getChallenge(DEFAULT_CHALLENGE_ID)
-      .then((opener) => setChallenge(withBlankCanvas(opener)))
-      .catch((reason: unknown) =>
+    void sessionProvider
+      .start({ programmingMode: 'servo' })
+      .then(async (opened) => {
+        setSession(opened);
+        await advance(opened.sessionId);
+      })
+      .catch((reason: unknown) => {
         setError(
           reason instanceof Error ? reason.message : 'Could not start practice.',
-        ),
-      );
-  }, [challengeProvider]);
+        );
+      });
+  }, [advance, sessionProvider]);
 
   const engine = useMemo(() => {
     if (!challenge) {
@@ -111,20 +107,6 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
       }
       setBusy(true);
       try {
-        // The opener: score it, seed the session with what it implies, and hand
-        // over to the engine from the next item on.
-        if (!introDone) {
-          const score = await runHeadless(engine, compiled);
-          const opened = await sessionProvider.start(
-            score ? initialThetaFrom(score.completionScore) : undefined,
-          );
-          setSession(opened);
-          setAttempted(1);
-          setIntroDone(true);
-          await advance(opened.sessionId);
-          return;
-        }
-
         if (!session || !item) {
           return;
         }
@@ -179,7 +161,6 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
       attempted,
       challenge,
       engine,
-      introDone,
       item,
       session,
       sessionProvider,
@@ -231,18 +212,17 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
       engine={engine}
       modeLabel="PRACTICE"
       onExit={onExit}
-      availableProgrammingModes={
-        registeredCutterGridProfileV2(challenge)
-          ? ['servo', 'cutter-grid']
-          : ['servo']
+      availableProgrammingModes={['servo']}
+      cutterGridPlannerMode={
+        sessionProvider.kind === 'adaptive' ? 'remote' : 'local'
       }
+      challengeVersion={item?.challengeVersion ?? 1}
       match={{
         hud: (
           <PracticePanel
             kind={sessionProvider.kind}
             attempted={attempted}
             theta={session?.theta ?? 0}
-            intro={!introDone}
             {...(item?.expectedRemaining === undefined
               ? {}
               : { remaining: item.expectedRemaining })}

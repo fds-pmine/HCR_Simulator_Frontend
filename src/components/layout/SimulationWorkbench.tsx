@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Blockly from 'blockly/core';
 import {
   Braces,
@@ -107,6 +107,10 @@ export interface SimulationWorkbenchProps {
   /** Modes certified by the caller for this challenge and product surface. */
   availableProgrammingModes?: readonly ProgrammingMode[];
   initialProgrammingMode?: ProgrammingMode;
+  /** Remote planning is opt-in; lessons and offline workbenches stay local. */
+  cutterGridPlannerMode?: 'local' | 'remote';
+  /** Pinned catalog version sent to the remote planner. */
+  challengeVersion?: number;
 }
 
 export function SimulationWorkbench({
@@ -118,9 +122,18 @@ export function SimulationWorkbench({
   tutorial,
   availableProgrammingModes = ['servo'],
   initialProgrammingMode = 'servo',
+  cutterGridPlannerMode = 'local',
+  challengeVersion = 1,
 }: SimulationWorkbenchProps) {
   const editorRef = useRef<BlocklyEditorHandle>(null);
-  const plannerRef = useRef(new CutterGridPlannerProvider());
+  const planner = useMemo(
+    () =>
+      new CutterGridPlannerProvider({
+        offline: cutterGridPlannerMode === 'local',
+        challengeVersion,
+      }),
+    [challengeVersion, cutterGridPlannerMode],
+  );
   const cutterPlanRef = useRef<
     | {
         workspaceVersion: number;
@@ -170,11 +183,11 @@ export function SimulationWorkbench({
     snapshot.status === 'planning' ||
     snapshot.status === 'positioning';
 
-  useEffect(() => () => plannerRef.current.cancel(), []);
+  useEffect(() => () => planner.cancel(), [planner]);
 
   useEffect(() => {
     cutterPlanRef.current = undefined;
-    plannerRef.current.cancel();
+    planner.cancel();
     workspaceVersionRef.current = 0;
     const workspace = editorRef.current?.getWorkspace();
     if (!workspace) return;
@@ -186,12 +199,12 @@ export function SimulationWorkbench({
       setCutterPlanChallengeSignature(undefined);
       setCutterPlannerSource(undefined);
       setPlanningProgress(undefined);
-      plannerRef.current.cancel();
+      planner.cancel();
       if (engine.getSnapshot().status === 'planning') engine.cancelPlanning();
     };
     workspace.addChangeListener(onWorkspaceChange);
     return () => workspace.removeChangeListener(onWorkspaceChange);
-  }, [challenge, engine, programmingMode]);
+  }, [challenge, engine, planner, programmingMode]);
 
   useEffect(() => {
     editorRef.current?.highlightBlock(snapshot.currentBlockId);
@@ -288,7 +301,7 @@ export function SimulationWorkbench({
     engine.beginPlanning();
     setPlanningProgress(undefined);
     try {
-      const result = await plannerRef.current.planV4(challenge, compiled, profile, setPlanningProgress);
+      const result = await planner.planV4(challenge, compiled, profile, setPlanningProgress);
       if (workspaceVersion !== workspaceVersionRef.current) return undefined;
       const frozen = { workspaceVersion, compiled, plan: result.plan, source: result.source };
       cutterPlanRef.current = frozen;
@@ -411,7 +424,7 @@ export function SimulationWorkbench({
   const handleReset = () => {
     setCompileError(undefined);
     editorRef.current?.highlightBlock();
-    plannerRef.current.cancel();
+    planner.cancel();
     setPlanningProgress(undefined);
     engine.reset();
   };
@@ -430,7 +443,7 @@ export function SimulationWorkbench({
     setCutterPlan(undefined);
     setCutterPlanChallengeSignature(undefined);
     setCutterPlannerSource(undefined);
-    plannerRef.current.cancel();
+    planner.cancel();
     setPlanningProgress(undefined);
     setProgrammingMode(nextMode);
   };

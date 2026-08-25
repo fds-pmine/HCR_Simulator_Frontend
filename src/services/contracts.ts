@@ -1,4 +1,5 @@
 import type { Program } from '../features/blockly/programTypes';
+import type { ProgrammingMode } from '../features/blockly/programmingMode';
 import type {
   Challenge,
   ChallengeSummary,
@@ -108,6 +109,13 @@ export interface SessionSubmission {
   program: Program;
 }
 
+export interface SessionStartOptions {
+  /** Ability seed on the scale measured by `programmingMode`. */
+  initialTheta?: number;
+  /** Fixed for the session lifetime; defaults to the servo scale on the wire. */
+  programmingMode?: ProgrammingMode;
+}
+
 /**
  * Adaptive practice: the server picks each challenge from the learner's ability.
  *
@@ -121,15 +129,8 @@ export interface SessionProvider {
   /** Whether items are chosen adaptively, or served from a fixed order. */
   readonly kind: 'adaptive' | 'fixed';
 
-  /**
-   * Open a session, optionally seeded with an ability estimate.
-   *
-   * Passed after the intro challenge has been scored: with no responses θ
-   * carries no information, so the first "adaptive" choice would come from a
-   * prior rather than from the learner. Seeding means the second challenge is
-   * already tailored.
-   */
-  start(initialTheta?: number): Promise<SessionSnapshot>;
+  /** Open a mode-pinned session. The server owns warmup and ability estimation. */
+  start(options?: SessionStartOptions): Promise<SessionSnapshot>;
   /** The next challenge to attempt. */
   next(sessionId: string): Promise<NextItem>;
   /**

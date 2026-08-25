@@ -1,4 +1,8 @@
-import type { SessionProvider, SessionSubmission } from '../contracts';
+import type {
+  SessionProvider,
+  SessionStartOptions,
+  SessionSubmission,
+} from '../contracts';
 import type {
   NextItem,
   ResponseOutcome,
@@ -20,11 +24,8 @@ export class HttpSessionProvider implements SessionProvider {
 
   constructor(private readonly client: ApiClient) {}
 
-  async start(initialTheta?: number): Promise<SessionSnapshot> {
-    return this.client.post<SessionSnapshot>(
-      '/api/v1/sessions',
-      initialTheta === undefined ? {} : { initialTheta },
-    );
+  async start(options: SessionStartOptions = {}): Promise<SessionSnapshot> {
+    return this.client.post<SessionSnapshot>('/api/v1/sessions', options);
   }
 
   async next(sessionId: string): Promise<NextItem> {
