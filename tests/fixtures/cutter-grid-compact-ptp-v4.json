@@ -1,0 +1,27 @@
+{
+  "plannerVersion": "cutter-grid-compact-ptp-v4",
+  "trajectorySignature": "88e26d5a60d3591d",
+  "entryOptionId": "entry-06",
+  "executedCommandCount": 22,
+  "estimatedDurationMs": 1443,
+  "movePrimitiveCounts": [1, 1, 1, 1, 1],
+  "cutVoxels": [
+    "-2,1,4",
+    "-2,4,-1",
+    "-2,4,-2",
+    "-2,4,0",
+    "-2,4,1",
+    "-2,4,2",
+    "-2,5,-1",
+    "-2,5,0",
+    "-2,5,1",
+    "-3,4,-1",
+    "-3,4,0",
+    "-3,4,1"
+  ],
+  "resultVoxelCount": 229,
+  "maximumVelocityRatio": 0.9890282710298163,
+  "maximumAccelerationRatio": 0.057128458609785285,
+  "maximumJerkRatio": 0.022086918051393716,
+  "adaptiveValidationSampleCount": 784
+}

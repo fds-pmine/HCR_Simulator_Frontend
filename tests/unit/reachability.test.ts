@@ -123,6 +123,20 @@ describe('authored targets ask only for hair the arm can reach', () => {
       );
     });
 
+    it('moves when a servo calibration changes', () => {
+      const recalibrated = withJoints((joint) =>
+        joint.servo
+          ? {
+              ...joint,
+              servo: { ...joint.servo, offsetDeg: joint.servo.offsetDeg + 1 },
+            }
+          : joint,
+      );
+      expect(reachabilitySignature(recalibrated)).not.toBe(
+        reachabilitySignature(base),
+      );
+    });
+
     it('moves when the tool or hair changes', () => {
       const thinner: Challenge = {
         ...base,

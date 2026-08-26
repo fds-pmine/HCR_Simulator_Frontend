@@ -1542,6 +1542,40 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+.cutter-grid-motion-diagnostics {
+  margin-top: 12px;
+  border-top: 1px solid rgba(142, 184, 207, 0.16);
+  padding-top: 10px;
+}
+
+.cutter-grid-motion-diagnostics summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+  font-size: var(--font-xs);
+  letter-spacing: 0.04em;
+}
+
+.cutter-grid-motion-joints {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.cutter-grid-motion-joints div {
+  display: grid;
+  grid-template-columns: minmax(74px, 1fr) repeat(4, auto);
+  gap: 6px;
+}
+
+.cutter-grid-motion-joints strong {
+  color: var(--muted-strong);
+  font-family: inherit;
+  font-weight: 600;
+}
+
 .cutter-grid-legend {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1593,6 +1627,57 @@ input:focus-visible {
 .lesson-row--cutter-grid .lesson-row__index {
   color: #071417;
   background: var(--cyan);
+}
+
+.tutorial-track-list {
+  margin-top: 18px;
+}
+
+.cutter-grid-lesson-card {
+  display: grid;
+  gap: 8px;
+}
+
+.cutter-grid-lesson-card h2,
+.cutter-grid-lesson-card p {
+  margin: 0;
+}
+
+.cutter-grid-lesson-card__lesson-name {
+  color: var(--muted) !important;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-micro) !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lesson-section-kind {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid rgba(83, 213, 218, 0.22);
+  border-radius: 5px;
+  color: var(--cyan);
+  background: rgba(83, 213, 218, 0.06);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.lesson-section-back {
+  height: 36px;
+  padding: 0 10px;
+}
+
+.servo-checkpoint-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
 }
 
 .big-button {

@@ -17,9 +17,11 @@ import {
 } from '../../src/features/cutter-grid/blockConstants';
 import {
   CutterGridCompilationError,
+  compileCutterGridExecutableProgramV2,
   compileCutterGridWorkspace,
+  compileCutterGridWorkspaceV4,
 } from '../../src/features/cutter-grid/programCompiler';
-import type { CutterGridDirection } from '../../src/features/cutter-grid/types';
+import type { CutterGridDirection, CutterGridProgramV1 } from '../../src/features/cutter-grid/types';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge } from '../../src/types/domain';
 
@@ -70,6 +72,76 @@ describe('Cutter Grid Blockly compiler', () => {
     });
   });
 
+  it('keeps Move N as one V4 visible action while preserving its logical cost', () => {
+    const first = createMove(workspace, 'up', 6);
+    const second = createMove(workspace, 'left', 2);
+    const third = createMove(workspace, 'forward', 3);
+    connectNext(first, second);
+    connectNext(second, third);
+
+    const compiled = compileCutterGridWorkspaceV4(workspace);
+
+    expect(compiled.program.plannerVersion).toBe('cutter-grid-compact-ptp-v4');
+    expect(compiled.executedCommandCount).toBe(11);
+    expect(compiled.executableActions).toEqual([
+      expect.objectContaining({
+        type: 'move',
+        sourceBlockId: first.id,
+        occurrenceId: `${first.id}#0`,
+        direction: 'up',
+        distance: 6,
+        startCoord: [0, 0, 0],
+        endCoord: [0, 6, 0],
+        logicalCommandCount: 6,
+      }),
+      expect.objectContaining({
+        type: 'move',
+        sourceBlockId: second.id,
+        occurrenceId: `${second.id}#1`,
+        direction: 'left',
+        distance: 2,
+        startCoord: [0, 6, 0],
+        endCoord: [-2, 6, 0],
+        logicalCommandCount: 2,
+      }),
+      expect.objectContaining({
+        type: 'move',
+        sourceBlockId: third.id,
+        occurrenceId: `${third.id}#2`,
+        direction: 'forward',
+        distance: 3,
+        startCoord: [-2, 6, 0],
+        endCoord: [-2, 6, -3],
+        logicalCommandCount: 3,
+      }),
+    ]);
+  });
+
+  it('gives Repeat leaves stable, distinct V4 occurrences without charging Repeat itself', () => {
+    const repeat = createRepeat(workspace, 2);
+    const move = createMove(workspace, 'right', 2);
+    const wait = workspace.newBlock(BLOCK_TYPES.wait);
+    wait.setFieldValue(400, BLOCK_FIELDS.duration);
+    connectStatement(repeat, move);
+    connectNext(move, wait);
+
+    const compiled = compileCutterGridWorkspaceV4(workspace);
+
+    expect(compiled.executedCommandCount).toBe(6);
+    expect(compiled.executableActions.map((action) => action.occurrenceId)).toEqual([
+      `${move.id}#0`,
+      `${wait.id}#1`,
+      `${move.id}#2`,
+      `${wait.id}#3`,
+    ]);
+    expect(compiled.executableActions.map((action) => action.type)).toEqual([
+      'move',
+      'wait',
+      'move',
+      'wait',
+    ]);
+  });
+
   it.each([0, 13, 1.5])('rejects invalid distance %s at its source block', (distance) => {
     const block = createMove(workspace, 'right', 1);
     forceFieldValue(block, CUTTER_GRID_BLOCK_FIELDS.distance, distance);
@@ -116,6 +188,40 @@ describe('Cutter Grid Blockly compiler', () => {
       () => compileCutterGridWorkspace(workspace),
       'COMMAND_LIMIT_EXCEEDED',
       overflow.id,
+    );
+  });
+
+  it('enforces the V4 500 limit by logical cost rather than visible action count', () => {
+    const move = {
+      type: 'move' as const,
+      direction: 'right' as const,
+      distance: 1,
+      sourceBlockId: 'move-one',
+    };
+    const program: CutterGridProgramV1 = {
+      kind: 'cutter-grid',
+      version: 1,
+      plannerVersion: 'cutter-grid-ladder-v2',
+      sourceBlockCount: 3,
+      nodes: [
+        { type: 'repeat', count: 20, sourceBlockId: 'outer', body: [
+          { type: 'repeat', count: 20, sourceBlockId: 'inner', body: [move] },
+        ] },
+        { type: 'repeat', count: 20, sourceBlockId: 'fives', body: [{ ...move, distance: 5, sourceBlockId: 'move-five' }] },
+      ],
+    };
+
+    const exact = compileCutterGridExecutableProgramV2(program);
+    expect(exact.executedCommandCount).toBe(500);
+    expect(exact.executableActions).toHaveLength(420);
+
+    expectCompilationError(
+      () => compileCutterGridExecutableProgramV2({
+        ...program,
+        nodes: [...program.nodes, { type: 'wait', durationMs: 1, sourceBlockId: 'overflow' }],
+      }),
+      'COMMAND_LIMIT_EXCEEDED',
+      'overflow',
     );
   });
 

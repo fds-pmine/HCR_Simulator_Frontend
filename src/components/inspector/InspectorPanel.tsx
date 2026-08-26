@@ -4,9 +4,14 @@ import type { SimulationSnapshot } from '../../features/simulation/SimulationEng
 import type {
   CutterGridProfileV1,
   CutterGridProfileV2,
+  CutterGridProfileV3,
+  CutterGridProfileV4,
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
+  CutterTrajectoryPlanV4,
 } from '../../features/cutter-grid/types';
+import type { CutterGridPlannerSource } from '../../features/cutter-grid/plannerProvider';
 
 interface InspectorPanelProps {
   challenge: Challenge;
@@ -14,8 +19,9 @@ interface InspectorPanelProps {
   showTarget: boolean;
   onToggleTarget: () => void;
   cutterGrid?: {
-    profile: CutterGridProfileV1 | CutterGridProfileV2;
-    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2;
+    profile: CutterGridProfileV1 | CutterGridProfileV2 | CutterGridProfileV3 | CutterGridProfileV4;
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4;
+    plannerSource?: CutterGridPlannerSource;
     visible: boolean;
     onToggle: () => void;
   };
@@ -90,12 +96,57 @@ export function InspectorPanel({
             <div><dt>Next</dt><dd>{snapshot.cutterGrid?.nextCoord ? `(${snapshot.cutterGrid.nextCoord.join(', ')})` : '—'}</dd></div>
             <div><dt>Progress</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : 'Not planned'}</dd></div>
             <div><dt>Path state</dt><dd>{snapshot.cutterGrid?.diagnostics ? 'Connected for this program' : 'Static IK map only'}</dd></div>
-            <div><dt>Branch</dt><dd>{snapshot.cutterGrid?.entryOptionId ?? (cutterGrid.plan?.version === 2 ? cutterGrid.plan.entryOptionId : '—')}</dd></div>
-            {snapshot.cutterGrid?.diagnostics ? (
+            <div><dt>Branch</dt><dd>{snapshot.cutterGrid?.entryOptionId ?? cutterGridEntryOptionId(cutterGrid.plan)}</dd></div>
+            {snapshot.cutterGrid?.diagnostics && 'seedBudgetUsed' in snapshot.cutterGrid.diagnostics ? (
               <div><dt>Search</dt><dd>{`${snapshot.cutterGrid.diagnostics.seedBudgetUsed} seeds · ${snapshot.cutterGrid.diagnostics.candidateCounts.join('/')} candidates`}</dd></div>
             ) : null}
             <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
+            {cutterGrid.plannerSource ? (
+              <div><dt>Planner</dt><dd>{cutterGrid.plannerSource === 'rust-backend' ? 'Rust backend' : 'TypeScript fallback'}</dd></div>
+            ) : null}
+            {cutterGrid.plan?.version === 4 ? (
+              <>
+                <div><dt>Motion</dt><dd>{`${cutterGrid.plan.actions.filter((action) => action.type === 'move').reduce((sum, action) => sum + action.primitives.length, 0)} synchronized PTP`}</dd></div>
+                <div><dt>Expected cuts</dt><dd>{cutterGrid.plan.actions.reduce((sum, action) => sum + action.expectedCutVoxels.length, 0)}</dd></div>
+                <div><dt>Speed</dt><dd>{`${formatNumber(cutterGrid.plan.diagnostics.actualSpeedScale, 2)}x requested ${formatNumber(cutterGrid.plan.diagnostics.requestedSpeedScale, 2)}x`}</dd></div>
+              </>
+            ) : null}
           </dl>
+          {snapshot.cutterGrid?.motionDiagnostics ? (
+            <details className="cutter-grid-motion-diagnostics" data-testid="cutter-grid-motion-diagnostics">
+              <summary>Motion diagnostics (development)</summary>
+              <dl className="cutter-grid-summary">
+                <div><dt>Frames</dt><dd>{snapshot.cutterGrid.motionDiagnostics.frameCount}</dd></div>
+                <div><dt>Long frames</dt><dd>{snapshot.cutterGrid.motionDiagnostics.longFrameCount}</dd></div>
+                <div><dt>Max interval</dt><dd>{formatNumber(snapshot.cutterGrid.motionDiagnostics.maximumFrameIntervalMs, 1)} ms</dd></div>
+                <div><dt>Max joint error</dt><dd>{formatNumber(snapshot.cutterGrid.motionDiagnostics.maximumJointTrackingErrorDeg, 6)}°</dd></div>
+                <div><dt>Max tip error</dt><dd>{formatNumber(snapshot.cutterGrid.motionDiagnostics.maximumEndEffectorTrackingError, 8)} m</dd></div>
+                {snapshot.cutterGrid.motionDiagnostics.lastFrame ? (
+                  <>
+                    <div><dt>Last plan time</dt><dd>{formatNumber(snapshot.cutterGrid.motionDiagnostics.lastFrame.planTimeMs, 1)} ms · {snapshot.cutterGrid.motionDiagnostics.lastFrame.phase}</dd></div>
+                    <div><dt>Last segment</dt><dd>{snapshot.cutterGrid.motionDiagnostics.lastFrame.stepIndex < 0 ? 'system positioning' : `step ${snapshot.cutterGrid.motionDiagnostics.lastFrame.stepIndex + 1}`}</dd></div>
+                  </>
+                ) : null}
+              </dl>
+              {snapshot.cutterGrid.motionDiagnostics.lastFrame ? (
+                <div className="cutter-grid-motion-joints">
+                  {challenge.robotConfig.joints.map((joint) => {
+                    const frame = snapshot.cutterGrid?.motionDiagnostics?.lastFrame;
+                    if (!frame) return null;
+                    return (
+                      <div key={joint.id}>
+                        <strong>{joint.name}</strong>
+                        <span>q {formatNumber(frame.plannedJointAngles[joint.id], 3)}°</span>
+                        <span>v {formatNumber(frame.plannedJointVelocitiesDegPerSec[joint.id], 2)}</span>
+                        <span>a {formatNumber(frame.plannedJointAccelerationsDegPerSec2[joint.id], 2)}</span>
+                        <span>j {formatNumber(frame.plannedJointJerksDegPerSec3[joint.id], 2)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </details>
+          ) : null}
           <div className="cutter-grid-legend" aria-label="Cutter Grid legend">
             <span><i className="is-reachable" />Safe IK known</span>
             <span><i className="is-blocked" />No safe IK found</span>
@@ -246,6 +297,18 @@ function ScoreBar({
       </div>
     </div>
   );
+}
+
+function cutterGridEntryOptionId(
+  plan:
+    | CutterTrajectoryPlanV1
+    | CutterTrajectoryPlanV2
+    | CutterTrajectoryPlanV3
+    | CutterTrajectoryPlanV4
+    | undefined,
+): string {
+  if (!plan || plan.version === 1) return '—';
+  return plan.version === 4 ? plan.positioning.entryOptionId : plan.entryOptionId;
 }
 
 function formatNumber(value: number | undefined, digits: number): string {

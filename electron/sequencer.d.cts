@@ -9,7 +9,7 @@
  */
 
 export interface ArmStep {
-  type: 'move' | 'pose' | 'wait';
+  type: 'home' | 'move' | 'pose' | 'wait';
   axis?: string;
   value?: number;
   /** Set on a `pose`: several axes written in one request. */

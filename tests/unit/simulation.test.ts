@@ -75,6 +75,27 @@ describe('render frame timing', () => {
     expect(totalMs(steps)).toBe(1_000);
     expect(steps).toHaveLength(10);
   });
+
+  it('uses an absolute playback timeline and drops the hidden-tab anchor', () => {
+    const engine = new SimulationEngine(defaultChallenge, new LocalScoreProvider());
+    const compiled: CompiledProgram = {
+      program: {
+        nodes: [{ type: 'wait', durationMs: 100, sourceBlockId: 'wait' }],
+        sourceBlockCount: 1,
+      },
+      runtimeCommands: [{ type: 'wait', durationMs: 100, sourceBlockId: 'wait' }],
+      executedCommandCount: 1,
+    };
+    engine.run(compiled);
+    engine.tickAt(1_000);
+    engine.tickAt(1_050);
+    expect(engine.getSnapshot().status).toBe('running');
+    engine.resetPlaybackClock();
+    engine.tickAt(60_000);
+    expect(engine.getSnapshot().status).toBe('running');
+    engine.tickAt(60_050);
+    expect(engine.getSnapshot().status).toBe('completed');
+  });
 });
 
 /**

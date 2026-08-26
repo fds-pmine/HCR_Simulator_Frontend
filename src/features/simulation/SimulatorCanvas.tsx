@@ -14,15 +14,24 @@ import { SimulationTicker } from './SimulationTicker';
 import { RobotModel } from '../robot/RobotModel';
 import { VoxelHair } from '../voxel/VoxelHair';
 import { supportsWebGL } from './webglSupport';
-import type { CutterGridProfileV1, CutterGridProfileV2, CutterTrajectoryPlanV1, CutterTrajectoryPlanV2 } from '../cutter-grid/types';
+import type {
+  CutterGridProfileV1,
+  CutterGridProfileV2,
+  CutterGridProfileV3,
+  CutterGridProfileV4,
+  CutterTrajectoryPlanV1,
+  CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
+  CutterTrajectoryPlanV4,
+} from '../cutter-grid/types';
 import { CutterGridOverlay } from '../cutter-grid/CutterGridOverlay';
 
 interface SimulatorCanvasProps {
   engine: SimulationEngine;
   showTarget: boolean;
   cutterGrid?: {
-    profile: CutterGridProfileV1 | CutterGridProfileV2;
-    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2;
+    profile: CutterGridProfileV1 | CutterGridProfileV2 | CutterGridProfileV3 | CutterGridProfileV4;
+    plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4;
     visible: boolean;
   };
 }
@@ -197,6 +206,7 @@ function SimulatorScene({
         <CutterGridOverlay
           profile={cutterGrid.profile}
           executedStepCount={snapshot.cutterGrid?.stepIndex ?? 0}
+          challenge={challenge}
           {...(cutterGrid.plan ? { plan: cutterGrid.plan } : {})}
         />
       ) : null}

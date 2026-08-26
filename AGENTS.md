@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-仓库已按用户明确授权完成原 `docs/IMPLEMENTATION_PLAN.md` 的 Phase 1–6、五关节升级与确定性头部防穿模，以及 Cutter Grid 首版 Phase 0–5；当前在 `feat/cutter-grid-control` 按全局多分支 IK 修复的独立 Phase 0–4 分阶段实施。原 Phase 7 与所有 Cutter Grid 阶段均不包含部署。
+仓库已按用户明确授权完成原 `docs/IMPLEMENTATION_PLAN.md` 的 Phase 1–6、五关节升级与确定性头部防穿模、Cutter Grid 首版 Phase 0–5，以及紧凑同步 PTP V4 Phase 1–6。V2 全局多分支 IK 与 V3 限 jerk 计划保留为被 V4 取代的历史记录；后续迁移须获得新的明确授权。原 Phase 7 与所有 Cutter Grid 阶段均不包含部署。
 
 - 每个 Phase 开始前重读实施计划与相关规格；
 - 每个 Phase 只实现该阶段范围，完成验证后独立 commit；

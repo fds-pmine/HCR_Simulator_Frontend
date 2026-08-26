@@ -7,8 +7,6 @@ interface PracticePanelProps {
   /** Ability estimate. Meaningless offline, and hidden there. */
   theta: number;
   remaining?: number;
-  /** The fixed opener, before any session exists. */
-  intro: boolean;
   busy: boolean;
 }
 
@@ -17,7 +15,6 @@ export function PracticePanel({
   attempted,
   theta,
   remaining,
-  intro,
   busy,
 }: PracticePanelProps) {
   const adaptive = kind === 'adaptive';
@@ -43,12 +40,7 @@ export function PracticePanel({
       </div>
 
       <p className="hud__secrecy">
-        {intro ? (
-          <>
-            <Gauge size={12} />
-            Everyone starts here — how you do sets where practice begins
-          </>
-        ) : busy ? (
+        {busy ? (
           <>
             <LoaderCircle className="spin" size={12} />
             Choosing your next challenge…

@@ -9,3 +9,5 @@ test-results/
 .DS_Store
 # electron-builder output
 release/
+tools/ruckig-wasm/out/
+public/vendor/ruckig/

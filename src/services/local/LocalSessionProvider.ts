@@ -1,6 +1,6 @@
 import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import { LESSONS } from '../../data/challenges/lessons';
-import type { SessionProvider } from '../contracts';
+import type { SessionProvider, SessionStartOptions } from '../contracts';
 import type {
   NextItem,
   ResponseOutcome,
@@ -37,10 +37,9 @@ export class LocalSessionProvider implements SessionProvider {
   private readonly progress = new Map<string, number>();
   private counter = 0;
 
-  async start(initialTheta?: number): Promise<SessionSnapshot> {
-    // Accepted and ignored: there is no estimator here to seed. Taking the
-    // parameter keeps the two providers interchangeable.
-    void initialTheta;
+  async start(options: SessionStartOptions = {}): Promise<SessionSnapshot> {
+    // Accepted and ignored: there is no estimator or per-mode bank offline.
+    void options;
     const sessionId = `local-${(this.counter += 1)}`;
     this.progress.set(sessionId, 0);
     return {

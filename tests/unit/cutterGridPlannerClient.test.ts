@@ -8,12 +8,20 @@ import {
   cutterGridAvailableForChallenge,
   registeredCutterGridProfile,
   registeredCutterGridProfileV2,
+  registeredCutterGridProfileV3,
 } from '../../src/features/cutter-grid/profileRegistry';
+import { CutterGridMotionV3Error } from '../../src/features/cutter-grid/motionV3';
+import {
+  createCutterGridSyncPtpPrimitiveV4,
+  CutterGridCompactPtpV4PlanningError,
+} from '../../src/features/cutter-grid/compactPtpV4';
 import { CutterGridPlanningError } from '../../src/features/cutter-grid/trajectory';
-import type {
-  CutterGridWorkerRequest,
-  CutterGridWorkerResponse,
-} from '../../src/features/cutter-grid/workerProtocol';
+import {
+  CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE,
+  type CutterGridProfileV3,
+  type CutterGridProfileV4,
+} from '../../src/features/cutter-grid/types';
+import type { CutterGridWorkerRequest, CutterGridWorkerResponse } from '../../src/features/cutter-grid/workerProtocol';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge } from '../../src/types/domain';
 
@@ -151,4 +159,204 @@ describe('Cutter Grid Profile registry and Worker client', () => {
       details: { sourceBlockId: 'move-2', actionIndex: 2, layerIndex: 9, targetCoord: [1, 2, 3], stage: 'edge', seedBudget: 96 },
     });
   });
+
+  it('sends the signed V3 profile and preserves V3 retiming failures', async () => {
+    const worker = new FakeWorker();
+    const client = new CutterGridPlannerClient(() => worker);
+    const profile = registeredCutterGridProfileV3(challenge);
+    if (!profile) throw new Error('Expected bundled V3 Profile.');
+    const progress = vi.fn();
+    const pending = client.planV3(
+      challenge,
+      {
+        // The command IR remains V2 while V3 changes only the frozen motion
+        // plan; the worker adapts the certified global branch before retiming.
+        program: profile.referenceProgram,
+        runtimeActions: [],
+        executedCommandCount: 0,
+      },
+      profile,
+      progress,
+    );
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'plan-v3',
+      profile: expect.objectContaining({
+        version: 3,
+        plannerVersion: 'cutter-grid-ladder-v3',
+        motionLimits: profile.motionLimits,
+      }),
+    }));
+    worker.onmessage?.({
+      data: {
+        type: 'progress-v3',
+        requestId: 1,
+        phase: 'geometric-smoothing',
+        completedItems: 3,
+        totalItems: 12,
+        unit: 'motion-segments',
+      },
+    } as unknown as MessageEvent<CutterGridWorkerResponse>);
+    expect(progress).toHaveBeenCalledWith({
+      phase: 'geometric-smoothing',
+      completedItems: 3,
+      totalItems: 12,
+      unit: 'motion-segments',
+    });
+    worker.onmessage?.({
+      data: {
+        type: 'failed',
+        requestId: 1,
+        code: 'jerk-smoothing-infeasible',
+        message: 'Limit exceeded.',
+        sourceBlockId: 'move-3',
+        actionIndex: 4,
+        targetCoord: [-2, 6, -3],
+      },
+    } as unknown as MessageEvent<CutterGridWorkerResponse>);
+
+    await expect(pending).rejects.toBeInstanceOf(CutterGridMotionV3Error);
+    await pending.catch((error: unknown) => {
+      expect(error).toMatchObject({
+        code: 'jerk-smoothing-infeasible',
+        details: { sourceBlockId: 'move-3', actionIndex: 4, targetCoord: [-2, 6, -3] },
+      });
+    });
+  });
+
+  it('uses the isolated V4 protocol and preserves its fail-closed response', async () => {
+    const worker = new FakeWorker();
+    const client = new CutterGridPlannerClient(() => worker);
+    const v3Profile = registeredCutterGridProfileV3(challenge);
+    if (!v3Profile) throw new Error('Expected bundled V3 Profile.');
+    const profile = phaseTwoV4Profile(challenge, v3Profile);
+    const progress = vi.fn();
+    const pending = client.planV4(
+      challenge,
+      {
+        program: {
+          ...profile.referenceProgram,
+          plannerVersion: 'cutter-grid-compact-ptp-v4',
+        },
+        executableActions: [],
+        executedCommandCount: 0,
+      },
+      profile,
+      progress,
+    );
+
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'plan-v4',
+      compiled: expect.objectContaining({ executableActions: [] }),
+      profile: expect.objectContaining({ version: 4 }),
+    }));
+    worker.onmessage?.({
+      data: {
+        type: 'progress-v4',
+        requestId: 1,
+        phase: 'generating-endpoint-candidates',
+        completedActions: 1,
+        totalActions: 3,
+      },
+    } as unknown as MessageEvent<CutterGridWorkerResponse>);
+    expect(progress).toHaveBeenCalledWith({
+      phase: 'generating-endpoint-candidates',
+      completedActions: 1,
+      totalActions: 3,
+    });
+    worker.onmessage?.({
+      data: {
+        type: 'failed',
+        requestId: 1,
+        code: 'planner-not-ready',
+        message: 'Not ready.',
+        sourceBlockId: 'move-3',
+        targetCoord: [-2, 6, -3],
+        actionIndex: 2,
+        stage: 'profile',
+      },
+    } as unknown as MessageEvent<CutterGridWorkerResponse>);
+
+    await expect(pending).rejects.toBeInstanceOf(CutterGridCompactPtpV4PlanningError);
+    await pending.catch((error: unknown) => {
+      expect(error).toMatchObject({
+        code: 'planner-not-ready',
+        details: {
+          sourceBlockId: 'move-3',
+          targetCoord: [-2, 6, -3],
+          actionIndex: 2,
+          stage: 'profile',
+        },
+      });
+    });
+  });
+
+  it('cancels a pending V4 request through the same Worker termination boundary', async () => {
+    const worker = new FakeWorker();
+    const client = new CutterGridPlannerClient(() => worker);
+    const v3Profile = registeredCutterGridProfileV3(challenge);
+    if (!v3Profile) throw new Error('Expected bundled V3 Profile.');
+    const profile = phaseTwoV4Profile(challenge, v3Profile);
+    const pending = client.planV4(
+      challenge,
+      {
+        program: { ...profile.referenceProgram, plannerVersion: 'cutter-grid-compact-ptp-v4' },
+        executableActions: [],
+        executedCommandCount: 0,
+      },
+      profile,
+    );
+
+    client.cancel();
+
+    await expect(pending).rejects.toMatchObject({ code: 'planning-cancelled' });
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it('actively terminates a pending V3 Worker and returns a normal cancellation', async () => {
+    const worker = new FakeWorker();
+    const client = new CutterGridPlannerClient(() => worker);
+    const profile = registeredCutterGridProfileV3(challenge);
+    if (!profile) throw new Error('Expected bundled V3 Profile.');
+
+    const pending = client.planV3(
+      challenge,
+      {
+        program: profile.referenceProgram,
+        runtimeActions: [],
+        executedCommandCount: 0,
+      },
+      profile,
+    );
+    client.cancel();
+
+    await expect(pending).rejects.toMatchObject({ code: 'planning-cancelled' });
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
 });
+
+function phaseTwoV4Profile(
+  challenge: Challenge,
+  profile: CutterGridProfileV3,
+): CutterGridProfileV4 {
+  return {
+    ...profile,
+    version: 4,
+    plannerVersion: 'cutter-grid-compact-ptp-v4',
+    entryOptions: profile.entryOptions.map((entry) => ({
+      id: entry.id,
+      jointAngles: entry.jointAngles,
+      positioningPrimitive: createCutterGridSyncPtpPrimitiveV4(
+        challenge,
+        challenge.robotConfig.joints.reduce((angles, joint) => ({
+          ...angles,
+          [joint.id]: joint.initialAngleDeg,
+        }), {} as Record<string, number>),
+        entry.jointAngles,
+      ),
+      positioningSignature: entry.positioningSignature,
+      minimumHeadClearance: entry.minimumHeadClearance,
+    })),
+    motionLimits: { ...profile.motionLimits, requestedSpeedScale: CUTTER_GRID_COMPACT_PTP_DEFAULT_SPEED_SCALE },
+    roadmap: { nodes: [], edges: [], signature: 'phase-2-only' },
+  };
+}

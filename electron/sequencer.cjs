@@ -20,7 +20,8 @@ const arm = require('./arm.cjs')
  *
  * The renderer builds the timeline, because it is the side that knows joint
  * speeds and can compute how long each move takes. It sends flat steps —
- * `{type: 'move', axis, value, durationMs}` and `{type: 'wait', durationMs}` —
+ * `{type: 'home', durationMs}`, `{type: 'move', axis, value, durationMs}` and
+ * `{type: 'wait', durationMs}` —
  * which are re-validated here before anything is sent. A move's `durationMs` is
  * how long to hold before the next step, since the servo reports no completion
  * and the arm cannot be asked whether it has arrived.
@@ -42,13 +43,16 @@ function validatePlan(plan) {
   if (plan.length > MAX_STEPS) {
     throw new Error(`The program has ${plan.length} steps; the arm accepts at most ${MAX_STEPS}.`)
   }
-  return plan.map((step, index) => {
+  const steps = plan.map((step, index) => {
     const durationMs = Number(step?.durationMs ?? 0)
     if (!Number.isFinite(durationMs) || durationMs < 0 || durationMs > MAX_STEP_MS) {
       throw new Error(`Step ${index + 1} has an unusable duration of ${step?.durationMs}ms.`)
     }
     if (step?.type === 'wait') {
       return { type: 'wait', durationMs }
+    }
+    if (step?.type === 'home') {
+      return { type: 'home', durationMs }
     }
     if (step?.type === 'move') {
       const axis = arm.axisName(step.axis)
@@ -80,6 +84,10 @@ function validatePlan(plan) {
     }
     throw new Error(`Step ${index + 1} has unknown type "${step?.type}".`)
   })
+  if (steps[0].type !== 'home') {
+    throw new Error('Every arm program must begin with firmware Home (all axes at 90°).')
+  }
+  return steps
 }
 
 function sleep(ms, signal) {
@@ -121,7 +129,9 @@ async function run(plan, onProgress) {
         break
       }
       onProgress?.({ phase: 'step', index, total: steps.length, step })
-      if (step.type === 'move') {
+      if (step.type === 'home') {
+        await arm.home()
+      } else if (step.type === 'move') {
         await arm.setAngles([{ axis: step.axis, value: step.value }])
       } else if (step.type === 'pose') {
         await arm.setAngles(step.moves)

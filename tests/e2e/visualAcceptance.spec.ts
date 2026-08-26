@@ -37,7 +37,10 @@ for (const viewport of VIEWPORTS) {
       seed(state);
     }, MOVE_TWO_CELLS);
     await page.getByTestId('step-button').click();
-    await expect(page.getByTestId('simulation-status')).toHaveText('Paused', {
+    // A one-action V4 workspace completes after one Step; only a remaining
+    // action returns to Paused. Both outcomes preserve the one-visible-action
+    // Step contract, and this visual fixture intentionally has just Move 2.
+    await expect(page.getByTestId('simulation-status')).toHaveText('Completed', {
       timeout: 30_000,
     });
 
@@ -46,10 +49,13 @@ for (const viewport of VIEWPORTS) {
     await expect(page.locator('.side-panel--right')).toBeInViewport();
     await expect(page.getByTestId('run-button')).toBeInViewport();
     await expect(page.getByTestId('reset-button')).toBeInViewport();
-    await expect(page.locator('.cutter-grid-summary')).toBeVisible();
-    await expect(page.locator('.cutter-grid-summary')).toContainText('(1, 0, 0)');
-    await expect(page.locator('.cutter-grid-summary')).toContainText('1/2');
-    await expect(page.locator('.cutter-grid-summary')).toContainText('Connected for this program');
+    const cutterGridSummary = page.locator('.cutter-grid-inspector > .cutter-grid-summary');
+    await expect(cutterGridSummary).toBeVisible();
+    await expect(cutterGridSummary).toContainText('(2, 0, 0)');
+    await expect(cutterGridSummary).toContainText('1/1');
+    await expect(cutterGridSummary).toContainText('Connected for this program');
+    await expect(cutterGridSummary).toContainText('synchronized PTP');
+    await expect(cutterGridSummary).toContainText('Expected cuts');
     await expect(page.getByText(/Backend replay not yet supported/)).toBeVisible();
 
     const overflow = await page.evaluate(() => ({

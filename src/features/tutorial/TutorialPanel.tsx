@@ -2,17 +2,23 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Check, GraduationCap, Lightbulb, X } from 'lucide-react';
 import type { Lesson } from './lessons';
 
+type TutorialPanelLesson = Pick<Lesson, 'id' | 'title' | 'body' | 'hint'> & {
+  /** Presence marks an interactive step; evaluation stays in its run component. */
+  done?: unknown;
+};
+
 /** How long a learner sits on a step before the hint appears. */
 const HINT_DELAY_MS = 12_000;
 
 interface TutorialPanelProps {
-  lesson: Lesson;
+  lesson: TutorialPanelLesson;
   index: number;
   total: number;
   /** Whether this step's own condition is satisfied. */
   satisfied: boolean;
   onNext: () => void;
   onExit: () => void;
+  badge?: string;
 }
 
 export function TutorialPanel({
@@ -22,6 +28,7 @@ export function TutorialPanel({
   satisfied,
   onNext,
   onExit,
+  badge = 'TUTORIAL',
 }: TutorialPanelProps) {
   // Seconds spent on the current step. Reset by keying the state to the lesson
   // rather than writing it from an effect: the step is the input, the dwell time
@@ -41,7 +48,7 @@ export function TutorialPanel({
       <header className="tutorial__head">
         <span className="tutorial__badge">
           <GraduationCap size={14} />
-          TUTORIAL
+          {badge}
         </span>
         <span className="tutorial__progress">
           {index + 1} / {total}

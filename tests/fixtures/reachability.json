@@ -2,7 +2,7 @@
   "challenges": {
     "neat-short-cap": {
       "name": "Neat Short Haircut",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",
@@ -156,7 +156,7 @@
     },
     "lesson-1-first-cut": {
       "name": "1 · First Cut",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",
@@ -310,7 +310,7 @@
     },
     "lesson-2-clear-the-head": {
       "name": "2 · Mind the Head",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",
@@ -464,7 +464,7 @@
     },
     "lesson-3-shoulder": {
       "name": "3 · Reach Higher",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",
@@ -618,7 +618,7 @@
     },
     "lesson-4-elbow": {
       "name": "4 · Straighten the Arm",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",
@@ -772,7 +772,7 @@
     },
     "lesson-5-wrist": {
       "name": "5 · Angle the Tool",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",
@@ -926,7 +926,7 @@
     },
     "lesson-6-stop-short": {
       "name": "6 · Do Not Overcut",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",
@@ -1080,7 +1080,7 @@
     },
     "lesson-7-narrow-band": {
       "name": "7 · Precision",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",
@@ -1234,7 +1234,7 @@
     },
     "lesson-8-full-cut": {
       "name": "8 · The Whole Crown",
-      "signature": "d1822af58c0260ee",
+      "signature": "759653d720c99b96",
       "hairVoxels": 241,
       "reachable": [
         "-1,-1,-4",

@@ -1,6 +1,6 @@
 # HCR Simulator Demo 实施计划
 
-> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门，以及 Cutter Grid 首版 Phase 0–5 已完成；全局多分支 IK 修复按下列独立阶段实施。
+> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门、Cutter Grid 首版 Phase 0–5，以及紧凑同步 PTP V4 Phase 1–6 已完成；全局多分支 IK 与限 jerk 阶段保留为 V4 取代前的历史记录。
 
 ## 1. 实施原则
 
@@ -208,6 +208,17 @@ tests/
 
 阶段出口：功能分支可供审查，所有适用验收项具有直接证据。
 
+### Cutter Grid 教程与课程扩展
+
+- [x] Tutorial 增加 Cutter Grid/Servo 路线选择，保留原八步 Servo 教程。
+- [x] 增加八步 Cutter Grid 引导，以认证五段路径逐步判定真实 Cutter Grid IR，并以真实 Test 评分完成最后操作步骤。
+- [x] Cutter Grid Lessons 从五课扩展为十课，每课至少二十个 section；补充反向移动、Waypoint Wait、路径顺序、程序压缩和认证完整剪发，并支持课内前后导航及连续下一课。
+- [x] 八个 Servo Angles Lessons 各扩展为至少二十个 section，第 20 节保留真实 100 Completion 评分门槛，切换下一课时重置课内进度。
+- [x] Tutorial 增加 `Grid → Servo Angles` 过渡展示，复用真实双模式 Workbench、独立 Workspace、Grid Inspector 与 Servo telemetry，并讲清硬件 Home 90°/Challenge 安全姿态边界。
+- [x] 覆盖纯课程判定、选择/路由 UI，以及完整认证路径规划与评分 E2E；保持 Cutter Grid-only 与 Servo/后端隔离。
+
+阶段出口：首次用户可在不接触 Servo 角度的情况下完成一条真实认证 Grid 路径，并继续十课渐进课程。
+
 ### Cutter Grid Global IK Repair Phase 0 — 诊断契约与测试向量
 
 - [x] 从最新远端 `feat/cutter-grid-control` fast-forward 基线开始，记录干净前后端工作区。
@@ -245,6 +256,133 @@ tests/
 - [ ] 只推送 `feat/cutter-grid-control`，审计后端零改动、构建产物未提交和阶段独立提交。
 
 阶段出口：V2 全局多分支规划通过全部验收并可供审查。
+
+### Cutter Grid Motion Stability V3 Phase 0 — 契约、基线与 Rust 迁移向量
+
+- [ ] 记录 C1 Hermite、渲染 `delta` 倍率和 IK 分支的独立诊断证据；固化 `Up 6 → Left 2 → Forward 3`、认证参考程序、Wait/Repeat 长程序的 V2 签名、关节 `q/v/a` 与接触基线。
+- [ ] 定义纯领域 V3 Profile/Plan/错误/签名契约和前端—Rust JSON fixture；fixture 引用已版本化 Profile，保存完整计划签名、原子 checkpoint/接触/诊断摘要及结构化失败结果，规划数据不得依赖 DOM、Worker、React 或渲染时钟。
+- [x] 在前端生成并回归验证 V3 conformance bundle：认证参考程序、全局 IK 回归程序与缺少动态限制错误均可从版本化 Challenge/Profile 输入重建；Rust 端消费与验证留待后端获准迁移后完成。
+- [ ] 移除“直接乘渲染 delta”的加速语义，改为请求 `1.25x` 的动态限制重定时输入；本阶段不改变生产运行入口。
+
+阶段出口：V3 输入输出、迁移边界和失败语义由测试与 fixture 固化，前端与将来的 `hcr_sim` 可使用同一数据契约。
+
+### Cutter Grid Motion Stability V3 Phase 1 — 固定路径限 jerk 轨迹
+
+- [x] 完成本地 Ruckig Community WASM Spike：固定 `v0.19.4`/MIT 与 Emscripten `4.0.20`，五关节离线 state-to-state ABI 在 Chromium/Edge Worker 中通过端点与零外部请求门禁；云客户端源码被排除，当前不替换 V3 运行轨迹。
+- [x] 以前端纯 TypeScript ABI 适配器固定 Ruckig 的九组五关节输入、sample-major `q/v/a/j` 输出、非有限值拒绝和错误路径释放；适配器仍不加载 URL 或驱动运行时规划。
+- [x] 以 TOPP-RA 共享边界预备本地 Ruckig 分段编排：每段传递完整 `q/v/a`，按不超过 `5ms` 采样并验证动态限制，失败对同一边界以 `1.1x` 最小时长重试至 `50x` 后 fail closed；调用方可注入纯领域空间审计，逐段验证限位、头部、固定 Cartesian 管道、联合采样密度和接触许可，并在完成整段玩家 Move 后精确比对聚合接触集。尚未接入 Worker 运行轨迹。
+- [x] 完成纯领域、保守的 TOPP-RA 风格前向/后向可达传播：从固定 C2 几何输出确定性的路径速度及 `q/v/a` 边界，原子端点保持静止，并以真实全局 IK 回归几何验证速度/加速度限制。它是 Ruckig 输入预备层，尚未接入运行时。
+- [ ] 实现连续角度 unwrap、全局 C2 五次几何样条、pause-safe checkpoint、速度/加速度可达重定时和逐段 `q/v/a` jerk 平滑；所有计算保持纯函数和确定性。
+- [ ] 对全局最小 jerk 样条的限位 overshoot 采用签名可见的确定性单调 C2 约束解，并重新执行完整几何审计；不得放宽限位或回退到 V2 C1 插值。
+- [ ] 对每段实施联合自适应验证：关节 `v/a/j`、头部净空、关节限位、Cartesian 偏差及固定刀头扫掠集合。
+- [ ] 在失败时返回 V3 专用错误与首个来源积木/坐标，禁止回退到 C1、逐帧滤波或可行前缀执行。
+
+阶段出口：V3 可为 V2 已选构型链生成可序列化冻结轨迹，并通过数值/接触回归。
+
+### Cutter Grid Motion Stability V3 Phase 2 — 前端绝对时间试验与诊断
+
+- [x] Worker 为 V3 以独立版本化进度消息报告 V2 图搜索及几何平滑、时间参数化、jerk 平滑和播放验证；进度观察不参与候选选择或轨迹签名，并明确区分 Cartesian 层与真实运动段计数。
+- [x] 在前端 rAF 回放后以有界遥测记录计划/渲染时间、阶段、入口、`q/v/a/j`、末端跟踪误差、帧间隔及 `50ms` 长帧；Inspector 以默认折叠的开发诊断摘要显示它，记录不反馈到规划、执行、碰撞或评分。
+- [ ] Worker 只规划冻结 V3 轨迹；前端执行器按绝对计划时间采样，支持暂停、隐藏页、丢帧和取消而不改变轨迹语义。
+- [ ] 接触、Step、Run/Test、评分和 Inspector 使用同一冻结 V3 计划；UI 高频关节更新不经过 React State。
+- [ ] 验证 `30/60/90/120/144Hz`、长帧和 Chrome/Edge 下的计划一致性、无关节瞬跳及实际时长提速。
+
+阶段出口：前端可作为 Rust 实现前的可视化试验台，V3 不再使用渲染倍率加速。
+
+### Cutter Grid Motion Stability V3 Phase 3 — Rust 权威迁移准备
+
+- [ ] 在 `hcr_sim` 实现同一纯领域规划器并以共享 fixture 与前端逐项对照；在未得到后端 Session/Match 启用授权前不修改网络提交路径。
+- [ ] 前端改为消费 Rust 产生或跨语言验证的 V3 计划，保留本地试验开关和诊断，不在 UI 层产生另一套路径规划规则。
+
+阶段出口：Rust 规划器是最终权威，前端仅负责请求、回放与可视化；跨语言签名、错误和接触结果一致。
+
+### Cutter Grid Compact PTP V4 Phase 1 — 契约、基线与失败测试
+
+- [x] 新增受 Git 管理的 V4 实施计划，并同步 v0.3、验收清单；明确 V3 固定 Cartesian 管道、逐格零速、`1.25x` 和密集输出只作历史基线。
+- [x] 固化全局 IK 回归的 V3 基线：11 个原子 Move、44 个 Cartesian 层、4,286 个认证样本、6,976ms 玩家计划时长、`1.25x` 动态请求、几何签名 `188fb68c5336a3b4` 和轨迹签名 `73549fa7dad52468`。
+- [x] 新增 V4 基线、预期失败与待实现性能门禁测试：Move N 分组、每 Move 1–2 条 primitive、`1.0x`、实际扫掠、`3s/10s/5s` 目标与 ArmDock 禁用。
+
+阶段出口：V4 设计、历史对照和测试入口可复核，不改变生产运行入口。
+
+### Cutter Grid Compact PTP V4 Phase 2 — 分组 IR 与协议
+
+- [x] 实现 `CutterGridExecutableActionV2`、稳定 occurrence、500 逻辑成本、V4 Profile/Plan/错误/进度与 `plan-v4` Worker 协议。
+- [x] 保持 V1–V3 fail closed，暂不切换 V3 运行入口；Phase 2 的 V4 Worker 结构化返回 `planner-not-ready`，不会回退为旧规划器。
+
+阶段出口：纯领域 V4 输入输出可构造、序列化和测试。
+
+### Cutter Grid Compact PTP V4 Phase 3 — 稀疏图与两指令规划
+
+- [x] 实现端点 IK 候选、4/8/全部边扩展、同步五次直接 PTP、256 节点 roadmap 和单避障构型压缩。
+- [x] 验证全程序入口选择、错误 Wrist 分支规避和每 Move 最多两条 primitive。
+
+阶段出口：生成确定性、紧凑、无碰撞的 V4 几何计划。
+
+### Cutter Grid Compact PTP V4 Phase 4 — 动态认证与实际扫掠
+
+- [x] 实现 `1.0x` 时间律、C2 避障边界、保守自适应净空证明、实际 Hair 接触事件和 V4 fixture。
+- [x] 重新认证 100 Completion 参考程序；密集认证样本不得进入序列化计划。
+
+阶段出口：冻结 V4 计划具有真实接触、动态限制和签名证据。
+
+### Cutter Grid Compact PTP V4 Phase 5 — 执行、UI 与硬件边界
+
+- [x] 接入按可见动作 Step 的绝对时间执行器、真实曲线/预计剪发 UI 与取消生命周期。
+- [x] 实现并测试 `CutterArmMotionProgramV1`，但 ArmDock 继续拒绝 V4 下发。
+
+阶段出口：Run/Test/Step 和不同 tick 回放同一 V4 计划，硬件未越权启用。
+
+### Cutter Grid Compact PTP V4 Phase 6 — 验收与发布准备
+
+- [x] 已重读 V4 计划、v0.3、验收清单、规划/认证/执行测试和 Playwright 配置，确认仅补充验收证据。
+- [x] 完成全部质量门、Profile/几何/动态审计，并以独占单 Worker 的五次冷启动 P95 完成性能测量：`Right 2 = 1,671.8ms`，全局回归 `= 2,886.2ms`；Chrome/Edge 双分辨率视觉验收通过。
+- [x] 已审计后端与硬件下发零改动；验收文档将独立 commit，分支仅供审查而不合并 `main`。
+
+阶段出口：V4 满足紧凑指令、流畅性、性能和安全门禁，可供分支审查。
+
+## Cutter Grid V4 Rust 后端规划迁移
+
+本迁移及 CAT/机械校准后续以 `docs/BACKEND_CUTTER_GRID_V4_MIGRATION_PLAN.md` 为准。每个阶段均须遵循：阅读相关计划与代码、更新本节及验收项、修改、测试、在各自仓库独立 commit；不得写入或推送 `main`。
+
+2026-08-25 合并后审计：后端 `54a8582` 已包含下列 Phase 2–5 的实现，前端 `a45a832` 已包含 Provider。原清单落后于代码；本轮已补上 CAT 的 mode-pinned Session、显式 Practice 路由、Challenge version 透传和畸形成功响应校验。Rust 全仓质量门仍需在后端仓库单独执行后才能把 Phase 7 标为完成。
+
+### Phase 1 — 契约、基线与失败测试（进行中）
+
+- [x] 前端从包含 V4 的 `origin/feat/cutter-grid-control` 创建 `feat/cutter-grid-rust-planner-client`；后端从最新 `origin/main` 创建 `feat/cutter-grid-v4-rust-planner`。实施前已重新 `fetch`，基线分别为前端 `5e614cf`、后端 `501a995`。
+- [x] 定义独立 `CutterGridPlanRequestV1` / `CutterGridPlanResponseV1`、V4 Profile/Plan/同步 PTP/诊断 DTO 与 `TRAJECTORY_PLANNING_FAILED` 错误映射；V2 客户端上传轨迹审计仅保留历史兼容。
+- [x] 固化跨语言 JSON fixture 与预期失败向量；运行时路由已在后续阶段启用。
+- [ ] Rust 质量门待外部工作区依赖恢复后执行：2026-08-25 对最新后端运行 `cargo test -p hcr_qbank -p hcr_service` 时，加载同级路径依赖 `/private/tmp/arona/Cargo.toml` 失败；禁止通过修改 Cargo 配置或伪造依赖绕过。
+
+阶段出口：契约、错误定位与版本边界有测试覆盖，前后端文档同步；不改变 Practice 的 Worker 入口。
+
+### Phase 2 — 程序编译、几何与 IK
+
+- [x] 在 `hcr_sim` 的 `std + planner` 纯领域模块移植分组 action 编译、坐标转换、运动学、头部净空、Halton seed、多解 DLS 与确定性候选排序。
+- [x] 固定六方向、Repeat、500 上限以及低 Wrist 回归；使用跨语言 fixture 比较 action、坐标、命令数、候选分支与结构化失败。
+
+### Phase 3 — Profile 与紧凑 PTP 图搜索
+
+- [x] 在服务端注册认证 V4 Profile，移植入口选择、端点图、直接 PTP 和单避障 roadmap；每个可见 Move 严格限制为 1–2 条 primitive。
+- [x] 对 Profile、roadmap、无 Profile 和断开边建立独立测试，且客户端不得上传任何 Profile 资产。
+
+### Phase 4 — 动态认证、扫掠与序列化
+
+- [x] 移植 `1.0x` 同步五次时间律、`q/v/a/j` 限制、自适应碰撞认证、实际 `0.12` 刀头扫掠、接触事件和 Rust 本地轨迹签名。
+- [x] 建立 TS/Rust 成功/失败向量的语义与数值容差门禁；不要求跨实现签名字节相同。
+
+### Phase 5 — 服务端规划接口
+
+- [x] 实现 Profile 注册表、`POST /api/v1/cutter-grid/plans`、64KiB 请求上限、受限 `spawn_blocking` 并发池（默认 2）以及 HTTP 422/429 错误映射。
+- [x] 该接口只为 Practice 生成计划；不评分、不提交、不创建 Session/Match 状态，也不接触 ArmDock。
+
+### Phase 6 — 前端主备 Provider
+
+- [x] 新增 `CutterGridPlannerProvider`，使 Workbench 不直接依赖 Worker；默认本地，只有在线 Practice 显式 Rust，离线仍为 Worker。
+- [x] 仅网络、30 秒超时、429 或 5xx 回退 TypeScript。确定性 4xx、签名错误和畸形成功响应 fail closed；Inspector 显示来源。
+
+### Phase 7 — 全量验收与发布准备
+
+- [ ] 分别通过两仓库质量门、跨语言审计、性能与 Chrome/Edge 视觉验收；只推送功能分支供审查，不合并或部署。
 
 ## 4. 关键实现约定
 

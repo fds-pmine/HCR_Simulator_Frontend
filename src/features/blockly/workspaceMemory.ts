@@ -25,6 +25,10 @@ export class ProgrammingWorkspaceMemory {
     this.#states.set(programmingWorkspaceKey(challenge, mode), state);
   }
 
+  forget(challenge: Challenge, mode: ProgrammingMode): void {
+    this.#states.delete(programmingWorkspaceKey(challenge, mode));
+  }
+
   clear(): void {
     this.#states.clear();
   }

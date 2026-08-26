@@ -1,5 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { buildArmPlan } from '../../src/features/robot/armBridge';
+import {
+  ARM_HOME_SETTLE_MS,
+  buildArmPlan,
+} from '../../src/features/robot/armBridge';
 import { DEFAULT_CHALLENGE_ID } from '../../src/data/challenges/defaultChallenge';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge } from '../../src/types/domain';
@@ -80,10 +83,14 @@ describe('buildArmPlan', () => {
     sourceBlockId: `block-${jointId}-${angleDeg}`,
   });
 
-  it('opens by driving every mapped joint to the challenge start pose', () => {
+  it('homes every firmware axis to 90° before entering the challenge start pose', () => {
     const plan = buildArmPlan(challenge, []);
     const mapped = challenge.robotConfig.joints.filter((joint) => joint.servo);
-    expect(plan.steps).toHaveLength(mapped.length);
+    expect(plan.steps[0]).toEqual({
+      type: 'home',
+      durationMs: ARM_HOME_SETTLE_MS,
+    });
+    expect(plan.steps).toHaveLength(mapped.length + 1);
     for (const joint of mapped) {
       expect(plan.steps).toContainEqual(
         expect.objectContaining({
@@ -123,6 +130,21 @@ describe('buildArmPlan', () => {
     ]);
     expect(plan.steps.at(-1)).toEqual({ type: 'wait', durationMs: 250 });
   });
+
+  it('produces a Home step accepted by the Electron main-process sequencer', () => {
+    expect(sequencer.validatePlan([
+      { type: 'home', durationMs: ARM_HOME_SETTLE_MS },
+    ])).toEqual([
+      { type: 'home', durationMs: ARM_HOME_SETTLE_MS },
+    ]);
+  });
+
+  it('refuses an Electron plan that bypasses the 90° hardware Home', () => {
+    expect(() => sequencer.validatePlan([
+      { type: 'move', axis: 'X', value: 90, durationMs: 0 },
+    ])).toThrow(/must begin with firmware Home/);
+  });
+
 });
 
 /**
@@ -160,17 +182,18 @@ describe('every simulator-legal program is also arm-legal', () => {
   });
 
   it('fits the longest possible program inside the sequencer step budget', () => {
-    // The prologue is one step per mapped joint, then one step per command.
+    // The prologue is firmware Home plus one step per mapped joint, followed
+    // by one step per compiled command.
     const mapped = challenge.robotConfig.joints.filter((joint) => joint.servo).length;
-    const worstCase = mapped + MAX_RUNTIME_COMMANDS;
+    const worstCase = 1 + mapped + MAX_RUNTIME_COMMANDS;
 
     expect(worstCase).toBeLessThanOrEqual(sequencer.MAX_STEPS);
 
-    // Stated rather than implied: the margin is eight steps. Raising
+    // Stated rather than implied: the margin is seven steps. Raising
     // MAX_RUNTIME_COMMANDS or giving `shoulderRoll` a servo eats into it, and
     // the symptom would be a maximal program refused as "the arm accepts at
     // most 512 steps" with nothing pointing at why.
-    expect(sequencer.MAX_STEPS - worstCase).toBe(8);
+    expect(sequencer.MAX_STEPS - worstCase).toBe(7);
   });
 
   it('builds a plan the sequencer accepts, for a program at the joint limits', () => {

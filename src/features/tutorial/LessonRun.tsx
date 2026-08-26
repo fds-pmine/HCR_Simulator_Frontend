@@ -53,6 +53,7 @@ export function LessonRun({ lessonId, onSolved, onNext, onExit }: LessonRunProps
 
   return (
     <LessonStage
+      key={lesson.id}
       lesson={lesson}
       challenge={built}
       engine={engine}
@@ -80,6 +81,7 @@ function LessonStage({
 }) {
   const snapshot = useSimulationSnapshot(engine);
   const [revealed, setRevealed] = useState(false);
+  const [sectionIndex, setSectionIndex] = useState(0);
 
   const completion = snapshot.scoreResult?.completionScore ?? 0;
   const solved = completion >= 99.995;
@@ -109,6 +111,15 @@ function LessonStage({
             solved={solved}
             revealed={revealed}
             onReveal={() => setRevealed(true)}
+            sectionIndex={sectionIndex}
+            onPreviousSection={() =>
+              setSectionIndex((current) => Math.max(0, current - 1))
+            }
+            onNextSection={() =>
+              setSectionIndex((current) =>
+                Math.min(lesson.sections.length - 1, current + 1),
+              )
+            }
             {...(onNext ? { onNext } : {})}
             onExit={onExit}
           />

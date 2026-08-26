@@ -4,6 +4,7 @@ import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeP
 import { ApiClient, HcrApiError } from '../../src/services/http/apiClient';
 import { HttpChallengeProvider } from '../../src/services/http/HttpChallengeProvider';
 import { HttpScoreProvider } from '../../src/services/http/HttpScoreProvider';
+import { HttpSessionProvider } from '../../src/services/http/HttpSessionProvider';
 import { readBackendConfig } from '../../src/services/http/config';
 import type { ScoreInput } from '../../src/types/domain';
 
@@ -231,5 +232,26 @@ describe('HttpScoreProvider', () => {
     expect(body.initialVoxels).toEqual(['0,0,0', '1,0,0']);
     expect(body.targetVoxels).toEqual(['0,0,0', '1,0,0']);
     expect(body.resultVoxels).toEqual(['0,0,0']);
+  });
+});
+
+describe('HttpSessionProvider', () => {
+  it('pins the CAT ability scale when opening a session', async () => {
+    const { client, fetchImpl } = clientReturning({
+      sessionId: 's-1',
+      theta: 0,
+      responseCount: 0,
+      state: 'active',
+    });
+
+    await new HttpSessionProvider(client).start({
+      programmingMode: 'servo',
+      initialTheta: 0.25,
+    });
+
+    expect(JSON.parse(String(initOf(fetchImpl).body))).toEqual({
+      programmingMode: 'servo',
+      initialTheta: 0.25,
+    });
   });
 });

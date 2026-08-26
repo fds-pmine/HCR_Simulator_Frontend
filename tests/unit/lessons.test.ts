@@ -61,6 +61,13 @@ describe('the lesson curriculum', () => {
     // The first must be winnable with a single block — the whole point of it is
     // that somebody feels successful within a minute of arriving.
     expect(LESSONS[0].solution).toHaveLength(1);
+    expect(LESSONS.every((lesson) => lesson.sections.length >= 20)).toBe(true);
+    for (const lesson of LESSONS) {
+      expect(new Set(lesson.sections.map((section) => section.id)).size).toBe(
+        lesson.sections.length,
+      );
+      expect(lesson.sections.at(-1)?.title).toBe('Scored checkpoint');
+    }
   });
 
   it('every lesson is solvable at exactly 100', () => {

@@ -14,6 +14,8 @@ import type { ProgrammingMode } from '../../features/blockly/programmingMode';
 import type {
   CutterTrajectoryPlanV1,
   CutterTrajectoryPlanV2,
+  CutterTrajectoryPlanV3,
+  CutterTrajectoryPlanV4,
 } from '../../features/cutter-grid/types';
 import {
   armCall,
@@ -40,7 +42,7 @@ interface ArmDockProps {
    * program that has already been planned.
    */
   cutterPlan?: () => Promise<
-    CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | undefined
+    CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4 | undefined
   >;
 }
 
@@ -181,6 +183,17 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
       void guard(async () => {
         const trajectory = await cutterPlan?.();
         if (!trajectory) {
+          return;
+        }
+        if (trajectory.version === 4) {
+          setError('Cutter Grid V4 is simulation-only until firmware supports local synchronized PTP interpolation and the physical arm has passed hardware certification.');
+          return;
+        }
+        if (trajectory.version === 3) {
+          // Browser V3 is a visual/planning trial while the same planner is
+          // being ported to Rust. Never reinterpret its synchronized path as
+          // independently reachable endpoint commands for a physical arm.
+          setError('Cutter Grid V3 is simulation-only until Rust planning and hardware validation are complete.');
           return;
         }
         // Endpoints, not the frozen path. The planner's trajectory needs a
@@ -365,6 +378,9 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
 
 /** One line of progress, for whichever step shape is running. */
 function describeStep(step: ArmStep): string {
+  if (step.type === 'home') {
+    return 'Home all axes to 90°';
+  }
   if (step.type === 'wait') {
     return `wait ${step.durationMs}ms`;
   }

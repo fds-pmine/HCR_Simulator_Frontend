@@ -2,6 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // P95 is meaningful only when the worker owns the test machine. The compact
+  // PTP performance suite has its own one-worker config rather than measuring
+  // browser contention from unrelated WebGL E2E cases.
+  testIgnore: 'cutterGridCompactPtpV4Performance.spec.ts',
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   // Every spec drives a WebGL canvas. Two of those at once on a two-core runner

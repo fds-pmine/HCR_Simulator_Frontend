@@ -5,7 +5,11 @@
  * `rename_all = "camelCase"`, so these are the wire names verbatim.
  */
 
-export type SessionLifecycle = 'active' | 'terminated';
+export type SessionLifecycle =
+  | 'active'
+  | 'awaiting-response'
+  | 'terminated'
+  | 'finalized';
 
 export interface SessionSnapshot {
   sessionId: string;

@@ -1,6 +1,6 @@
 # HCR Simulator Demo 验收清单
 
-> Servo Phase 1–6、五关节/头部防穿模增量、自动化集成及 Cutter Grid 首版 Phase 0–5 已实施。全局多分支 IK 修复以下列独立门禁继续推进；功能项只在具有直接验证证据时勾选。
+> Servo Phase 1–6、五关节/头部防穿模增量、自动化集成、Cutter Grid 首版 Phase 0–5 与紧凑同步 PTP V4 Phase 1–6 均已实施并验收。全局多分支 IK 与限 jerk 条目仅保留为 V4 取代前的历史证据；功能项只在具有直接验证证据时勾选。
 
 ## 文档基线
 
@@ -35,6 +35,11 @@
 - [x] 网格、轴向图例、当前/下一坐标、路径与阻塞节点可见且可关闭。
 - [x] Cutter Grid 只本地评分，不提交 Session/Match，不驱动 ArmDock；Versus 保持 Servo-only。
 - [x] 参考程序精确剪除 12 个目标、无附带删除并取得 100 Completion。
+- [x] Tutorial 入口可独立选择 Cutter Grid 或 Servo；Grid 教程从空 Workspace 分八步构建认证五段路径，完成状态来自真实 Grid IR 与 Test Score。
+- [x] Cutter Grid 显示十课渐进课程，每课至少二十个 section，提供明确目标、可执行示例、课内前后导航和连续下一课入口，且不暴露 Servo 模式。
+- [x] Grid 教程 E2E 完整覆盖认证路径注入、逐步完成判定、V4 规划、Test 回放与最终完成状态。
+- [x] 八个 Servo Angles Lessons 每课至少二十个 section；第 20 节只有真实 Test 达到 100 Completion 才解锁下一课。
+- [x] `Grid → Servo Angles` 教程在真实 Workbench 完成 Grid Move、Servo 模式切换、绝对角度积木和返回 Grid Workspace 保留验证，并明确 Home 90° 不替代 Challenge 安全初始角度。
 
 ## Cutter Grid 全局多分支 IK 修复
 
@@ -46,6 +51,62 @@
 - [ ] Run、Test、Step 选择相同入口和 V2 冻结计划，入场不计分且不同 tick 结果一致。
 - [ ] UI 明确区分静态安全 IK、当前程序连通性、搜索进度和搜索预算耗尽。
 
+## Cutter Grid 限 jerk 运动稳定（V3，历史基线）
+
+以下 V3 项目是历史基线。V4 不再接受固定 Cartesian 管道、逐格 zero-velocity checkpoint、`1.25x` 请求或将密集认证点作为输出指令；V4 的验收项以紧随其后的章节为准。
+
+- [x] 本地 Ruckig Community WASM Spike 已固定 `v0.19.4`/MIT、Emscripten `4.0.20` 和五关节 state-to-state ABI；Chromium/Edge module Worker 只请求本地 JS/WASM，云客户端未编译。该 Spike 尚未成为运行时规划器。
+- [x] 前端 Ruckig ABI 适配器已固定五关节 `q/v/a` 输入顺序、`q/v/a/j` sample-major 输出、非有限值拒绝与错误路径内存释放；它不加载网络或 DOM，尚未接入播放器。
+- [x] 纯领域 Ruckig 分段编排复用 TOPP-RA 边界，验证共享 `q/v/a`、`5ms` 采样动态限制及 `1.1x` 至 `50x` 的 fail-closed 时长扩展；调用方可注入本地空间认证，逐段检查关节范围、头部净空、固定 Cartesian 管道、`0.5°`/`voxelSize/16` 联合采样与零接触/允许接触集，并在完整玩家 Move 后聚合为精确冻结接触集合。该契约尚未接入 Worker 或当前播放器。
+- [x] 纯领域 TOPP-RA 风格可达传播在固定 V3 C2 几何上确定性地产生 pause-safe `q/v/a` 边界，端点为零且所有节点不超过有效速度/加速度限制；它尚未改变运行时重定时或接触语义。
+- [x] V3 Worker 以独立版本化消息报告全局 IK 图搜索、几何平滑、时间参数化、jerk 平滑和播放验证；观察进度不改变候选顺序、冻结轨迹或签名，并显示层数/真实运动段数的正确单位。
+- [x] V3 rAF 回放产生有界只读遥测：每个播放帧的计划/渲染时间、`q/v/a/j`、末端、分支与单格、帧间隔和 `50ms` 长帧统计均可复核；隐藏页重锚不追赶墙钟，Inspector 默认折叠该开发信息，遥测不影响运动语义。
+- [x] 前端试验的动态限制仍请求 `1.25x` 速度，但把加速度/jerk 收紧为额定速度的 `1250x`/`200000x`；全局 IK 回归中最短单格为至少 `90ms`，不再出现已记录的 `56ms` 三帧关节突跳。
+- [ ] V3 Profile/Plan/诊断、签名和失败结果为纯可序列化领域数据，并有前端—Rust 共享 fixture；成功向量包含全计划签名、原子 checkpoint、接触和诊断摘要，失败向量包含结构化错误。
+- [x] 前端 V3 conformance bundle 已固定认证参考程序、`Up 6 → Left 2 → Forward 3` 和缺少动态限制错误；当前 fixture 仍只在前端仓库，待 Rust 获准迁移后须由 `hcr_sim` 逐项消费验证。
+- [ ] V3 保持 V2 全局选定的 IK 构型链、固定 Cartesian 路径、头部净空和 `0.12` 扫掠接触语义。
+- [ ] V3 对每个固定路径使用确定性的全局 C2 五次几何样条；原子移动和系统入场均以共享 knot `q/v/a`、同一动态限制和绝对时间律回放，不得回退到 V2 C1 插值。
+- [ ] 每个原子移动边界均为 `v=a=0` 的 pause-safe checkpoint；所有段满足关节速度、加速度和 jerk 硬限制，且没有角度 wrap/量化反馈跳变。
+- [ ] 平滑后的完整轨迹经不超过 `5ms` 的自适应验证，保持关节限位、头部无碰撞、`voxelSize/16` Cartesian 管道及接触集合不变。
+- [ ] `Up 6 → Left 2 → Forward 3` 保持低 Wrist 安全分支、终点 `(-2,6,-3)` 与既定 5 格真实扫掠结果。
+- [ ] 运行/测试/逐格 Step、`30/60/90/120/144Hz`、长帧、暂停和隐藏页在相同计划时刻产生相同关节、终态与剪发集合；不再以渲染 `delta` 倍率提速。
+- [ ] 默认请求 `1.25x` 的动态限制重定时，实际时长至少比同一 V2 基线路径缩短 `15%`，或明确报告硬约束限制而不超限播放。
+- [ ] Rust `hcr_sim` 迁移前不启用 Cutter Grid 的后端提交、Session、Match 或 ArmDock；迁移后以共享 fixture 证明 Rust 为规划权威。
+
+## Cutter Grid 紧凑同步 PTP（V4）
+
+- [x] 受 Git 管理的 V4 计划、v0.3、实施计划和本清单已同步，且明确取代 V3 严格直线、逐格停车与密集输出条款。
+- [x] 历史 V3 基线已由自动测试固定：全局 IK 回归有 11 个原子 Move、44 个 Cartesian 层、4,286 个认证样本、6,976ms 玩家计划时长、`1.25x` 动态请求、几何签名 `188fb68c5336a3b4` 和轨迹签名 `73549fa7dad52468`。
+- [x] `CutterGridExecutableActionV2` 将 Move N 合并为一个可见 action，并保留 Repeat occurrence、Wait 和 500 逻辑成本；Step 一次完成该 Move。
+- [x] V4 仅为认证入口和可见 Move 终点构建全局 IK 图；首轮/扩展候选预算分别为 `12/48` seed 和 `12/24` 保留候选，边按 `4/8/全部` 顺序确定性验证。
+- [x] 直接边生成一条同步五次 PTP；碰撞时最多一个避障构型、两条 primitive，超过预算以 `motion-primitive-budget-exhausted` fail closed。
+- [x] V4 默认请求 `1.0x`，每 primitive 至少 160ms；已重新确认所有 `q/v/a/j`、限位、净空和自适应区间证明。
+- [x] 剪发按实际曲线和半径 `0.12` 预认证；Run/Test/Step 回放同一冻结计划，已覆盖小 tick、长 tick、单动作 Step、入场零接触，以及 Chrome/Edge 双视口的实际曲线与 Inspector。
+- [x] 独占单 Worker 五次冷启动的 `Right 2` P95 为 `1,716.5ms`（≤3s），`Up 6 → Left 2 → Forward 3` P95 为 `2,344.3ms`（≤10s）；两条回归的玩家动画均由测试限制为 ≤5s，参考程序为 `1,443ms`，且回归程序保持 3 个可见 Move、至多 6 条玩家 primitive。
+- [x] 计划只序列化紧凑 primitive 与接触事件，密集认证样本不进入主线程或硬件协议。
+- [x] `CutterArmMotionProgramV1` 可序列化与校验；当前 ArmDock 明确拒绝 V4，后端、Electron 下发和固件没有越权启用。
+
+## Cutter Grid V4 Rust 后端规划迁移
+
+### Phase 1 — 契约、基线与失败测试
+
+- [x] 前端与后端从重新 fetch 的基线分别创建 `feat/cutter-grid-rust-planner-client` 和 `feat/cutter-grid-v4-rust-planner`；未写入或推送 `main`。
+- [x] 独立 V4 `POST /api/v1/cutter-grid/plans` 请求/响应、同步 PTP、Profile、Plan、诊断及 `TRAJECTORY_PLANNING_FAILED` 契约已写入前后端 schema 和规范；V2 verification-only 契约保持兼容。
+- [x] 失败错误保留 `plannerCode`、阶段、来源积木、可见 action、展开 action 与逻辑坐标，并映射 HTTP 422。
+- [ ] 固化 Rust/TS 跨语言 fixture：参考程序、六方向、Right 2、Repeat/Wait、直接/单避障 PTP、500 上限和全部 V4 失败阶段。
+- [ ] 外部工作区依赖可用后，运行后端 `cargo fmt --all -- --check`、clippy、workspace test、planner feature 测试和服务构建；不得用本地伪造的 `arona` 替代缺失依赖。
+
+阶段出口：P1 只交付契约和失败测试，不启用 HTTP 路由、前端网络调用、后端评分、Session、Match、Versus 或 ArmDock。
+
+### 后续验收门禁
+
+- [ ] Rust 规划成功响应通过版本、Challenge/Profile 签名、Program/action 对应关系及本实现轨迹签名校验后才由前端执行。
+- [ ] TypeScript 回退只发生在网络、30 秒超时、429 或 5xx；4xx、签名错误与畸形响应不得回退。
+- [ ] Rust/TS 对 action、occurrence、来源积木、逻辑坐标、入口 ID、每 Move primitive 数、接触 voxel、剩余 Hair、评分和失败定位一致；数值满足迁移计划容差。
+- [ ] 参考程序保持 `entry-06`、22 个逻辑命令、5 个 Move primitive、1,443ms、精确 12 格、零附带剪除、100 Completion；`Up 6 → Left 2 → Forward 3` 走低 Wrist 安全分支至 `(-2,6,-3)`。
+- [ ] 性能：Rust 及端到端 `Right 2` P95 ≤3s、全局回归 P95 ≤10s、玩家动画 ≤5s；Practice 保持 1× 默认速度。
+- [ ] 回归确认 Servo、V2 只读兼容、Session、Match、Versus、Electron、固件和 ArmDock 行为不变，且无构建产物进入提交。
+
 ## 自动化质量门
 
 - [x] `npm run typecheck`
@@ -53,6 +114,7 @@
 - [x] `npm test`
 - [x] `npm run build`
 - [x] `npm run test:e2e`
+- [x] `npm run test:performance`：单 Worker 五次冷启动 P95 通过 `3s/10s` 门禁。
 - [x] `npm run cutter-grid:audit`：114 条安全剪发边、0 个未覆盖目标、0 个缺失方向。
 - [x] `npm run cutter-grid:profile`：2535 个节点、精确剪除 12 格、六方向认证。
 - [x] `npm run test:visual`：实际 Chrome/Edge 的 1280×720 与 1920×1080 共 4 项通过。

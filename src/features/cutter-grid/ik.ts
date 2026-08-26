@@ -20,7 +20,8 @@ export interface CutterGridIkSolution {
   iterations: number;
 }
 
-export type CutterGridSeedBudget = 24 | 96 | 384;
+/** V2 uses 24/96/384; V4's sparse endpoint graph uses 12/48. */
+export type CutterGridSeedBudget = 12 | 24 | 48 | 96 | 384;
 
 export interface CutterGridIkCandidate extends CutterGridIkSolution {
   /** Stable only inside a Challenge/version/layer namespace. */
@@ -519,6 +520,7 @@ function diversifyCandidates(
 function previousSeedBudget(budget: CutterGridSeedBudget): CutterGridSeedBudget | undefined {
   if (budget === 384) return 96;
   if (budget === 96) return 24;
+  if (budget === 48) return 12;
   return undefined;
 }
 

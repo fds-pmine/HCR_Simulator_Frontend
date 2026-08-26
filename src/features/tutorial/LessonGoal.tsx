@@ -1,79 +1,102 @@
-import { ArrowRight, Check, Eye, GraduationCap, LogOut, Target } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Eye,
+  GraduationCap,
+  LogOut,
+} from 'lucide-react';
 import type { Lesson } from '../../data/challenges/lessons';
 
 interface LessonGoalProps {
   lesson: Lesson;
-  /** Latest completion score, or `undefined` before the first run. */
   completion?: number;
   solved: boolean;
   revealed: boolean;
   onReveal: () => void;
-  /** Advance to the next lesson. Absent on the last one. */
+  sectionIndex: number;
+  onPreviousSection: () => void;
+  onNextSection: () => void;
   onNext?: () => void;
   onExit: () => void;
 }
 
-/**
- * The goal card shown while a lesson is being solved.
- *
- * The written goal is always visible; the *program* is behind a deliberate
- * click. Showing the answer outright would turn every lesson into typing
- * practice, and hiding it entirely strands anyone who is genuinely stuck — a
- * button they choose to press is the honest middle.
- */
+/** Twenty-section Servo lesson card; the final section is the scored gate. */
 export function LessonGoal({
   lesson,
   completion,
   solved,
   revealed,
   onReveal,
+  sectionIndex,
+  onPreviousSection,
+  onNextSection,
   onNext,
   onExit,
 }: LessonGoalProps) {
+  const section = lesson.sections[sectionIndex];
+  const lastSection = sectionIndex === lesson.sections.length - 1;
+  const lessonNumber = lesson.name.match(/^\d+/)?.[0] ?? '—';
+
   return (
-    <aside className={`tutorial ${solved ? 'is-solved' : ''}`} aria-label="Lesson goal">
+    <aside
+      className={`tutorial servo-lesson-card ${lastSection && solved ? 'is-solved' : ''}`}
+      aria-label="Lesson goal"
+    >
       <header className="tutorial__head">
         <span className="tutorial__badge">
-          <GraduationCap size={14} />
-          {lesson.name.toUpperCase()}
+          <GraduationCap size={14} /> SERVO ANGLES LESSON
         </span>
         <span className="tutorial__progress">
-          {completion === undefined ? '—' : `${completion.toFixed(1)} / 100`}
+          Lesson {lessonNumber} / 8 · Section {sectionIndex + 1} / {lesson.sections.length}
         </span>
         <button type="button" onClick={onExit} aria-label="Leave the lesson">
           <LogOut size={15} />
         </button>
       </header>
 
-      <h2>{solved ? 'Solved' : lesson.description}</h2>
-      <p>
-        <Target size={13} /> {lesson.goal}
-      </p>
+      <div className="tutorial__steps" aria-label="Servo lesson section progress">
+        {lesson.sections.map((entry, index) => (
+          <i key={entry.id} className={index <= sectionIndex ? 'is-reached' : ''} />
+        ))}
+      </div>
 
-      {solved ? (
+      <p className="cutter-grid-lesson-card__lesson-name">{lesson.name}</p>
+      <h2>{lastSection && solved ? 'Solved' : section.title}</h2>
+      <p>{section.body}</p>
+      <span className={`lesson-section-kind is-${section.activity}`}>
+        {section.activity.toUpperCase()}
+      </span>
+
+      {lastSection && solved ? (
         <p className="tutorial__hint tutorial__hint--good">
           <Check size={13} />
-          100 out of 100 — exactly the hair the target asked for, and none of the
-          hair it did not.
+          100 out of 100 — exactly the requested hair, with no unwanted cut.
         </p>
       ) : null}
 
       <div className="tutorial__foot">
-        <span className={`tutorial__state ${solved ? 'is-done' : ''}`}>
-          {solved ? <Check size={14} /> : <i className="tutorial__dot" />}
-          {completion === undefined
-            ? 'Press Test when you have a program'
-            : solved
-              ? 'Done'
-              : 'Close — check the target outline'}
-        </span>
+        {sectionIndex > 0 ? (
+          <button
+            className="ghost-button lesson-section-back"
+            type="button"
+            onClick={onPreviousSection}
+            data-testid="previous-angle-section"
+          >
+            <ArrowLeft size={14} /> Previous
+          </button>
+        ) : <span />}
 
-        {/*
-          Once it is solved, the only thing worth offering is the next lesson.
-          Leaving somebody on a finished screen with nothing but "Leave" is how
-          a curriculum stops being one.
-        */}
-        {solved ? (
+        {!lastSection ? (
+          <button
+            className="big-button big-button--primary tutorial__next"
+            type="button"
+            onClick={onNextSection}
+            data-testid="next-angle-section"
+          >
+            Next section <ArrowRight size={15} />
+          </button>
+        ) : solved ? (
           <button
             className="big-button big-button--primary tutorial__next"
             type="button"
@@ -90,10 +113,15 @@ export function LessonGoal({
               .join(' → ')}
           </code>
         ) : (
-          <button className="ghost-button tutorial__next" type="button" onClick={onReveal}>
-            <Eye size={14} />
-            Show me
-          </button>
+          <div className="servo-checkpoint-actions">
+            <span className="tutorial__state">
+              <i className="tutorial__dot" />
+              {completion === undefined ? 'Press Test' : `${completion.toFixed(1)} / 100`}
+            </span>
+            <button className="ghost-button tutorial__next" type="button" onClick={onReveal}>
+              <Eye size={14} /> Show me
+            </button>
+          </div>
         )}
       </div>
     </aside>
