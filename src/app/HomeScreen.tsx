@@ -54,8 +54,8 @@ export function HomeScreen({
           </span>
           <strong>Tutorial</strong>
           <span className="mode-card__body">
-            Eight short steps that teach the whole language — including the two
-            rules that make a working program look broken.
+            Guided Grid, Grid-to-Angles, and Servo tracks. Compare spatial paths
+            with joint commands on the live simulator.
           </span>
           <span className="mode-card__go">Learn →</span>
         </button>
@@ -70,8 +70,8 @@ export function HomeScreen({
           </span>
           <strong>Lessons</strong>
           <span className="mode-card__body">
-            Five Cutter Grid lessons first — say where the tool goes — then
-            eight Servo challenges driving each joint yourself.
+            Ten Cutter Grid and eight Servo Angles lessons, all with 20 sections.
+            Learn spatial paths first, then drive each joint yourself.
           </span>
           <span className="mode-card__go">Practise →</span>
         </button>

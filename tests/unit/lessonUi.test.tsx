@@ -4,6 +4,8 @@ import { LESSONS } from '../../src/data/challenges/lessons';
 import { LessonPicker } from '../../src/features/tutorial/LessonPicker';
 import { LessonGoal } from '../../src/features/tutorial/LessonGoal';
 import { CUTTER_GRID_LESSONS } from '../../src/features/tutorial/cutterGridLessons';
+import { TutorialPicker } from '../../src/features/tutorial/TutorialPicker';
+import { CutterGridLessonPanel } from '../../src/features/tutorial/CutterGridLessonPanel';
 
 describe('lesson picker', () => {
   it('lists every lesson with its block count', () => {
@@ -17,7 +19,7 @@ describe('lesson picker', () => {
     // Three lessons are one-block: the first win, and the two precision ones
     // where the difficulty is the *angle*, not the number of commands.
     const oneBlock = LESSONS.filter((l) => l.solution.length === 1).length;
-    expect(screen.getAllByText('1 block')).toHaveLength(oneBlock);
+    expect(screen.getAllByText('20 sections · 1 block')).toHaveLength(oneBlock);
     expect(oneBlock).toBe(3);
   });
 
@@ -91,6 +93,115 @@ describe('lesson picker', () => {
       CUTTER_GRID_LESSONS[0].id,
     );
   });
+
+  it('includes the expanded ten-lesson Cutter Grid curriculum', () => {
+    expect(CUTTER_GRID_LESSONS).toHaveLength(10);
+    expect(CUTTER_GRID_LESSONS.map((lesson) => lesson.id)).toEqual(
+      expect.arrayContaining([
+        'cutter-grid-opposites',
+        'cutter-grid-wait',
+        'cutter-grid-route-order',
+        'cutter-grid-compress',
+        'cutter-grid-certified-cut',
+      ]),
+    );
+    expect(new Set(CUTTER_GRID_LESSONS.map((lesson) => lesson.id)).size).toBe(10);
+    expect(CUTTER_GRID_LESSONS.every((lesson) => lesson.example.length > 0)).toBe(true);
+    expect(
+      CUTTER_GRID_LESSONS.every((lesson) => lesson.sections.length >= 20),
+    ).toBe(true);
+    for (const lesson of CUTTER_GRID_LESSONS) {
+      expect(new Set(lesson.sections.map((section) => section.id)).size).toBe(
+        lesson.sections.length,
+      );
+    }
+  });
+});
+
+describe('Cutter Grid lesson sections', () => {
+  const lesson = CUTTER_GRID_LESSONS[0];
+
+  it('starts at section 1 and advances within the lesson', () => {
+    const onNextSection = vi.fn();
+    render(
+      <CutterGridLessonPanel
+        lesson={lesson}
+        lessonIndex={0}
+        lessonTotal={CUTTER_GRID_LESSONS.length}
+        sectionIndex={0}
+        onPreviousSection={() => {}}
+        onNextSection={onNextSection}
+        onNextLesson={() => {}}
+        onExit={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/Lesson 1 \/ 10 · Section 1 \/ 20/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Why this matters' })).toBeInTheDocument();
+    expect(screen.queryByTestId('previous-grid-section')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('next-grid-section'));
+    expect(onNextSection).toHaveBeenCalledOnce();
+  });
+
+  it('supports going back from a middle section', () => {
+    const onPreviousSection = vi.fn();
+    render(
+      <CutterGridLessonPanel
+        lesson={lesson}
+        lessonIndex={0}
+        lessonTotal={CUTTER_GRID_LESSONS.length}
+        sectionIndex={7}
+        onPreviousSection={onPreviousSection}
+        onNextSection={() => {}}
+        onNextLesson={() => {}}
+        onExit={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('previous-grid-section'));
+    expect(onPreviousSection).toHaveBeenCalledOnce();
+  });
+
+  it('offers the next lesson only after the final section', () => {
+    const onNextLesson = vi.fn();
+    render(
+      <CutterGridLessonPanel
+        lesson={lesson}
+        lessonIndex={0}
+        lessonTotal={CUTTER_GRID_LESSONS.length}
+        sectionIndex={lesson.sections.length - 1}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onNextLesson={onNextLesson}
+        onExit={() => {}}
+      />,
+    );
+    expect(screen.queryByTestId('next-grid-section')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('next-grid-lesson'));
+    expect(onNextLesson).toHaveBeenCalledOnce();
+  });
+});
+
+describe('tutorial picker', () => {
+  it('routes Cutter Grid and Servo tutorials independently', () => {
+    const onPickCutterGrid = vi.fn();
+    const onPickServo = vi.fn();
+    const onPickControlModes = vi.fn();
+    render(
+      <TutorialPicker
+        onPickCutterGrid={onPickCutterGrid}
+        onPickServo={onPickServo}
+        onPickControlModes={onPickControlModes}
+        onBack={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Cutter Grid tutorial/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Servo Angles tutorial/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Grid → Servo Angles/ }));
+    expect(onPickCutterGrid).toHaveBeenCalledOnce();
+    expect(onPickServo).toHaveBeenCalledOnce();
+    expect(onPickControlModes).toHaveBeenCalledOnce();
+  });
 });
 
 describe('lesson progression', () => {
@@ -107,6 +218,9 @@ describe('lesson progression', () => {
         solved
         revealed={false}
         onReveal={() => {}}
+        sectionIndex={lesson.sections.length - 1}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
         onNext={onNext}
         onExit={() => {}}
       />,
@@ -125,6 +239,9 @@ describe('lesson progression', () => {
         solved
         revealed={false}
         onReveal={() => {}}
+        sectionIndex={lesson.sections.length - 1}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
         onExit={onExit}
       />,
     );
@@ -143,9 +260,52 @@ describe('lesson progression', () => {
         solved
         revealed={false}
         onReveal={() => {}}
+        sectionIndex={lesson.sections.length - 1}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
         onExit={() => {}}
       />,
     );
     expect(screen.queryByText('Show me')).not.toBeInTheDocument();
+  });
+
+  it('keeps the next lesson behind the twentieth scored section', () => {
+    const onNextSection = vi.fn();
+    const { rerender } = render(
+      <LessonGoal
+        lesson={lesson}
+        completion={undefined}
+        solved={false}
+        revealed={false}
+        onReveal={() => {}}
+        sectionIndex={0}
+        onPreviousSection={() => {}}
+        onNextSection={onNextSection}
+        onNext={() => {}}
+        onExit={() => {}}
+      />,
+    );
+    expect(screen.getByText(/Lesson 1 \/ 8 · Section 1 \/ 20/)).toBeInTheDocument();
+    expect(screen.queryByTestId('next-lesson')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('next-angle-section'));
+    expect(onNextSection).toHaveBeenCalledOnce();
+
+    rerender(
+      <LessonGoal
+        lesson={lesson}
+        completion={99}
+        solved={false}
+        revealed={false}
+        onReveal={() => {}}
+        sectionIndex={lesson.sections.length - 1}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onNext={() => {}}
+        onExit={() => {}}
+      />,
+    );
+    expect(screen.getByText(/Section 20 \/ 20/)).toBeInTheDocument();
+    expect(screen.getByText('99.0 / 100')).toBeInTheDocument();
+    expect(screen.queryByTestId('next-lesson')).not.toBeInTheDocument();
   });
 });

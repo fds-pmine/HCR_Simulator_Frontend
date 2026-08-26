@@ -25,16 +25,16 @@
 | --- | --- | --- |
 | 固件协议行程 | X/Y/Z/B 为 `0…180°` | 不能等同于安全机械行程；协议能接收不代表连杆可安全走满 |
 | Challenge 关节行程 | 当前为 X `30…150`、Y `30…150`、Z `17.5…162.5`、B `0…180` | 必须由实机端点与碰撞测量确认 |
-| 头模可达死区 | 241 个头发体素中缓存测得 91 个在当前几何/行程下不可达 | 是测量结果，不是题目默认要求剪除 91 格 |
+| 头模可达死区 | 241 个头发体素中缓存测得 94 个在当前几何/行程下不可达（147 个可达） | 是测量结果，不是题目默认要求剪除 94 格 |
 
-`tests/unit/reachability.test.ts` 已保证所有人工题目的 `initialHair - targetHair` 不包含死区体素。后端生成题目则从成功重放的 reference program 反推 target，确保 reference 本身 100 Completion。因此不能为“消除 91”直接放宽关节范围；第一次试验已经证明，未经测量同时改行程、offset 和 90° 起始角会令 Lesson 5 官方解撞头。
+`tests/unit/reachability.test.ts` 已保证所有人工题目的 `initialHair - targetHair` 不包含死区体素。后端生成题目则从成功重放的 reference program 反推 target，确保 reference 本身 100 Completion。因此不能为“消除 94”直接放宽关节范围；第一次试验已经证明，未经测量同时改行程、offset 和 90° 起始角会令 Lesson 5 官方解撞头。
 
 ## 默认角度的正确分层
 
 - `SERVO_LIMITS.*.homeDeg = 90` 是固件归中命令。
 - `JointConfig.initialAngleDeg` 是带头模挑战的碰撞安全起始姿态，不应自动等于固件 home。
 - `servo.offsetDeg` / `direction` 描述 90° 时实体连杆的几何姿态，当前仍是从旧规格迁移的占位值，不是实机测量。
-- ArmDock 的 Home 按钮继续调用固件 `/api/home`；运行程序前的 prologue 则必须进入 Challenge 的安全起始姿态。两者不可复用同一个“默认角度”概念。
+- 机械臂每次运行都必须先调用固件 `/api/home`，令 X/Y/Z/B/E 全部回到 90°，等待 1.5 秒后才进入 Challenge 的安全起始姿态；Electron main-process sequencer 会拒绝任何未以 Home 开头的计划。ArmDock 的独立 Home 按钮仍保留。
 
 ## Phase A — 实机校准（需要硬件测量）
 

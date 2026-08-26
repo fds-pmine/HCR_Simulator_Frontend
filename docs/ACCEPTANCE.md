@@ -35,6 +35,11 @@
 - [x] 网格、轴向图例、当前/下一坐标、路径与阻塞节点可见且可关闭。
 - [x] Cutter Grid 只本地评分，不提交 Session/Match，不驱动 ArmDock；Versus 保持 Servo-only。
 - [x] 参考程序精确剪除 12 个目标、无附带删除并取得 100 Completion。
+- [x] Tutorial 入口可独立选择 Cutter Grid 或 Servo；Grid 教程从空 Workspace 分八步构建认证五段路径，完成状态来自真实 Grid IR 与 Test Score。
+- [x] Cutter Grid 显示十课渐进课程，每课至少二十个 section，提供明确目标、可执行示例、课内前后导航和连续下一课入口，且不暴露 Servo 模式。
+- [x] Grid 教程 E2E 完整覆盖认证路径注入、逐步完成判定、V4 规划、Test 回放与最终完成状态。
+- [x] 八个 Servo Angles Lessons 每课至少二十个 section；第 20 节只有真实 Test 达到 100 Completion 才解锁下一课。
+- [x] `Grid → Servo Angles` 教程在真实 Workbench 完成 Grid Move、Servo 模式切换、绝对角度积木和返回 Grid Workspace 保留验证，并明确 Home 90° 不替代 Challenge 安全初始角度。
 
 ## Cutter Grid 全局多分支 IK 修复
 

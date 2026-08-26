@@ -8,15 +8,23 @@ import type { Challenge } from '../../types/domain';
 import { withBlankCanvas } from '../blockly/blankCanvas';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { CUTTER_GRID_LESSONS } from './cutterGridLessons';
+import { CutterGridLessonPanel } from './CutterGridLessonPanel';
 
 export function CutterGridLessonRun({
   lessonId,
   onExit,
+  onNext,
 }: {
   lessonId: string;
   onExit: () => void;
+  onNext?: () => void;
 }) {
   const lesson = CUTTER_GRID_LESSONS.find((item) => item.id === lessonId);
+  const lessonIndex = CUTTER_GRID_LESSONS.findIndex((item) => item.id === lessonId);
+  const [sectionProgress, setSectionProgress] = useState({ lessonId, index: 0 });
+  const sectionIndex = sectionProgress.lessonId === lessonId
+    ? sectionProgress.index
+    : 0;
   const [challenge, setChallenge] = useState<Challenge>();
   useEffect(() => {
     let active = true;
@@ -61,11 +69,23 @@ export function CutterGridLessonRun({
       initialProgrammingMode="cutter-grid"
       tutorial={{
         panel: (
-          <aside className="tutorial-panel cutter-grid-lesson-card">
-            <span className="phase-kicker">CUTTER GRID LESSON</span>
-            <h2>{lesson.name}</h2>
-            <p>{lesson.goal}</p>
-          </aside>
+          <CutterGridLessonPanel
+            lesson={lesson}
+            lessonIndex={lessonIndex}
+            lessonTotal={CUTTER_GRID_LESSONS.length}
+            sectionIndex={sectionIndex}
+            onPreviousSection={() =>
+              setSectionProgress({ lessonId, index: Math.max(0, sectionIndex - 1) })
+            }
+            onNextSection={() =>
+              setSectionProgress({
+                lessonId,
+                index: Math.min(lesson.sections.length - 1, sectionIndex + 1),
+              })
+            }
+            {...(onNext ? { onNextLesson: onNext } : {})}
+            onExit={onExit}
+          />
         ),
         onProgramChange: () => {},
         onTested: () => {},

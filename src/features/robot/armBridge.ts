@@ -25,6 +25,7 @@ import { computeRobotPose, createInitialJointAngles } from './kinematics';
 
 /** One entry of the timeline main replays. */
 export type ArmStep =
+  | { type: 'home'; durationMs: number }
   | { type: 'move'; axis: ServoAxisId; value: number; durationMs: number }
   /**
    * Several axes in one write.
@@ -145,6 +146,7 @@ export interface ArmPlan {
  * wherever the last session left it — so the travel time cannot be computed.
  * A full sweep of an MG996R is comfortably inside this.
  */
+export const ARM_HOME_SETTLE_MS = 1500;
 const START_POSE_SETTLE_MS = 1500;
 
 /**
@@ -156,10 +158,10 @@ const START_POSE_SETTLE_MS = 1500;
  * what keeps a later command from being sent while the previous move is still
  * in flight.
  *
- * The plan opens by driving every mapped joint to the challenge's initial
- * angle. The simulator resets to that pose before each run, so without the
- * prologue the arm would replay the same commands from a different starting
- * point and diverge from the screen on the very first move.
+ * The plan first executes the firmware's 90° Home command, then drives every
+ * mapped joint to the challenge's initial angle. Homing gives Electron a known
+ * physical starting state; the challenge prologue then makes hardware and the
+ * simulator agree before the learner's first command.
  */
 export function buildArmPlan(
   challenge: Challenge,
@@ -169,7 +171,7 @@ export function buildArmPlan(
     challenge.robotConfig.joints.map((joint) => [joint.id, joint]),
   );
   const angles: Record<JointId, number> = {};
-  const steps: ArmStep[] = [];
+  const steps: ArmStep[] = [{ type: 'home', durationMs: ARM_HOME_SETTLE_MS }];
   const unsupported = new Map<JointId, UnsupportedJoint>();
 
   for (const joint of challenge.robotConfig.joints) {
@@ -183,7 +185,7 @@ export function buildArmPlan(
       });
     }
   }
-  if (steps.length > 0) {
+  if (steps.length > 1) {
     steps[steps.length - 1].durationMs = START_POSE_SETTLE_MS;
   }
 
@@ -490,6 +492,7 @@ export function buildCutterArmPlan(
   options: CutterArmPlanOptions = {},
 ): CutterArmPlan {
   const maxSteps = options.maxSteps ?? 512;
+  const motionStepBudget = Math.max(0, maxSteps - 1);
   const poses = flatten(plan);
   const plannedDurationMs = poses.length > 0 ? poses[poses.length - 1].timeMs : 0;
 
@@ -555,12 +558,12 @@ export function buildCutterArmPlan(
   // resolution means the usual answer is "no error worth reporting".
   let toleranceDeg = ARM_ANGLE_RESOLUTION_DEG;
   let kept = decimate(poses, jointIds, toleranceDeg);
-  while (kept.length > maxSteps && toleranceDeg < MAX_TOLERANCE_DEG) {
+  while (kept.length > motionStepBudget && toleranceDeg < MAX_TOLERANCE_DEG) {
     toleranceDeg = Math.min(toleranceDeg * 1.5, MAX_TOLERANCE_DEG);
     kept = decimate(poses, jointIds, toleranceDeg);
   }
 
-  const steps: ArmStep[] = [];
+  const steps: ArmStep[] = [{ type: 'home', durationMs: ARM_HOME_SETTLE_MS }];
   let armDurationMs = 0;
 
   kept.forEach((pose, index) => {
@@ -659,6 +662,7 @@ export function buildCutterArmEndpointPlan(
   options: CutterArmPlanOptions = {},
 ): CutterArmEndpointPlan {
   const maxSteps = options.maxSteps ?? 512;
+  const endpointStepBudget = Math.max(0, maxSteps - 1);
 
   // Pinning the roll to a single value makes the solver's own limit clamp do
   // the work: it cannot move a joint whose range is a point. Nothing else about
@@ -745,7 +749,12 @@ export function buildCutterArmEndpointPlan(
   }
 
   return {
-    steps: unreachable.length > 0 ? [] : steps.slice(0, maxSteps),
+    steps: unreachable.length > 0 || steps.length === 0
+      ? []
+      : [
+          { type: 'home', durationMs: ARM_HOME_SETTLE_MS },
+          ...steps.slice(0, endpointStepBudget),
+        ],
     endpoints,
     unreachable,
   };

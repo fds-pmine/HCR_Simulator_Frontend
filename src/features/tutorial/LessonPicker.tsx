@@ -43,7 +43,7 @@ export function LessonPicker({
         <p className="menu-screen__lede">
           Start with Cutter Grid — you say where the tool goes and the arm works
           out how to get there. Then Servo Angles, where you drive each joint
-          yourself. Thirteen lessons, each teaching one thing.
+          yourself. Eighteen lessons with 20 sections each.
         </p>
       </header>
 
@@ -51,8 +51,8 @@ export function LessonPicker({
         <p className="phase-kicker">CUTTER GRID</p>
         <h2>Control the cutter in 3D space</h2>
         <p className="menu-screen__lede">
-          Five lessons on fixed axes, distance, Repeat, swept cuts, and blocked
-          coordinates.
+          Ten lessons with 20 sections each, from fixed axes and distance
+          through route order, safe planning, and a certified complete haircut.
         </p>
       </header>
       <ol className="lesson-list">
@@ -69,7 +69,9 @@ export function LessonPicker({
                 <strong>{lesson.name.replace(/^Grid \d+\s·\s/, '')}</strong>
                 <small>{lesson.description}</small>
               </span>
-              <span className="lesson-row__meta">Cutter Grid</span>
+              <span className="lesson-row__meta">
+                {lesson.sections.length} sections
+              </span>
             </button>
           </li>
         ))}
@@ -79,8 +81,8 @@ export function LessonPicker({
         <p className="phase-kicker">SERVO ANGLES</p>
         <h2>Drive each joint yourself</h2>
         <p className="menu-screen__lede">
-          Eight challenges on joint control and reach. Every target was built by
-          running a program that works, not drawn by hand.
+          Eight lessons with 20 sections each on joint control and reach. Every
+          target was built by running a program that works, not drawn by hand.
         </p>
       </header>
 
@@ -106,7 +108,7 @@ export function LessonPicker({
                   <small>{lesson.description}</small>
                 </span>
                 <span className="lesson-row__meta">
-                  {lesson.solution.length} block
+                  {lesson.sections.length} sections · {lesson.solution.length} block
                   {lesson.solution.length === 1 ? '' : 's'}
                 </span>
               </button>

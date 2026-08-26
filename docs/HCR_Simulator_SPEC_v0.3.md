@@ -733,6 +733,15 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 - 只有后续规划器生成认证起点、零接触入场、可达节点/边和参考程序，并证明参考程序精确剪除 12 个目标、无附带删除且 Completion 为 100，入口才可启用。
 - 任一门禁失败时停止启用，不修改共享 Challenge、刀头半径或安全余量换取通过。
 
+### 15.6 教程与课程
+
+- 首页 Tutorial 入口先提供 Cutter Grid 与 Servo Angles 两条独立路线；首次使用推荐 Cutter Grid，但不得移除原 Servo 教程。
+- Cutter Grid 教程固定使用当前认证参考路径 `Left 3 → Up 7 → Forward 3 → Up 3 → Forward 6`，从空 Workspace 分八步讲解固定世界轴、连接顺序、安全网格、完整规划和 Test 评分。步骤完成状态必须读取真实 Cutter Grid IR 与仿真 Score，不复制规划或评分逻辑。
+- Cutter Grid Lessons 共十课，每课至少二十个 section：固定轴、距离、Repeat、实际扫掠、阻塞节点、相反方向、Waypoint Wait、路径顺序、同向移动压缩和认证完整剪发。每课分节覆盖概念、规则、安全、预测、搭建、观察、变式、Debug、独立挑战和总结，保持 Cutter Grid-only、本地规划/评分，并提供课内前后导航及连续下一课入口。
+- Servo Angles Lessons 共八课，每课至少二十个 section；前十九节覆盖绝对角度、起始姿态、关节职责、碰撞、预测、搭建、Step/Test、证据读取和 Debug，第 20 节为真实评分 checkpoint。只有 Completion 达到 100 才显示下一课；题目 Target 仍由已验证解法实际运行生成，不改为手写答案。
+- Tutorial 选择页另提供 `Grid → Servo Angles` 过渡展示：在同一个真实 Workbench 中先建立 Grid Move、查看坐标/安全规划，再切换 Servo 建立绝对关节命令并返回 Grid 验证两套 Workspace 隔离。展示必须明确 Electron 硬件 Home 90° 与 Challenge 安全初始角度不同，不得把 90° 写回 Challenge 默认姿态。
+- 教程与课程必须使用 Challenge 安全初始角度及认证 Profile；不得把硬件 Home 90° 当作 Challenge 入场姿态，也不得向 Servo/后端提交链路泄漏 Cutter Grid Program。
+
 ## 15. 未来扩展 / 仍未决定
 
 以下内容不影响首版实现，不得在首版中提前固化：

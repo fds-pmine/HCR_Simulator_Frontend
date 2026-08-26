@@ -11,10 +11,22 @@ import { PracticeRun } from '../features/practice/PracticeRun';
 import { LessonPicker } from '../features/tutorial/LessonPicker';
 import { LessonRun } from '../features/tutorial/LessonRun';
 import { CutterGridLessonRun } from '../features/tutorial/CutterGridLessonRun';
+import { CutterGridTutorialRun } from '../features/tutorial/CutterGridTutorialRun';
+import { TutorialPicker } from '../features/tutorial/TutorialPicker';
+import { CUTTER_GRID_LESSONS } from '../features/tutorial/cutterGridLessons';
+import { ControlModesTutorialRun } from '../features/tutorial/ControlModesTutorialRun';
 import { HomeScreen } from './HomeScreen';
 import { useServices } from './servicesContext';
 
-type Screen = 'home' | 'tutorial' | 'lessons' | 'solo' | 'versus';
+type Screen =
+  | 'home'
+  | 'tutorials'
+  | 'tutorial-servo'
+  | 'tutorial-grid'
+  | 'tutorial-bridge'
+  | 'lessons'
+  | 'solo'
+  | 'versus';
 
 /**
  * Top-level screen router.
@@ -48,15 +60,39 @@ export function GameShell() {
 
   const goHome = useCallback(() => setScreen('home'), []);
 
-  if (screen === 'tutorial') {
-    return <TutorialRun onExit={goHome} />;
+  if (screen === 'tutorials') {
+    return (
+      <TutorialPicker
+        onPickCutterGrid={() => setScreen('tutorial-grid')}
+        onPickServo={() => setScreen('tutorial-servo')}
+        onPickControlModes={() => setScreen('tutorial-bridge')}
+        onBack={goHome}
+      />
+    );
+  }
+
+  if (screen === 'tutorial-servo') {
+    return <TutorialRun onExit={() => setScreen('tutorials')} />;
+  }
+
+  if (screen === 'tutorial-grid') {
+    return <CutterGridTutorialRun onExit={() => setScreen('tutorials')} />;
+  }
+
+  if (screen === 'tutorial-bridge') {
+    return <ControlModesTutorialRun onExit={() => setScreen('tutorials')} />;
   }
 
   if (screen === 'lessons') {
     if (cutterGridLessonId) {
+      const index = CUTTER_GRID_LESSONS.findIndex(
+        (lesson) => lesson.id === cutterGridLessonId,
+      );
+      const next = index >= 0 ? CUTTER_GRID_LESSONS[index + 1] : undefined;
       return (
         <CutterGridLessonRun
           lessonId={cutterGridLessonId}
+          {...(next ? { onNext: () => setCutterGridLessonId(next.id) } : {})}
           onExit={() => setCutterGridLessonId(undefined)}
         />
       );
@@ -95,7 +131,7 @@ export function GameShell() {
       identity={identity}
       kind={matchProvider.kind}
       onRename={rename}
-      onTutorial={() => setScreen('tutorial')}
+      onTutorial={() => setScreen('tutorials')}
       onLessons={() => setScreen('lessons')}
       onSolo={() => setScreen('solo')}
       onVersus={() => setScreen('versus')}

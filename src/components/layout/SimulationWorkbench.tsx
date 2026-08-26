@@ -19,7 +19,8 @@ import {
 import {
   ProgramCompilationError,
 } from '../../features/blockly/programCompiler';
-import type { CompiledProgram, Program } from '../../features/blockly/programTypes';
+import type { CompiledProgram } from '../../features/blockly/programTypes';
+import type { EditorCompilation } from '../../features/blockly/editorCompilation';
 import {
   PROGRAMMING_MODE_LABEL,
   canSwitchProgrammingMode,
@@ -91,9 +92,14 @@ export interface WorkbenchTutorial {
    * placed. Compiling on each change is a small tree walk over a program capped
    * at 500 commands.
    */
-  onProgramChange: (program: Program | undefined, blockCount: number) => void;
+  onProgramChange: (
+    compilation: EditorCompilation | undefined,
+    blockCount: number,
+  ) => void;
   /** Test was pressed. */
   onTested: () => void;
+  /** Active Blockly language, used by tutorials that teach mode switching. */
+  onProgrammingModeChange?: (mode: ProgrammingMode) => void;
 }
 
 export interface SimulationWorkbenchProps {
@@ -213,6 +219,11 @@ export function SimulationWorkbench({
   // Report the workspace to the tutorial on every edit. Subscribing here rather
   // than inside the editor keeps the editor unaware that a tutorial exists.
   const report = tutorial?.onProgramChange;
+  const reportProgrammingMode = tutorial?.onProgrammingModeChange;
+  useEffect(() => {
+    reportProgrammingMode?.(programmingMode);
+  }, [programmingMode, reportProgrammingMode]);
+
   useEffect(() => {
     if (!report) {
       return;
@@ -227,12 +238,7 @@ export function SimulationWorkbench({
         .filter((block) => block.isEnabled() && !block.isShadow()).length;
       try {
         const compilation = editorRef.current?.compile();
-        report(
-          compilation?.mode === 'servo'
-            ? compilation.compiled.program
-            : undefined,
-          blockCount,
-        );
+        report(compilation, blockCount);
       } catch {
         // Half-built programs do not compile, which is the normal state while
         // somebody is dragging blocks around. Report the block count anyway so

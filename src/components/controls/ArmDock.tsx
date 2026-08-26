@@ -378,6 +378,9 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
 
 /** One line of progress, for whichever step shape is running. */
 function describeStep(step: ArmStep): string {
+  if (step.type === 'home') {
+    return 'Home all axes to 90°';
+  }
   if (step.type === 'wait') {
     return `wait ${step.durationMs}ms`;
   }

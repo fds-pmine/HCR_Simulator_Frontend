@@ -208,6 +208,17 @@ tests/
 
 阶段出口：功能分支可供审查，所有适用验收项具有直接证据。
 
+### Cutter Grid 教程与课程扩展
+
+- [x] Tutorial 增加 Cutter Grid/Servo 路线选择，保留原八步 Servo 教程。
+- [x] 增加八步 Cutter Grid 引导，以认证五段路径逐步判定真实 Cutter Grid IR，并以真实 Test 评分完成最后操作步骤。
+- [x] Cutter Grid Lessons 从五课扩展为十课，每课至少二十个 section；补充反向移动、Waypoint Wait、路径顺序、程序压缩和认证完整剪发，并支持课内前后导航及连续下一课。
+- [x] 八个 Servo Angles Lessons 各扩展为至少二十个 section，第 20 节保留真实 100 Completion 评分门槛，切换下一课时重置课内进度。
+- [x] Tutorial 增加 `Grid → Servo Angles` 过渡展示，复用真实双模式 Workbench、独立 Workspace、Grid Inspector 与 Servo telemetry，并讲清硬件 Home 90°/Challenge 安全姿态边界。
+- [x] 覆盖纯课程判定、选择/路由 UI，以及完整认证路径规划与评分 E2E；保持 Cutter Grid-only 与 Servo/后端隔离。
+
+阶段出口：首次用户可在不接触 Servo 角度的情况下完成一条真实认证 Grid 路径，并继续十课渐进课程。
+
 ### Cutter Grid Global IK Repair Phase 0 — 诊断契约与测试向量
 
 - [x] 从最新远端 `feat/cutter-grid-control` fast-forward 基线开始，记录干净前后端工作区。

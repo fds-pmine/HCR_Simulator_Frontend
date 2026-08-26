@@ -10,6 +10,7 @@ import type {
 } from '../../src/features/cutter-grid/types';
 import {
   ARM_ANGLE_RESOLUTION_DEG,
+  ARM_HOME_SETTLE_MS,
   SERVO_MS_PER_DEGREE,
   buildCutterArmPlan,
   buildCutterArmEndpointPlan,
@@ -172,7 +173,11 @@ describe('decimation', () => {
       (joint) => joint.servo && joint.id !== 'shoulderRoll',
     );
 
-    for (const step of plan.steps) {
+    expect(plan.steps[0]).toEqual({
+      type: 'home',
+      durationMs: ARM_HOME_SETTLE_MS,
+    });
+    for (const step of plan.steps.slice(1)) {
       expect(step.type).toBe('pose');
       if (step.type === 'pose') {
         expect(step.moves).toHaveLength(driven.length);
@@ -281,7 +286,11 @@ describe('endpoint playback', () => {
     // The reference program is five Move blocks; one destination each.
     expect(plan.endpoints).toHaveLength(5);
     expect(plan.unreachable).toEqual([]);
-    expect(plan.steps).toHaveLength(5);
+    expect(plan.steps).toHaveLength(6);
+    expect(plan.steps[0]).toEqual({
+      type: 'home',
+      durationMs: ARM_HOME_SETTLE_MS,
+    });
   });
 
   it('collapses a multi-cell block into one destination', () => {
@@ -325,7 +334,7 @@ describe('endpoint playback', () => {
       .filter((joint) => joint.servo)
       .map((joint) => joint.servo!.axis);
 
-    for (const step of plan.steps) {
+    for (const step of plan.steps.slice(1)) {
       expect(step.type).toBe('pose');
       if (step.type === 'pose') {
         expect(step.moves.map((move) => move.axis)).toEqual(axes);

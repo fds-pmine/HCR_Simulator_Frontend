@@ -6,6 +6,7 @@ import { LocalScoreProvider } from '../../services/local/LocalScoreProvider';
 import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import type { Challenge } from '../../types/domain';
 import type { Program } from '../blockly/programTypes';
+import type { EditorCompilation } from '../blockly/editorCompilation';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { useSimulationSnapshot } from '../simulation/useSimulationSnapshot';
 import { LESSONS } from './lessons';
@@ -79,8 +80,8 @@ export function TutorialRun({ onExit }: TutorialRunProps) {
   }, [challenge]);
 
   const onProgramChange = useCallback(
-    (next: Program | undefined, blocks: number) => {
-      setProgram(next);
+    (next: EditorCompilation | undefined, blocks: number) => {
+      setProgram(next?.mode === 'servo' ? next.compiled.program : undefined);
       setBlockCount(blocks);
     },
     [],
@@ -158,7 +159,10 @@ function TutorialStage({
   program?: Program;
   blockCount: number;
   testCount: number;
-  onProgramChange: (program: Program | undefined, blockCount: number) => void;
+  onProgramChange: (
+    compilation: EditorCompilation | undefined,
+    blockCount: number,
+  ) => void;
   onTested: () => void;
   onNext: () => void;
   onFinish: () => void;

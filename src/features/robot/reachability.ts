@@ -156,7 +156,19 @@ export function reachabilitySignature(challenge: Challenge): string {
       // If it ever grows a reachable-*from* notion, the start pose becomes an
       // input and belongs back in here.
       joints: joints
-        .map((joint) => [joint.id, joint.minAngleDeg, joint.maxAngleDeg])
+        .map((joint) => [
+          joint.id,
+          joint.minAngleDeg,
+          joint.maxAngleDeg,
+          joint.servo
+            ? [
+                joint.servo.axis,
+                joint.servo.centerDeg,
+                joint.servo.direction,
+                joint.servo.offsetDeg,
+              ]
+            : null,
+        ])
         .sort(),
       geometry,
       voxelConfig: challenge.voxelConfig,
