@@ -10,13 +10,14 @@ import { LESSONS as SERVO_TUTORIAL_STEPS } from '../../src/features/tutorial/les
 import { localizeTutorialStep } from '../../src/features/tutorial/tutorialStepLocalization';
 
 const locales = ['zh-CN','zh-TW','zh-HK','ja','ko','es','fr','ru','de'] as const;
+const internationalLocales = locales.filter((locale) => !locale.startsWith('zh'));
 
 describe('localization coverage', () => {
   it.each(locales)('%s has no static English fallback', (locale) => {
     expect(missingMessageKeys(locale)).toEqual([]);
   });
 
-  it.each(locales.filter((locale) => !locale.startsWith('zh')))('%s localizes every lesson field', (locale) => {
+  it.each(internationalLocales)('%s localizes every lesson field', (locale) => {
     for (const source of CUTTER_GRID_LESSONS) {
       const translated = localizeCutterGridLesson(source, locale as AppLocale);
       expect(translated.name).not.toBe(source.name);
@@ -35,7 +36,7 @@ describe('localization coverage', () => {
     }
   });
 
-  it.each(locales.filter((locale) => !locale.startsWith('zh')))('%s localizes every tutorial step', (locale) => {
+  it.each(internationalLocales)('%s localizes every tutorial step', (locale) => {
     const steps = [...CUTTER_GRID_TUTORIAL_STEPS, ...CONTROL_MODES_TUTORIAL_STEPS, ...SERVO_TUTORIAL_STEPS];
     for (const source of steps) {
       const translated = localizeTutorialStep(source, locale as AppLocale);
@@ -43,5 +44,22 @@ describe('localization coverage', () => {
       expect(translated.body).not.toBe(source.body);
       if (source.hint) expect(translated.hint).not.toBe(source.hint);
     }
+  });
+
+  it.each(internationalLocales)('%s teaches the current certified Cutter Grid route', (locale) => {
+    const localized = (id: string) =>
+      localizeTutorialStep(
+        CUTTER_GRID_TUTORIAL_STEPS.find((step) => step.id === id)!,
+        locale as AppLocale,
+      );
+
+    expect(localized('grid-up').body).toContain('6');
+    expect(localized('grid-up').body).not.toContain('7');
+    expect(localized('grid-forward').body).toContain('2');
+    expect(localized('grid-forward').body).toContain('8');
+    const completeRouteBody = localized('grid-complete-route').body;
+    expect(completeRouteBody.match(/→/g)).toHaveLength(8);
+    expect(completeRouteBody).toContain('11');
+    expect(completeRouteBody).not.toContain('7');
   });
 });

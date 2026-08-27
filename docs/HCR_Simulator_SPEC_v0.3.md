@@ -739,7 +739,7 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 ### 15.6 教程与课程
 
 - 首页 Tutorial 入口先提供 Cutter Grid 与 Servo Angles 两条独立路线；首次使用推荐 Cutter Grid，但不得移除原 Servo 教程。
-- Cutter Grid 教程固定使用当前认证参考路径 `Left 3 → Up 7 → Forward 3 → Up 3 → Forward 6`，从空 Workspace 分八步讲解固定世界轴、连接顺序、安全网格、完整规划和 Test 评分。步骤完成状态必须读取真实 Cutter Grid IR 与仿真 Score，不复制规划或评分逻辑。
+- Cutter Grid 教程固定使用当前认证参考路径 `Left 3 → Up 6 → Up 2 → Forward 1 → Up 1 → Forward 1 → Up 1 → Forward 6 → Forward 1`，从空 Workspace 分八步讲解固定世界轴、连接顺序、安全网格、完整规划和 Test 评分。步骤完成状态必须读取真实 Cutter Grid IR 与仿真 Score，不复制规划或评分逻辑。
 - Cutter Grid Lessons 共十课，每课至少二十个 section：固定轴、距离、Repeat、实际扫掠、阻塞节点、相反方向、Waypoint Wait、路径顺序、同向移动压缩和认证完整剪发。每课分节覆盖概念、规则、安全、预测、搭建、观察、变式、Debug、独立挑战和总结，保持 Cutter Grid-only、本地规划/评分，并提供课内前后导航及连续下一课入口。
 - Servo Angles Lessons 共八课，每课至少二十个 section；前十九节覆盖绝对角度、起始姿态、关节职责、碰撞、预测、搭建、Step/Test、证据读取和 Debug，第 20 节为真实评分 checkpoint。只有 Completion 达到 100 才显示下一课；题目 Target 仍由已验证解法实际运行生成，不改为手写答案。
 - Tutorial 选择页另提供 `Grid → Servo Angles` 过渡展示：在同一个真实 Workbench 中先建立 Grid Move、查看坐标/安全规划，再切换 Servo 建立绝对关节命令并返回 Grid 验证两套 Workspace 隔离。新建硬件关节积木的命令值必须初始化为固件 Home 90°；Inspector 必须以舵机轴 X/Y/Z/B/E 显示实时仿真角度，并在命令执行时同步变化，Electron ARM 面板必须另外显示设备实际回报。Challenge 安全姿态独立用于带头模仿真，不得用静态 Home 值伪装实时遥测。
