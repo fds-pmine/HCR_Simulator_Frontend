@@ -12,6 +12,7 @@ import type {
 } from '../../types/match';
 import type { ApiClient } from './apiClient';
 import { challengeFromDto, versionFromDto, type ChallengeDefinitionDto } from './challengeDto';
+import { researchHeaders } from '../../features/preferences/researchPreferences';
 
 /**
  * Header carrying the authenticated player.
@@ -30,6 +31,7 @@ const PLAYER_HEADER = 'X-HCR-Player';
  * nothing — so unlike {@link PLAYER_HEADER} the client is entitled to choose it.
  */
 const PLAYER_NAME_HEADER = 'X-HCR-Player-Name';
+const PLAYER_UTC_OFFSET_HEADER = 'X-HCR-Player-Utc-Offset-Minutes';
 
 /** How many clock samples to take. `06-MULTIPLAYER.md` §5. */
 const CLOCK_SAMPLES = 5;
@@ -45,11 +47,19 @@ const CLOCK_SAMPLES = 5;
 export class HttpMatchProvider implements MatchProvider {
   readonly kind = 'online' as const;
 
-  private player = { playerId: 'player', displayName: 'Player' };
+  private player: {
+    playerId: string;
+    displayName: string;
+    utcOffsetMinutes?: number;
+  } = { playerId: 'player', displayName: 'Player' };
 
   constructor(private readonly client: ApiClient) {}
 
-  setPlayer(player: { playerId: string; displayName: string }): void {
+  setPlayer(player: {
+    playerId: string;
+    displayName: string;
+    utcOffsetMinutes?: number;
+  }): void {
     this.player = player;
   }
 
@@ -111,7 +121,7 @@ export class HttpMatchProvider implements MatchProvider {
         challengeVersion: submission.challengeVersion,
         program: submission.program,
       },
-      this.headers(),
+      { ...this.headers(), ...researchHeaders() },
     );
   }
 
@@ -149,6 +159,9 @@ export class HttpMatchProvider implements MatchProvider {
     return {
       [PLAYER_HEADER]: this.player.playerId,
       [PLAYER_NAME_HEADER]: this.player.displayName,
+      ...(this.player.utcOffsetMinutes === undefined
+        ? {}
+        : { [PLAYER_UTC_OFFSET_HEADER]: String(this.player.utcOffsetMinutes) }),
     };
   }
 }

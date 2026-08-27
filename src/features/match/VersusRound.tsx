@@ -12,6 +12,7 @@ import { MatchScoreboard } from './MatchScoreboard';
 import { MatchSetup } from './MatchSetup';
 import { useMatch } from './useMatch';
 import { withBlankCanvas } from '../blockly/blankCanvas';
+import { useLocalization } from '../preferences/localization';
 
 interface VersusRoundProps {
   identity: PlayerIdentity;
@@ -26,6 +27,7 @@ interface VersusRoundProps {
  * practice transfers to the round exactly.
  */
 export function VersusRound({ identity, onExit }: VersusRoundProps) {
+  const { t } = useLocalization();
   const { scoreProvider, matchProvider } = useServices();
   const [session, actions] = useMatch(identity);
 
@@ -96,10 +98,10 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
   if (phase === 'cancelled') {
     return (
       <main className="bootstrap-screen">
-        <p className="phase-kicker">ROUND CANCELLED</p>
-        <h1>The round was abandoned</h1>
+        <p className="phase-kicker">{t('roundCancelled')}</p>
+        <h1>{t('roundAbandoned')}</h1>
         <button type="button" onClick={onExit}>
-          Back to Menu
+          {t('backToMenu')}
         </button>
       </main>
     );
@@ -109,9 +111,9 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
     return (
       <main className="bootstrap-screen">
         <LoaderCircle className="spin" size={30} />
-        <p className="phase-kicker">ROUND STARTING</p>
-        <h1>Revealing the challenge…</h1>
-        <p>Everyone receives it at the same instant.</p>
+        <p className="phase-kicker">{t('roundStarting')}</p>
+        <h1>{t('revealingChallenge')}</h1>
+        <p>{t('simultaneousReveal')}</p>
       </main>
     );
   }
@@ -128,7 +130,7 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
     <SimulationWorkbench
       challenge={challenge}
       engine={engine}
-      modeLabel={matchProvider.kind === 'online' ? 'VERSUS' : 'PRACTICE'}
+      modeLabel={matchProvider.kind === 'online' ? t('versusRound') : t('practice')}
       onExit={() => {
         actions.leave();
         onExit();
@@ -159,8 +161,8 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
           // The CSS animation ends on `visibility: hidden`, so it needs no timer
           // to take itself back down.
           <div className="round-flash" aria-hidden="true">
-            <strong>GO</strong>
-            <span>Closest to the target wins</span>
+            <strong>{t('go')}</strong>
+            <span>{t('closestWins')}</span>
           </div>
         ),
         canSubmit: phase === 'running',

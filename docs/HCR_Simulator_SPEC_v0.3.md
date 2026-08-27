@@ -145,6 +145,7 @@ export interface JointConfig {
   axis: Axis;
   minAngleDeg: number;
   maxAngleDeg: number;
+  /** Home、Challenge 与 Reset 共用的初始命令；有 servo 映射时固定为 90°。 */
   initialAngleDeg: number;
   speedDegPerSec: number;
 }
@@ -232,17 +233,19 @@ Provider 必须返回独立集合，避免调用方修改共享数据。Reset �
 |---|---|
 | Challenge | `Neat Short Haircut` |
 | 初始发型 | `Thick Cap Initial Hairstyle` |
-| 目标发型 | `Symmetric Neat Crop` |
+| 目标发型 | `Neat Crown Trim` |
 
 ### 6.1 机械臂
 
-| ID | 显示名 | 轴 | 角度范围 | 初始角度 | 速度 |
+| ID | 显示名 | 舵机轴 | 命令范围 | 统一初始/Home | 速度 |
 |---|---|---|---:|---:|---:|
-| `baseYaw` | `Base Yaw` | Y | -60°～60° | -45° | 60°/s |
-| `shoulderRoll` | `Shoulder Roll` | X | -45°～45° | 0° | 45°/s |
-| `shoulder` | `Shoulder` | Z | -20°～100° | 45° | 45°/s |
-| `elbow` | `Elbow` | Z | -135°～10° | -80° | 60°/s |
-| `wrist` | `Wrist` | Z | -100°～100° | 35° | 75°/s |
+| `baseYaw` | `Base Yaw` | X | 30°～150° | 90° | 60°/s |
+| `shoulderRoll` | `Shoulder Roll` | 无（仅仿真） | -45°～45° | 0° | 45°/s |
+| `shoulder` | `Shoulder` | Y | 30°～150° | 90° | 45°/s |
+| `elbow` | `Elbow` | Z | 17.5°～162.5° | 90° | 60°/s |
+| `wrist` | `Wrist` | B | 0°～180° | 90° | 75°/s |
+
+固件的 E 轴不参与首版剪刀开合仿真，范围为 45°～100°，初始/Home 同样为 90°。Challenge、Reset、Lesson 与 Electron 连接都从同一 X/Y/Z/B/E 全 90° 状态开始；安全几何姿态由舵机 offset 校准，不得使用第二套隐藏起点。Inspector 的 Servo Angles 面板必须把当前仿真关节实时映射为 X/Y/Z/B 的绝对舵机角度；E 在首版明确显示为 parked 90°。Electron ARM 面板则显示设备实际回报。
 
 首版关节按 `baseYaw → shoulderRoll → shoulder → elbow → wrist` 顺序构成嵌套链。完整旋转顺序为 `Ry(baseYaw) × Rx(shoulderRoll) × Rz(shoulder/elbow/wrist)`；`shoulderRoll = 0°` 时与原四关节平面姿态兼容。所有命令一次只驱动一个关节。
 
@@ -739,7 +742,7 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 - Cutter Grid 教程固定使用当前认证参考路径 `Left 3 → Up 7 → Forward 3 → Up 3 → Forward 6`，从空 Workspace 分八步讲解固定世界轴、连接顺序、安全网格、完整规划和 Test 评分。步骤完成状态必须读取真实 Cutter Grid IR 与仿真 Score，不复制规划或评分逻辑。
 - Cutter Grid Lessons 共十课，每课至少二十个 section：固定轴、距离、Repeat、实际扫掠、阻塞节点、相反方向、Waypoint Wait、路径顺序、同向移动压缩和认证完整剪发。每课分节覆盖概念、规则、安全、预测、搭建、观察、变式、Debug、独立挑战和总结，保持 Cutter Grid-only、本地规划/评分，并提供课内前后导航及连续下一课入口。
 - Servo Angles Lessons 共八课，每课至少二十个 section；前十九节覆盖绝对角度、起始姿态、关节职责、碰撞、预测、搭建、Step/Test、证据读取和 Debug，第 20 节为真实评分 checkpoint。只有 Completion 达到 100 才显示下一课；题目 Target 仍由已验证解法实际运行生成，不改为手写答案。
-- Tutorial 选择页另提供 `Grid → Servo Angles` 过渡展示：在同一个真实 Workbench 中先建立 Grid Move、查看坐标/安全规划，再切换 Servo 建立绝对关节命令并返回 Grid 验证两套 Workspace 隔离。展示必须明确 Electron 硬件 Home 90° 与 Challenge 安全初始角度不同，不得把 90° 写回 Challenge 默认姿态。
+- Tutorial 选择页另提供 `Grid → Servo Angles` 过渡展示：在同一个真实 Workbench 中先建立 Grid Move、查看坐标/安全规划，再切换 Servo 建立绝对关节命令并返回 Grid 验证两套 Workspace 隔离。新建硬件关节积木的命令值必须初始化为固件 Home 90°；Inspector 必须以舵机轴 X/Y/Z/B/E 显示实时仿真角度，并在命令执行时同步变化，Electron ARM 面板必须另外显示设备实际回报。Challenge 安全姿态独立用于带头模仿真，不得用静态 Home 值伪装实时遥测。
 - 教程与课程必须使用 Challenge 安全初始角度及认证 Profile；不得把硬件 Home 90° 当作 Challenge 入场姿态，也不得向 Servo/后端提交链路泄漏 Cutter Grid Program。
 
 ## 15. 未来扩展 / 仍未决定

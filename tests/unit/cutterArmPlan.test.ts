@@ -283,10 +283,10 @@ describe('endpoint playback', () => {
   it('reaches every block endpoint without a roll servo', () => {
     const plan = buildCutterArmEndpointPlan(challenge, planned);
 
-    // The reference program is five Move blocks; one destination each.
-    expect(plan.endpoints).toHaveLength(5);
+    // The reference program is nine Move blocks; one destination each.
+    expect(plan.endpoints).toHaveLength(9);
     expect(plan.unreachable).toEqual([]);
-    expect(plan.steps).toHaveLength(6);
+    expect(plan.steps).toHaveLength(10);
     expect(plan.steps[0]).toEqual({
       type: 'home',
       durationMs: ARM_HOME_SETTLE_MS,
@@ -299,8 +299,8 @@ describe('endpoint playback', () => {
       .filter((step) => step.kind === 'move-cell')
       .map((step) => step.sourceBlockId);
 
-    // 22 cells across 5 blocks: `Move left 3` is one arm move, not three.
-    expect(new Set(blocks).size).toBe(5);
+    // 22 cells across 9 blocks: `Move left 3` is one arm move, not three.
+    expect(new Set(blocks).size).toBe(9);
     expect(blocks).toHaveLength(22);
     expect(plan.endpoints.map((e) => e.sourceBlockId)).toEqual([
       ...new Set(blocks),
@@ -321,10 +321,12 @@ describe('endpoint playback', () => {
     const plan = buildCutterArmEndpointPlan(challenge, planned);
     const rest = challenge.robotConfig.joints.find(
       (joint) => joint.id === 'shoulderRoll',
-    )!.initialAngleDeg;
+    )!;
 
     for (const endpoint of plan.endpoints) {
-      expect(endpoint.jointAngles?.shoulderRoll).toBe(rest);
+      expect(endpoint.jointAngles?.shoulderRoll).toBe(
+        rest.initialAngleDeg,
+      );
     }
   });
 

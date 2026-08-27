@@ -16,3 +16,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  hcrApp?: {
+    available: true;
+    close: () => Promise<void>;
+  };
+}

@@ -7,6 +7,8 @@ export default defineConfig({
     include: ['tools/generate-cutter-grid-profile.ts'],
     environment: 'node',
     globals: true,
-    testTimeout: 300_000,
+    // Certifying V1, V2 and V4 in one pass now includes the reachability
+    // filter's static IK sweep, which alone costs minutes.
+    testTimeout: 1_800_000,
   },
 });

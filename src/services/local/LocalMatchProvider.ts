@@ -37,12 +37,20 @@ import type { ProgramMetrics } from '../../types/domain';
 export class LocalMatchProvider implements MatchProvider {
   readonly kind = 'practice' as const;
 
-  private player = { playerId: 'you', displayName: 'You' };
+  private player: {
+    playerId: string;
+    displayName: string;
+    utcOffsetMinutes?: number;
+  } = { playerId: 'you', displayName: 'You' };
   private readonly rooms = new Map<string, Room>();
 
   constructor(private readonly challenges: ChallengeProvider) {}
 
-  setPlayer(player: { playerId: string; displayName: string }): void {
+  setPlayer(player: {
+    playerId: string;
+    displayName: string;
+    utcOffsetMinutes?: number;
+  }): void {
     this.player = player;
   }
 
@@ -60,6 +68,7 @@ export class LocalMatchProvider implements MatchProvider {
       room.players.set(bot.playerId, {
         playerId: bot.playerId,
         displayName: bot.displayName,
+        utcOffsetMinutes: bot.utcOffsetMinutes,
         connected: true,
         submitted: false,
       });
@@ -73,6 +82,9 @@ export class LocalMatchProvider implements MatchProvider {
     room.players.set(this.player.playerId, {
       playerId: this.player.playerId,
       displayName: this.player.displayName,
+      ...(this.player.utcOffsetMinutes === undefined
+        ? {}
+        : { utcOffsetMinutes: this.player.utcOffsetMinutes }),
       connected: true,
       submitted: false,
     });
@@ -309,6 +321,7 @@ interface Bot {
   efficiencyScore: number;
   blocks: number;
   submitsAtMs: number;
+  utcOffsetMinutes: number;
 }
 
 interface Room {
@@ -373,6 +386,7 @@ function makeBots(matchId: string, count: number): Bot[] {
       finalScore: completionScore * 0.6 + efficiencyScore * 0.25 + 70 * 0.15,
       blocks: 4 + Math.floor(random() * 9),
       submitsAtMs: Math.floor((0.25 + random() * 0.5) * 60_000),
+      utcOffsetMinutes: (Math.floor(random() * 29) - 14) * 30,
     };
   });
 }

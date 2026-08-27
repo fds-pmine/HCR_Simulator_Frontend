@@ -43,6 +43,7 @@ export interface JointConfig {
    */
   minAngleDeg: number;
   maxAngleDeg: number;
+  /** Initial command/state. Servo-backed joints initialize at 90°. */
   initialAngleDeg: number;
   speedDegPerSec: number;
   /** Absent for simulation-only joints the arm has no axis for. */

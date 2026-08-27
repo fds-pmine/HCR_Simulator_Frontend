@@ -97,10 +97,7 @@ export function createInitialJointAngles(
   robotConfig: Challenge['robotConfig'],
 ): Record<JointId, number> {
   return Object.fromEntries(
-    robotConfig.joints.map((joint) => [
-      joint.id,
-      joint.initialAngleDeg,
-    ]),
+    robotConfig.joints.map((joint) => [joint.id, joint.initialAngleDeg]),
   );
 }
 

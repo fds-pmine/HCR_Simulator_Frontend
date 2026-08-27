@@ -9,6 +9,7 @@ import { SimulationEngine } from '../simulation/SimulationEngine';
 import { runHeadless } from '../simulation/headlessRun';
 import { withBlankCanvas } from '../blockly/blankCanvas';
 import { PracticePanel } from './PracticePanel';
+import { useLocalization } from '../preferences/localization';
 
 interface PracticeRunProps {
   onExit: () => void;
@@ -32,6 +33,7 @@ interface PracticeRunProps {
  * order — the same shape, labelled honestly.
  */
 export function PracticeRun({ onExit }: PracticeRunProps) {
+  const { t } = useLocalization();
   const { challengeProvider, scoreProvider, sessionProvider } = useServices();
 
   const [session, setSession] = useState<SessionSnapshot>();
@@ -171,11 +173,11 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     return (
       <main className="bootstrap-screen" role="alert">
         <AlertTriangle size={30} />
-        <p className="phase-kicker">PRACTICE</p>
-        <h1>Practice could not continue</h1>
+        <p className="phase-kicker">{t('practice')}</p>
+        <h1>{t('practiceFailed')}</h1>
         <p>{error}</p>
         <button type="button" onClick={onExit}>
-          Back to Menu
+          {t('backToMenu')}
         </button>
       </main>
     );
@@ -184,13 +186,13 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
   if (finished) {
     return (
       <main className="bootstrap-screen">
-        <p className="phase-kicker">PRACTICE COMPLETE</p>
+        <p className="phase-kicker">{t('practiceComplete')}</p>
         <h1>
           {attempted} challenge{attempted === 1 ? '' : 's'} done
         </h1>
         <p>{finished}</p>
         <button type="button" onClick={onExit}>
-          Back to Menu
+          {t('backToMenu')}
         </button>
       </main>
     );
@@ -200,8 +202,8 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     return (
       <main className="bootstrap-screen">
         <LoaderCircle className="spin" size={30} />
-        <p className="phase-kicker">PRACTICE</p>
-        <h1>Choosing your next challenge…</h1>
+        <p className="phase-kicker">{t('practice')}</p>
+        <h1>{t('choosingChallenge')}</h1>
       </main>
     );
   }
@@ -210,7 +212,7 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     <SimulationWorkbench
       challenge={challenge}
       engine={engine}
-      modeLabel="PRACTICE"
+      modeLabel={t('practice')}
       onExit={onExit}
       availableProgrammingModes={['servo']}
       cutterGridPlannerMode={

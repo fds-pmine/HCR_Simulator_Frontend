@@ -39,13 +39,23 @@ beforeAll(async () => {
 
 /** The challenge's shipped starter workspace, as Program IR. */
 const STARTER_PROGRAM = {
-  sourceBlockCount: 5,
+  sourceBlockCount: 1,
   nodes: [
-    { type: 'set-joint-angle', jointId: 'shoulderRoll', angleDeg: 15, sourceBlockId: 'starter-shoulder-roll' },
-    { type: 'set-joint-angle', jointId: 'shoulder', angleDeg: 130, sourceBlockId: 'starter-shoulder' },
-    { type: 'set-joint-angle', jointId: 'elbow', angleDeg: 152.5, sourceBlockId: 'starter-elbow' },
-    { type: 'set-joint-angle', jointId: 'wrist', angleDeg: 10, sourceBlockId: 'starter-wrist' },
-    { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 145, sourceBlockId: 'starter-base-sweep' },
+    { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 150, sourceBlockId: 'starter-base-sweep' },
+  ],
+};
+
+/**
+ * A sweep that stops short of the target.
+ *
+ * The Versus round needs a program whose real score is not the one a client
+ * can claim, and the shipped starter now cuts the target exactly — a perfect
+ * 100 proves nothing about whose number won.
+ */
+const PARTIAL_SWEEP_PROGRAM = {
+  sourceBlockCount: 1,
+  nodes: [
+    { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 130, sourceBlockId: 'partial-base-sweep' },
   ],
 };
 
@@ -90,16 +100,12 @@ describe('live backend', () => {
 
     expect(result.status).toBe('completed');
     expect(result.terminal.reason).toBe('completed');
-    expect(result.metrics.executedCommandCount).toBe(5);
-    // The values recorded from the TS engine in the conformance fixture. The
-    // starter removes 11 of the 12 voxels the target asks for, and completion
-    // is Jaccard over the *cut* — 11 removed against a 12-voxel union — so it
-    // lands at 11/12. Under the old metric, which compared the hair left
-    // standing, the same run scored 99.5652 and an empty program scored 95.02;
-    // see `calculateTrimScore`.
-    expect(result.score.completionScore).toBeCloseTo(91.6667, 3);
-    // Efficiency and time both clamp at 100 here, so this is 0.6 × 91.6667 + 40.
-    expect(result.score.finalScore).toBeCloseTo(95.0, 3);
+    expect(result.metrics.executedCommandCount).toBe(1);
+    // Crown Trim is one sweep: X from its 90° Home to 150°, which removes
+    // exactly the eleven target voxels. One block also keeps efficiency and
+    // time at their ceilings, so the final score is the completion score.
+    expect(result.score.completionScore).toBeCloseTo(100, 3);
+    expect(result.score.finalScore).toBeCloseTo(100, 3);
   });
 
   it('reports a head collision with the block to highlight', async ({ skip }) => {
@@ -114,18 +120,20 @@ describe('live backend', () => {
       challengeVersion: 1,
       program: {
         sourceBlockCount: 1,
+        // Base Yaw 90° is the Home pose now and reaches nothing; rolling the
+        // shoulder to its limit still drives the End Effector into the head.
         nodes: [
-          { type: 'set-joint-angle', jointId: 'baseYaw', angleDeg: 90, sourceBlockId: 'reckless' },
+          { type: 'set-joint-angle', jointId: 'shoulderRoll', angleDeg: -45, sourceBlockId: 'reckless' },
         ],
       },
     });
 
     expect(result.status).toBe('error');
     expect(result.terminal.reason).toBe('head-collision');
-    expect(result.terminal.jointId).toBe('baseYaw');
+    expect(result.terminal.jointId).toBe('shoulderRoll');
     expect(result.terminal.sourceBlockId).toBe('reckless');
-    // Servo degrees, like every angle crossing the wire; geometric -34.48°.
-    expect(result.terminal.safeAngleDeg).toBeCloseTo(55.52, 1);
+    // Servo degrees, like every angle crossing the wire.
+    expect(result.terminal.safeAngleDeg).toBeCloseTo(-14.36, 1);
   });
 
   it('surfaces a backend validation error with its field', async ({ skip }) => {
@@ -208,7 +216,7 @@ describe('live competitive round', () => {
       submissionId: `live-round-${Date.now()}`,
       challengeId: SHIPPED,
       challengeVersion: 1,
-      program: STARTER_PROGRAM,
+      program: PARTIAL_SWEEP_PROGRAM,
       // Ignored by the online provider; the server replays and uses its own.
       clientScore: {
         completionScore: 100,
@@ -239,7 +247,7 @@ describe('live competitive round', () => {
     expect(results.rankBy).toBe('completion');
     expect(results.rows[0]?.displayName).toBe('Alice');
     // The server's own replay, not the 100 the client claimed.
-    expect(results.rows[0]?.completionScore).toBeCloseTo(91.6667, 3);
+    expect(results.rows[0]?.completionScore).toBeCloseTo(63.6364, 3);
     expect(results.rows[1]?.displayName).toBe('Bob');
     expect(results.rows[1]?.submissionId).toBeUndefined();
 

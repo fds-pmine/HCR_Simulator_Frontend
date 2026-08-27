@@ -36,28 +36,12 @@ function setJoint(
   );
 }
 
-// Servo degrees. Geometric equivalents in comments, since the poses these
-// produce were chosen in the old convention and are easier to check that way.
+// Every mapped motor begins at 90°. The starter changes only X so its visible
+// block, live telemetry, rendered movement, and hardware command all agree.
 const starterProgram = setJoint(
-  'starter-shoulder-roll',
-  'shoulderRoll',
-  15, // simulation-only joint, so still geometric
-  setJoint(
-    'starter-shoulder',
-    'shoulder',
-    130, // geometric 80
-    setJoint(
-      'starter-elbow',
-      'elbow',
-      152.5, // geometric 0
-      setJoint(
-        'starter-wrist',
-        'wrist',
-        10, // geometric -80
-        setJoint('starter-base-sweep', 'baseYaw', 145), // geometric 55
-      ),
-    ),
-  ),
+  'starter-base-sweep',
+  'baseYaw',
+  150,
 );
 
 starterProgram.x = 40;

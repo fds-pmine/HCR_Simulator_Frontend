@@ -61,19 +61,23 @@ export const CONTROL_MODES_TUTORIAL_STEPS: readonly ControlModesTutorialStep[] =
   },
   {
     id: 'bridge-home-angle',
-    title: 'Home 90° is not the Challenge pose',
+    title: 'Home is 90°; telemetry is live',
     body:
-      'Electron hardware connection uses the physical Home command of 90°. The ' +
-      'Challenge starts from its own certified safe angles—currently 45°, 0°, ' +
-      '95°, 72.5°, and 125°. Replacing those with 90° can collide with Lesson paths.',
+      'A new hardware-backed Servo block initializes to the firmware Home value ' +
+      'of 90°. Electron also homes X, Y, Z, B, and E to 90° before a run and ' +
+      'shows the arm’s reported values in the ARM panel. The Inspector does not ' +
+      'repeat five fixed 90° values: its X/Y/Z/B cells follow the rendered arm ' +
+      'live, while E stays parked at 90° until cutter actuation is modelled.',
   },
   {
     id: 'bridge-telemetry',
     title: 'Use telemetry to connect both views',
     body:
-      'Servo telemetry shows the joint angles behind the rendered pose. Grid ' +
+      'Servo telemetry uses the same X/Y/Z/B names and absolute degrees that ' +
+      'Electron sends to the arm. Grid ' +
       'coordinates show the cutter’s spatial destination. Together they explain ' +
-      'what the planner solved and what the hardware would receive.',
+      'what the planner solved and what the hardware would receive. On entry ' +
+      'and after Reset, all five hardware axes read 90°.',
   },
   {
     id: 'bridge-return-grid',
@@ -92,6 +96,6 @@ export const CONTROL_MODES_TUTORIAL_STEPS: readonly ControlModesTutorialStep[] =
     body:
       'Use Grid to teach and author cutter paths. Use Servo Angles to study ' +
       'joint behavior or drive compatible hardware commands. Safety limits and ' +
-      'the Challenge pose remain authoritative in both views.',
+      'the shared all-90° Home pose remain authoritative in both views.',
   },
 ];

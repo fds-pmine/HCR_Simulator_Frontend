@@ -45,3 +45,9 @@ contextBridge.exposeInMainWorld('hcrArm', {
     return () => ipcRenderer.removeListener('arm:progress', wrapped)
   },
 })
+
+/** App lifecycle only; no generic IPC surface is exposed to the renderer. */
+contextBridge.exposeInMainWorld('hcrApp', {
+  available: true,
+  close: () => ipcRenderer.invoke('app:close'),
+})

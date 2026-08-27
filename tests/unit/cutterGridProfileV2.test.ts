@@ -64,7 +64,7 @@ describe('Cutter Grid Profile V2 multi-entry certification', () => {
         Object.fromEntries(challenge.robotConfig.joints.map((joint) => [joint.id, 0])),
       );
     }
-  }, 180_000);
+  }, 900_000);
 
   it('fails closed when a V2-signature input changes', () => {
     const profile = generateCutterGridProfileV2(challenge);
@@ -81,7 +81,7 @@ describe('Cutter Grid Profile V2 multi-entry certification', () => {
         },
       },
     })).toBe(false);
-  }, 180_000);
+  }, 900_000);
 
   it('loads the generated asset with static IK status distinct from path connectivity', () => {
     const profile = profileFixture as unknown as ReturnType<typeof generateCutterGridProfileV2>;

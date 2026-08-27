@@ -209,6 +209,12 @@ function registerArmHandlers() {
   handle('arm:abort', () => sequencer.abort())
 }
 
+function registerAppHandlers() {
+  ipcMain.handle('app:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+  })
+}
+
 app.whenReady().then(() => {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -233,6 +239,7 @@ app.whenReady().then(() => {
 
   registerAppProtocol()
   registerArmHandlers()
+  registerAppHandlers()
   mainWindow = createWindow()
 
   app.on('activate', () => {

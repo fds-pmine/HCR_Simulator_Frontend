@@ -3,6 +3,7 @@ import { ArrowLeft, Bot, LoaderCircle, Radio, Swords, Wifi, WifiOff } from 'luci
 import type { MatchProvider } from '../../services/contracts';
 import type { ChallengeSummary } from '../../types/domain';
 import { useServices } from '../../app/servicesContext';
+import { useLocalization } from '../preferences/localization';
 
 interface MatchSetupProps {
   kind: MatchProvider['kind'];
@@ -30,6 +31,7 @@ export function MatchSetup({
   onBack,
   onDismissError,
 }: MatchSetupProps) {
+  const { t } = useLocalization();
   const [durationMs, setDurationMs] = useState(DURATIONS[1].ms);
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
@@ -61,19 +63,17 @@ export function MatchSetup({
 
       <button className="ghost-button menu-screen__back" type="button" onClick={onBack}>
         <ArrowLeft size={15} />
-        Menu
+        {t('menu')}
       </button>
 
       <header className="menu-screen__head">
         <p className="phase-kicker">
           <Swords size={13} />
-          VERSUS ROUND
+          {t('versusRound')}
         </p>
-        <h1>Same challenge. Same clock.</h1>
+        <h1>{t('versusTitle')}</h1>
         <p className="menu-screen__lede">
-          Everyone gets the identical hairstyle at the same moment and a fixed
-          window to submit. Closest to the target wins. Scores stay hidden until
-          the round closes.
+          {t('versusIntro')}
         </p>
       </header>
 
@@ -82,21 +82,25 @@ export function MatchSetup({
       >
         {practice ? <WifiOff size={15} /> : <Wifi size={15} />}
         <div>
-          <strong>{practice ? 'Offline practice' : 'Connected to a backend'}</strong>
+          <strong>{practice ? t('offlinePracticeTitle') : t('backendOnlineTitle')}</strong>
           <span>
             {practice
-              ? 'No server is configured, so rounds run in this tab against scripted bots and scores are computed by your own browser. Set VITE_HCR_API_BASE_URL to play against real opponents.'
-              : 'Programs are replayed and scored by the server, and the deadline is judged by the server clock.'}
+              ? t('offlinePracticeBody')
+              : t('onlineRoundBody')}
           </span>
         </div>
       </div>
 
+      <p className="menu-screen__privacy-note">
+        {t('multiplayerPrivacy')}
+      </p>
+
       <div className="menu-screen__columns">
         <section className="menu-card">
-          <h2>Host a round</h2>
-          <p>Open a room, share the code, start when everyone is in.</p>
+          <h2>{t('hostRound')}</h2>
+          <p>{t('hostRoundBody')}</p>
 
-          <div className="segmented" role="group" aria-label="Round length">
+          <div className="segmented" role="group" aria-label={t('roundLength')}>
             {DURATIONS.map((option) => (
               <button
                 key={option.ms}
@@ -112,13 +116,13 @@ export function MatchSetup({
 
           {catalog.length > 1 ? (
             <label className="host-choice">
-              <span>CHALLENGE</span>
+              <span>{t('challenge')}</span>
               <select
                 value={challengeId}
                 onChange={(event) => setChallengeId(event.target.value)}
-                aria-label="Challenge for this round"
+                aria-label={t('challengeForRound')}
               >
-                <option value="">Let the server choose</option>
+                <option value="">{t('serverChoose')}</option>
                 {catalog.map((summary) => (
                   <option key={summary.id} value={summary.id}>
                     {summary.name}
@@ -135,20 +139,20 @@ export function MatchSetup({
             onClick={() => onHost(durationMs, challengeId || undefined)}
           >
             {busy ? <LoaderCircle className="spin" size={17} /> : <Radio size={17} />}
-            Open Room
+            {t('openRoom')}
           </button>
 
           {practice ? (
             <p className="menu-card__foot">
               <Bot size={13} />
-              Three practice bots will fill the room.
+              {t('practiceBots')}
             </p>
           ) : null}
         </section>
 
         <section className="menu-card">
-          <h2>Join a round</h2>
-          <p>Enter the code the host gave you.</p>
+          <h2>{t('joinRound')}</h2>
+          <p>{t('joinRoundBody')}</p>
 
           <form
             onSubmit={(event) => {
@@ -168,8 +172,8 @@ export function MatchSetup({
               onChange={(event) =>
                 setCode(event.target.value.toUpperCase().slice(0, 6))
               }
-              placeholder="ROOM CODE"
-              aria-label="Room code"
+              placeholder={t('roomCode')}
+              aria-label={t('roomCodeLabel')}
               autoComplete="off"
               spellCheck={false}
             />
@@ -178,13 +182,13 @@ export function MatchSetup({
               type="submit"
               disabled={busy || !code.trim()}
             >
-              Join Room
+              {t('joinRoom')}
             </button>
           </form>
 
           {practice ? (
             <p className="menu-card__foot">
-              Offline rooms live in this tab only — a code cannot be shared.
+              {t('offlineRoomOnly')}
             </p>
           ) : null}
         </section>
@@ -192,9 +196,9 @@ export function MatchSetup({
 
       {error ? (
         <div className="error-banner error-banner--static" role="alert">
-          <strong>ROUND ERROR</strong>
+          <strong>{t('roundError')}</strong>
           <span>{error}</span>
-          <button type="button" onClick={onDismissError} aria-label="Dismiss error message">
+          <button type="button" onClick={onDismissError} aria-label={t('dismissError')}>
             ×
           </button>
         </div>

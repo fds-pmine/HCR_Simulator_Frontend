@@ -2,6 +2,7 @@ import type { Challenge, JointId, Vec3Tuple, VoxelKey } from '../../types/domain
 import { findRobotHeadCollision } from '../robot/headCollision';
 import { computeRobotPose, createInitialJointAngles } from '../robot/kinematics';
 import { findSweptVoxelHits } from '../voxel/contactDetection';
+import { planCertifiedCutterGridEntry } from './entryPlanning';
 import {
   cutterGridBoundsContain,
   cutterGridCoordToWorld,
@@ -423,70 +424,44 @@ function validateSerializedInterval(
   }
 }
 
+/**
+ * Certify the move from the Servo Home pose to the Cutter Grid origin.
+ *
+ * This used to interpolate a straight Cartesian line and solve IK at every
+ * knot. That only works while Home parks the tool beside the head: once every
+ * servo homes at 90° the tool waits above the crown, and a straight line down
+ * to the origin necessarily sweeps hair — no amount of resampling makes it
+ * legal. The certified entry is therefore the same synchronized joint-space
+ * move V2 certifies, checked pose by pose for head collision and hair contact.
+ */
 export function planCutterGridEntryTrajectory(
   challenge: Challenge,
   originWorldPosition: Vec3Tuple,
   options: CutterGridPlanningOptions = {},
 ): CutterTrajectoryWaypointV1[] {
+  throwIfCancelled(options);
   const initialAngles = createInitialJointAngles(challenge.robotConfig);
-  const initialWorld = computeRobotPose(
-    challenge.robotConfig,
-    initialAngles,
-  ).endEffector;
-  const knotCount = Math.max(
-    1,
-    Math.ceil(
-      distance(initialWorld, originWorldPosition) /
-        (challenge.voxelConfig.size /
-          CUTTER_GRID_TRAJECTORY_CONFIG.cartesianSubdivisionDivisor),
-    ),
-  );
-  const knots: Knot[] = [{ world: initialWorld, angles: initialAngles }];
-  let previous = initialAngles;
-  for (let index = 1; index <= knotCount; index += 1) {
-    throwIfCancelled(options);
-    const target = interpolate(initialWorld, originWorldPosition, index / knotCount);
-    const solution = solveCutterGridIk(challenge, target, previous, {
-      maxError: challenge.voxelConfig.size / 32,
-      shouldCancel: options.shouldCancel,
-      maxNormalizedChange: 0.2,
-    });
-    if (!solution) {
-      throw new CutterGridPlanningError(
-        'ik-not-converged',
-        'The certified entry trajectory could not reach its Cutter Grid origin.',
-        { targetCoord: [0, 0, 0] },
-      );
-    }
-    previous = solution.jointAngles;
-    knots.push({
-      world: target,
-      angles: solution.jointAngles,
-      targetCoord: [0, 0, 0],
-    });
-  }
-  const segments: FineSegment[] = Array.from(
-    { length: knots.length - 1 },
-    (_, index) => ({
-      startKnot: index,
-      endKnot: index + 1,
-      direction: 'right',
-      actionIndex: 0,
-      durationMs: 0,
-      continuityGroup: 0,
-    }),
-  );
-  assignSynchronizedDurations(challenge, knots, segments);
-  const sampled = sampleSegments(challenge, knots, segments);
-  const hits = sweptHits(challenge, sampled);
-  if (hits.length > 0) {
+  const origin = solveCutterGridIk(challenge, originWorldPosition, initialAngles, {
+    maxError: challenge.voxelConfig.size / 32,
+    shouldCancel: options.shouldCancel,
+  });
+  if (!origin) {
     throw new CutterGridPlanningError(
-      'path-deviation',
-      `The certified entry trajectory touches ${hits.length} hair voxels.`,
+      'ik-not-converged',
+      'The certified entry trajectory could not reach its Cutter Grid origin.',
       { targetCoord: [0, 0, 0] },
     );
   }
-  return sampled;
+  throwIfCancelled(options);
+  const entry = planCertifiedCutterGridEntry(challenge, 'entry-v1', origin.jointAngles);
+  if (!entry) {
+    throw new CutterGridPlanningError(
+      'path-deviation',
+      'No certified entry reaches the Cutter Grid origin from the Home pose without touching the head or its hair.',
+      { targetCoord: [0, 0, 0] },
+    );
+  }
+  return entry.positioningTrajectory;
 }
 
 function buildMovementKnots(
@@ -720,24 +695,6 @@ function sampleMovementSteps(
     });
     coord = endCoord;
   });
-  return result;
-}
-
-function sampleSegments(
-  challenge: Challenge,
-  knots: readonly Knot[],
-  segments: readonly FineSegment[],
-): CutterTrajectoryWaypointV1[] {
-  const result: CutterTrajectoryWaypointV1[] = [];
-  let elapsed = 0;
-  for (const segment of segments) {
-    const samples = sampleSingleSegment(challenge, knots, segments, segment);
-    samples.forEach((sample, index) => {
-      if (result.length > 0 && index === 0) return;
-      result.push({ ...sample, timeMs: elapsed + sample.timeMs });
-    });
-    elapsed += segment.durationMs;
-  }
   return result;
 }
 

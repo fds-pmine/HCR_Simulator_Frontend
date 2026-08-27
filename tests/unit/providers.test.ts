@@ -31,7 +31,7 @@ describe('LocalChallengeProvider', () => {
     expect(first.initialHair.name).toBe('Thick Cap Initial Hairstyle');
     expect(first.targetHair.name).toBe('Neat Crown Trim');
     expect(first.initialHair.voxels).toBeInstanceOf(Set);
-    expect(first.targetHair.voxels.size).toBe(229);
+    expect(first.targetHair.voxels.size).toBe(230);
     expect(first.robotConfig.joints).toHaveLength(5);
     expect(first.robotConfig.joints.map((joint) => joint.id)).toEqual([
       'baseYaw',
@@ -89,6 +89,15 @@ describe('LocalChallengeProvider', () => {
 });
 
 describe('challenge validation', () => {
+  it('requires every hardware-backed joint to initialize at firmware Home', () => {
+    const invalidHome = cloneDefinition();
+    invalidHome.robotConfig.joints[0].initialAngleDeg = 45;
+
+    expect(() => validateChallengeDefinition(invalidHome)).toThrow(
+      'must initialize servo X at its 90° firmware Home',
+    );
+  });
+
   it('rejects duplicate joints and target voxels outside initial hair', () => {
     const duplicateJoint = cloneDefinition();
     duplicateJoint.robotConfig.joints.push({

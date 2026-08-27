@@ -1,0 +1,47 @@
+import { describe, expect, it } from 'vitest';
+import { CUTTER_GRID_LESSONS } from '../../src/features/tutorial/cutterGridLessons';
+import { LESSONS } from '../../src/data/challenges/lessons';
+import { localizeCutterGridLesson } from '../../src/features/tutorial/cutterGridLessonLocalization';
+import { localizeServoLesson } from '../../src/features/tutorial/servoLessonLocalization';
+import { missingMessageKeys, type AppLocale } from '../../src/features/preferences/localization';
+import { CUTTER_GRID_TUTORIAL_STEPS } from '../../src/features/tutorial/cutterGridTutorial';
+import { CONTROL_MODES_TUTORIAL_STEPS } from '../../src/features/tutorial/controlModesTutorial';
+import { LESSONS as SERVO_TUTORIAL_STEPS } from '../../src/features/tutorial/lessons';
+import { localizeTutorialStep } from '../../src/features/tutorial/tutorialStepLocalization';
+
+const locales = ['zh-CN','zh-TW','zh-HK','ja','ko','es','fr','ru','de'] as const;
+
+describe('localization coverage', () => {
+  it.each(locales)('%s has no static English fallback', (locale) => {
+    expect(missingMessageKeys(locale)).toEqual([]);
+  });
+
+  it.each(locales.filter((locale) => !locale.startsWith('zh')))('%s localizes every lesson field', (locale) => {
+    for (const source of CUTTER_GRID_LESSONS) {
+      const translated = localizeCutterGridLesson(source, locale as AppLocale);
+      expect(translated.name).not.toBe(source.name);
+      expect(translated.description).not.toBe(source.description);
+      expect(translated.goal).not.toBe(source.goal);
+      expect(translated.assessments.multipleChoice.question).not.toBe(source.assessments.multipleChoice.question);
+      expect(translated.sections.every((section, index) => section.body !== source.sections[index].body)).toBe(true);
+    }
+    for (const source of LESSONS) {
+      const translated = localizeServoLesson(source, locale as AppLocale);
+      expect(translated.name).not.toBe(source.name);
+      expect(translated.description).not.toBe(source.description);
+      expect(translated.goal).not.toBe(source.goal);
+      expect(translated.assessments.multipleChoice.question).not.toBe(source.assessments.multipleChoice.question);
+      expect(translated.sections.every((section, index) => section.body !== source.sections[index].body)).toBe(true);
+    }
+  });
+
+  it.each(locales.filter((locale) => !locale.startsWith('zh')))('%s localizes every tutorial step', (locale) => {
+    const steps = [...CUTTER_GRID_TUTORIAL_STEPS, ...CONTROL_MODES_TUTORIAL_STEPS, ...SERVO_TUTORIAL_STEPS];
+    for (const source of steps) {
+      const translated = localizeTutorialStep(source, locale as AppLocale);
+      expect(translated.title).not.toBe(source.title);
+      expect(translated.body).not.toBe(source.body);
+      if (source.hint) expect(translated.hint).not.toBe(source.hint);
+    }
+  });
+});

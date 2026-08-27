@@ -1,6 +1,9 @@
-import { ArrowLeft, Check, GraduationCap } from 'lucide-react';
+import { ArrowLeft, Check, GraduationCap, LockKeyhole } from 'lucide-react';
 import { LESSONS } from '../../data/challenges/lessons';
 import { CUTTER_GRID_LESSONS } from './cutterGridLessons';
+import { useLocalization } from '../preferences/localization';
+import { localizeCutterGridLessons } from './cutterGridLessonLocalization';
+import { localizeServoLessons } from './servoLessonLocalization';
 
 interface LessonPickerProps {
   /** Ids the player has scored 100 on, in this browser. */
@@ -16,13 +19,19 @@ export function LessonPicker({
   onPickCutterGrid,
   onBack,
 }: LessonPickerProps) {
+  const { locale, t } = useLocalization();
+  const cutterGridLessons = localizeCutterGridLessons(
+    CUTTER_GRID_LESSONS,
+    locale,
+  );
+  const servoLessons = localizeServoLessons(LESSONS, locale);
   return (
     <main className="menu-screen">
       <div className="menu-screen__aura" aria-hidden="true" />
 
       <button className="ghost-button menu-screen__back" type="button" onClick={onBack}>
         <ArrowLeft size={15} />
-        Menu
+        {t('menu')}
       </button>
 
       {/*
@@ -37,79 +46,80 @@ export function LessonPicker({
       <header className="menu-screen__head">
         <p className="phase-kicker">
           <GraduationCap size={13} />
-          LESSONS
+          {t('lessonsHeading')}
         </p>
-        <h1>Learn to drive the arm</h1>
+        <h1>{t('lessonPickerTitle')}</h1>
         <p className="menu-screen__lede">
-          Start with Cutter Grid — you say where the tool goes and the arm works
-          out how to get there. Then Servo Angles, where you drive each joint
-          yourself. Eighteen lessons with 20 sections each.
+          {t('lessonPickerBody')}
         </p>
       </header>
 
       <header className="menu-screen__head cutter-grid-lessons__head">
         <p className="phase-kicker">CUTTER GRID</p>
-        <h2>Control the cutter in 3D space</h2>
+        <h2>{t('gridLessonsTitle')}</h2>
         <p className="menu-screen__lede">
-          Ten lessons with 20 sections each, from fixed axes and distance
-          through route order, safe planning, and a certified complete haircut.
+          {t('gridLessonsBody')}
         </p>
       </header>
       <ol className="lesson-list">
-        {CUTTER_GRID_LESSONS.map((lesson, index) => (
-          <li key={lesson.id}>
+        {cutterGridLessons.map((lesson, index) => {
+          const done = completed.has(lesson.id);
+          const unlocked = index === 0 || completed.has(cutterGridLessons[index - 1].id);
+          return <li key={lesson.id}>
             <button
               type="button"
-              className="lesson-row lesson-row--cutter-grid"
+              className={`lesson-row lesson-row--cutter-grid ${done ? 'is-done' : ''}`}
               onClick={() => onPickCutterGrid?.(lesson.id)}
-              disabled={!onPickCutterGrid}
+              disabled={!onPickCutterGrid || !unlocked}
+              aria-label={`${lesson.name}${unlocked ? '' : ` · ${t('lockedLesson')}`}`}
             >
-              <span className="lesson-row__index">G{index + 1}</span>
+              <span className="lesson-row__index">
+                {done ? <Check size={15} /> : unlocked ? `G${index + 1}` : <LockKeyhole size={14} />}
+              </span>
               <span className="lesson-row__text">
                 <strong>{lesson.name.replace(/^Grid \d+\s·\s/, '')}</strong>
                 <small>{lesson.description}</small>
               </span>
               <span className="lesson-row__meta">
-                {lesson.sections.length} sections
+                {unlocked ? t('requiredAssessments') : t('lockedLesson')}
               </span>
             </button>
           </li>
-        ))}
+        })}
       </ol>
 
       <header className="menu-screen__head cutter-grid-lessons__head">
         <p className="phase-kicker">SERVO ANGLES</p>
-        <h2>Drive each joint yourself</h2>
+        <h2>{t('servoLessonsTitle')}</h2>
         <p className="menu-screen__lede">
-          Eight lessons with 20 sections each on joint control and reach. Every
-          target was built by running a program that works, not drawn by hand.
+          {t('servoLessonsBody')}
         </p>
       </header>
 
       <ol className="lesson-list">
-        {LESSONS.map((lesson, index) => {
-          // Nothing is locked, and nothing may look locked either: the first
-          // version drew a padlock beside every unstarted lesson while leaving
-          // them all clickable, which promises a gate that is not there. A
-          // learner who wants to jump ahead and come back is still learning.
+        {servoLessons.map((lesson, index) => {
           const done = completed.has(lesson.id);
+          const unlocked = index === 0
+            ? completed.has(cutterGridLessons[cutterGridLessons.length - 1].id)
+            : completed.has(servoLessons[index - 1].id);
           return (
             <li key={lesson.id}>
               <button
                 type="button"
                 className={`lesson-row ${done ? 'is-done' : ''}`}
                 onClick={() => onPick(lesson.id)}
+                disabled={!unlocked}
+                aria-label={`${lesson.name}${unlocked ? '' : ` · ${t('lockedLesson')}`}`}
               >
                 <span className="lesson-row__index">
-                  {done ? <Check size={15} /> : index + 1}
+                  {done ? <Check size={15} /> : unlocked ? index + 1 : <LockKeyhole size={14} />}
                 </span>
                 <span className="lesson-row__text">
                   <strong>{lesson.name.replace(/^\d+\s·\s/, '')}</strong>
                   <small>{lesson.description}</small>
                 </span>
                 <span className="lesson-row__meta">
-                  {lesson.sections.length} sections · {lesson.solution.length} block
-                  {lesson.solution.length === 1 ? '' : 's'}
+                  {unlocked ? t('requiredAssessments') : t('lockedLesson')}
                 </span>
               </button>
             </li>

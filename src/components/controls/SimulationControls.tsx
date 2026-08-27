@@ -9,6 +9,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { SimulationStatus } from '../../features/simulation/SimulationEngine';
+import { useLocalization } from '../../features/preferences/localization';
 
 /** The optional "enter this program into the round" action. */
 export interface SubmitAction {
@@ -43,12 +44,13 @@ export function SimulationControls({
   testing,
   submit,
 }: SimulationControlsProps) {
+  const { t } = useLocalization();
   const running = status === 'running';
   const paused = status === 'paused';
   const canRun = ['idle', 'completed', 'stopped', 'error'].includes(status);
 
   return (
-    <div className="control-dock" aria-label="Simulation controls">
+    <div className="control-dock" aria-label={t('simulationControls')}>
       {/*
         Test leads because in a timed round it is the button that matters: it
         evaluates the program headlessly in milliseconds instead of animating it
@@ -61,10 +63,10 @@ export function SimulationControls({
         onClick={onTest}
         disabled={!canRun || testing}
         data-testid="test-button"
-        title="Evaluate instantly, without animating"
+        title={t('evaluateInstantly')}
       >
         {testing ? <LoaderCircle className="spin" size={16} /> : <Zap size={16} />}
-        Test
+        {t('test')}
       </button>
       <button
         className="control-button control-button--primary"
@@ -74,7 +76,7 @@ export function SimulationControls({
         data-testid="run-button"
       >
         <Play size={16} fill="currentColor" />
-        Run
+        {t('run')}
       </button>
       {paused ? (
         <button
@@ -84,7 +86,7 @@ export function SimulationControls({
           data-testid="resume-button"
         >
           <Play size={16} />
-          Resume
+          {t('resume')}
         </button>
       ) : (
         <button
@@ -95,7 +97,7 @@ export function SimulationControls({
           data-testid="pause-button"
         >
           <Pause size={16} />
-          Pause
+          {t('pause')}
         </button>
       )}
       <button
@@ -108,7 +110,7 @@ export function SimulationControls({
         data-testid="step-button"
       >
         <SkipForward size={16} />
-        Step
+        {t('step')}
       </button>
       <button
         className="control-button"
@@ -118,7 +120,7 @@ export function SimulationControls({
         data-testid="stop-button"
       >
         <Square size={15} fill="currentColor" />
-        Stop
+        {t('stop')}
       </button>
       <span className="control-dock__divider" />
       <button
@@ -129,7 +131,7 @@ export function SimulationControls({
         data-testid="reset-button"
       >
         <RotateCcw size={16} />
-        Reset
+        {t('reset')}
       </button>
       {submit ? (
         <>
@@ -147,7 +149,7 @@ export function SimulationControls({
             ) : (
               <Send size={16} />
             )}
-            Submit
+            {t('submit')}
           </button>
         </>
       ) : null}

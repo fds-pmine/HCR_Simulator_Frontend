@@ -1,47 +1,46 @@
 {
   "version": 1,
-  "challengeSignature": "23641a371c4ae72f",
+  "challengeSignature": "898479ca71c7e759",
   "originCandidate": {
     "hairCoord": [
-      0,
       -5,
-      8
+      5,
+      4
     ],
     "worldPosition": [
-      1.35,
-      0.7,
-      1.28
+      0.55,
+      2.3,
+      0.64
     ],
-    "distanceFromInitialEndEffector": 0.09375264937462277,
+    "distanceFromInitialEndEffector": 0.07315908380273603,
     "hairHits": []
   },
   "bounds": {
     "min": [
       -6,
-      -5,
+      -4,
       -6
     ],
     "max": [
       6,
       7,
-      8
+      6
     ]
   },
-  "nodeCount": 2535,
-  "directedEdgeCount": 14092,
-  "safeDirectedEdgeCount": 8108,
-  "safeEmptyEdgeCount": 7994,
-  "safeCutEdgeCount": 114,
+  "nodeCount": 2028,
+  "directedEdgeCount": 11206,
+  "safeDirectedEdgeCount": 5216,
+  "safeEmptyEdgeCount": 5108,
+  "safeCutEdgeCount": 108,
   "safeEdgesByDirection": {
-    "right": 1338,
-    "left": 1338,
-    "up": 1349,
-    "down": 1349,
-    "forward": 1367,
-    "backward": 1367
+    "right": 869,
+    "left": 869,
+    "up": 867,
+    "down": 867,
+    "forward": 872,
+    "backward": 872
   },
   "targetVoxelKeys": [
-    "-2,1,4",
     "-2,4,-1",
     "-2,4,-2",
     "-2,4,0",

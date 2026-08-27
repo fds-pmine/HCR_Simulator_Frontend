@@ -1,5 +1,10 @@
 import { defaultChallengeDefinition } from './defaultChallenge';
 import type { ChallengeDefinition } from '../../types/domain';
+import { servoJointLabel } from '../../features/robot/servoMapping';
+import {
+  buildConceptQuestion,
+  type LessonAssessments,
+} from '../../features/tutorial/lessonAssessments';
 
 /**
  * The eight teaching challenges.
@@ -26,8 +31,8 @@ import type { ChallengeDefinition } from '../../types/domain';
  *
  * # Why the difficulty is where it is
  *
- * The arm can only ever touch 50 of the 241 hair voxels, and no single program
- * removes more than 12. So difficulty cannot come from asking for more hair. It
+ * The arm can only touch part of the 241 hair voxels, and the calibrated Home
+ * sweep removes at most 11. So difficulty cannot come from asking for more hair. It
  * comes from which joint the learner has to work out, whether the head is in the
  * way, and — in the last two — whether they cut too much.
  */
@@ -47,6 +52,7 @@ export interface Lesson {
   startPose: Readonly<Record<string, number>>;
   /** The program the target is derived from — the lesson's existence proof. */
   solution: readonly LessonStep[];
+  assessments: LessonAssessments;
   /** Twenty-step learning sequence; the final section is the scored checkpoint. */
   sections: readonly ServoLessonSection[];
 }
@@ -58,7 +64,7 @@ export interface ServoLessonSection {
   activity: 'read' | 'predict' | 'build' | 'observe' | 'challenge' | 'recap';
 }
 
-interface LessonSeed extends Omit<Lesson, 'sections'> {
+interface LessonSeed extends Omit<Lesson, 'sections' | 'assessments'> {
   concepts: readonly [string, string, string, string];
   activities: readonly [string, string, string, string];
 }
@@ -69,195 +75,175 @@ const LESSON_SEEDS: readonly LessonSeed[] = [
   {
     id: 'lesson-1-first-cut',
     name: '1 · First Cut',
-    description: 'The arm is already in position. One command finishes the job.',
+    description: 'Every motor starts at 90°. One X-axis command makes the first cut.',
     goal:
-      'Drag in one "Set … to …°" block, choose Base Yaw, and set it to 135°. ' +
-      'The arm is already at the right height — all it needs is to swing across.',
-    startPose: { baseYaw: 35, shoulder: 120, elbow: 162.5, wrist: 10 },
-    solution: [step('baseYaw', 135)],
+      'Confirm X, Y, Z, B, and E all show 90°, then set X · Base Yaw to 120°.',
+    startPose: { baseYaw: 90, shoulder: 90, elbow: 90, wrist: 90 },
+    solution: [step('baseYaw', 120)],
     concepts: [
-      'Servo angles are absolute destinations: 135° means go to 135°, not turn another 135°.',
-      'Base Yaw rotates the whole arm around the head and creates the cutting sweep in this lesson.',
-      'The supplied start pose is already clear of the head, so no setup joint needs to move first.',
-      'Adding unnecessary setup blocks makes the program longer without improving the target cut.',
+      'Servo angles are absolute destinations: 120° means move X to 120°, not add 120°.',
+      'X · Base Yaw rotates the complete arm around the head.',
+      'The calibrated all-90° Home pose is clear of the head and ready for this short sweep.',
+      'Sending 90° again produces no movement because X is already at 90°.',
     ],
     activities: [
-      'Predict the direction of travel from the starting Base Yaw before running.',
-      'Change only Base Yaw and watch which telemetry row moves.',
+      'Predict the direction of travel from X = 90° to X = 120°.',
+      'Run one block and watch only the live X cell change.',
       'Debug a block that controls the wrong joint.',
       'Solve the target with exactly one enabled source block.',
     ],
   },
   {
     id: 'lesson-2-clear-the-head',
-    name: '2 · Mind the Head',
-    description:
-      'The arm starts low, in front of the head. Swinging straight across will not work.',
+    name: '2 · Sweep Further',
+    description: 'Start from the same all-90° Home and extend the X sweep by ten degrees.',
     goal:
-      'Swing across from here and the arm stops dead against the head. Lift it ' +
-      'clear first: Shoulder 120°, Elbow 162.5°, Wrist 10°, and only then Base Yaw 135°.',
-    startPose: { baseYaw: 45, shoulder: 95, elbow: 72.5, wrist: 125 },
-    solution: [
-      step('shoulder', 120),
-      step('elbow', 162.5),
-      step('wrist', 10),
-      step('baseYaw', 135),
-    ],
+      'Set X · Base Yaw to 130°. Compare the seven removed voxels with Lesson 1.',
+    startPose: { baseYaw: 90, shoulder: 90, elbow: 90, wrist: 90 },
+    solution: [step('baseYaw', 130)],
     concepts: [
-      'A safe sweep depends on the complete pose, not only the final Base Yaw angle.',
-      'Shoulder, Elbow, and Wrist first lift and orient the cutter; Base Yaw performs the final sweep.',
-      'Head collision stops at the last safe pose and does not award a formal score.',
-      'Moving Base Yaw first is unsafe because the setup commands have not yet created clearance.',
+      'A larger absolute X destination lengthens the sweep from the same 90° start.',
+      'The X axis changes horizontal reach without changing Y, Z, or B.',
+      'The target preview shows the additional boundary reached by the longer sweep.',
+      'Changing several motors would hide the single cause of the extra cut.',
     ],
     activities: [
-      'Predict which link approaches the head if Base Yaw runs first.',
-      'Build the three setup commands before adding the sweep.',
-      'Debug the program by locating the first collision-producing block.',
-      'Reach 100 while preserving the safe command order.',
+      'Predict which side gains voxels between 120° and 130°.',
+      'Step the X command and read its live tenth-degree value.',
+      'Debug an attempt that accidentally stops at the previous lesson’s 120°.',
+      'Reach 100 using one X command.',
     ],
   },
   {
     id: 'lesson-3-shoulder',
-    name: '3 · Reach Higher',
-    description: 'The tool passes underneath the hair. Something has to lift it.',
-    goal:
-      'Base Yaw alone sweeps through empty air. Raise the Shoulder to 120° first, ' +
-      'then sweep to 135°.',
-    startPose: { baseYaw: 35, shoulder: 70, elbow: 162.5, wrist: 10 },
-    solution: [step('shoulder', 120), step('baseYaw', 135)],
+    name: '3 · Ten-Voxel Sweep',
+    description: 'A five-degree change reaches a complete ten-voxel band.',
+    goal: 'Keep Y, Z, and B at Home 90°. Set X · Base Yaw to 135°.',
+    startPose: { baseYaw: 90, shoulder: 90, elbow: 90, wrist: 90 },
+    solution: [step('baseYaw', 135)],
     concepts: [
-      'Shoulder changes the working height of the arm before the horizontal sweep.',
-      'Base Yaw cannot cut hair that the tool passes underneath, regardless of sweep width.',
-      'Changing one setup joint at a time makes cause and effect visible in telemetry.',
-      'A wider Base Yaw sweep is not a substitute for correcting the tool height.',
+      'Small servo changes can cross several voxel boundaries during a continuous sweep.',
+      'Y · Shoulder remains at 90°; Home is an actual command value, not a hidden pose.',
+      'Target voxels are measured from the simulated cutter path.',
+      'Stopping at 130° leaves part of this target standing.',
     ],
     activities: [
-      'Predict the cutter height before and after changing Shoulder.',
-      'Use Step to separate the lift from the sweep.',
-      'Debug a program that sweeps correctly but remains below the hair.',
-      'Solve with one Shoulder setup block followed by one Base Yaw block.',
+      'Predict the extra boundary crossed after 130°.',
+      'Use Step and compare X telemetry with the end-effector coordinate.',
+      'Debug a program that copied the previous endpoint.',
+      'Solve with one exact absolute destination.',
     ],
   },
   {
     id: 'lesson-4-elbow',
-    name: '4 · Straighten the Arm',
-    description: 'The shoulder is right, but the arm is folded up.',
-    goal:
-      'The Shoulder is already at 120°; the Elbow is what is folding the tool away. ' +
-      'Open it to 162.5°, then sweep Base Yaw to 135°.',
-    startPose: { baseYaw: 35, shoulder: 120, elbow: 62.5, wrist: 10 },
-    solution: [step('elbow', 162.5), step('baseYaw', 135)],
+    name: '4 · Find the Edge',
+    description: 'One final boundary voxel sits beyond the ten-voxel band.',
+    goal: 'Set X · Base Yaw to 145° without changing the other 90° motors.',
+    startPose: { baseYaw: 90, shoulder: 90, elbow: 90, wrist: 90 },
+    solution: [step('baseYaw', 145)],
     concepts: [
-      'Elbow changes how folded or extended the arm is at the current shoulder angle.',
-      'The correct Shoulder angle cannot compensate for an Elbow that keeps the cutter folded away.',
-      'Joint limits are expressed in servo degrees and are enforced by the Blockly angle field.',
-      'Changing both Shoulder and Elbow hides which joint actually caused the reach problem.',
+      'A target edge is defined by the swept cutter volume, not by a rounded camera view.',
+      'X telemetry is the authoritative servo destination for this lesson.',
+      'Joint limits and head collision checks still apply throughout the move.',
+      'Stopping before the edge leaves one requested voxel standing.',
     ],
     activities: [
-      'Predict how straightening Elbow changes the end-effector position.',
-      'Step the Elbow command and inspect telemetry before sweeping.',
-      'Debug a solution that unnecessarily changes Shoulder.',
-      'Reach 100 with only the required reach correction and sweep.',
+      'Predict whether 140° reaches the last voxel.',
+      'Step X and inspect the target outline near the sweep boundary.',
+      'Debug a solution that stops five degrees early.',
+      'Reach 100 without changing Y, Z, or B.',
     ],
   },
   {
     id: 'lesson-5-wrist',
-    name: '5 · Angle the Tool',
-    description: 'Everything is in place except the angle of the tool itself.',
+    name: '5 · Elbow Band',
+    description: 'Use Z · Elbow to select a lower three-voxel band before sweeping.',
     goal:
-      'Shoulder and Elbow are set. The Wrist is pointing the tool away from the ' +
-      'hair — bring it to 70°, then sweep Base Yaw to 145°.',
-    startPose: { baseYaw: 35, shoulder: 140, elbow: 112.5, wrist: 150 },
-    solution: [step('wrist', 70), step('baseYaw', 145)],
+      'Set Z · Elbow to 95°, then set X · Base Yaw to 135°.',
+    startPose: { baseYaw: 90, shoulder: 90, elbow: 90, wrist: 90 },
+    solution: [step('elbow', 95), step('baseYaw', 135)],
     concepts: [
-      'Wrist controls the final tool orientation after Shoulder and Elbow establish the reach.',
-      'A reachable hand position can still miss the hair when the cutter points the wrong way.',
-      'Tool orientation affects the swept cutter volume and therefore which voxels are removed.',
-      'Changing Base Yaw alone cannot repair a Wrist orientation error.',
+      'Z · Elbow changes the cutter’s working band while X provides the sweep.',
+      'A five-degree Z adjustment selects three lower voxels instead of the Home band.',
+      'The Z move must complete before X starts so the whole sweep uses one band.',
+      'Leaving Z at 90° overcuts this narrow target.',
     ],
     activities: [
-      'Predict how the tool direction changes when Wrist moves toward the target value.',
-      'Step Wrist first and observe the tool before adding the sweep.',
-      'Debug a route whose reach is correct but whose tool points away.',
-      'Use one orientation command and one sweep to reach 100.',
+      'Predict how Z = 95° changes the end-effector height.',
+      'Step Z first and confirm X is still 90°.',
+      'Debug a program whose two commands are reversed.',
+      'Use exactly one Z setup and one X sweep.',
     ],
   },
   {
     id: 'lesson-6-stop-short',
-    name: '6 · Do Not Overcut',
-    description:
-      'Only part of this crown should come off. Sweeping the whole way costs you.',
+    name: '6 · Wrist Band',
+    description: 'Use B · Wrist to select the upper three-voxel band.',
     goal:
-      'A full sweep to 135° would take hair that is meant to stay — worth about ' +
-      '98 out of 100. Stop at 80° instead and take only what the target asks for.',
-    startPose: { baseYaw: 35, shoulder: 120, elbow: 162.5, wrist: 10 },
-    solution: [step('baseYaw', 80)],
+      'Set B · Wrist to 105°, then sweep X · Base Yaw to 135°.',
+    startPose: { baseYaw: 90, shoulder: 90, elbow: 90, wrist: 90 },
+    solution: [step('wrist', 105), step('baseYaw', 135)],
     concepts: [
-      'Precision includes stopping at the target boundary, not merely touching every target voxel.',
-      'A longer Base Yaw sweep removes a superset of the hair removed by a shorter sweep.',
-      'Completion scoring compares the final hair set with the target and penalizes unwanted removal.',
-      'Nearly 100 is evidence of an overcut here, not permission to accept the wider sweep.',
+      'B · Wrist changes tool orientation without changing the elbow joint.',
+      'The selected orientation moves the cutter onto a different three-voxel band.',
+      'Completion penalizes the ten-voxel Home sweep as an overcut.',
+      'Using Z instead of B reaches the other band and misses this target.',
     ],
     activities: [
-      'Predict which side of the target a full sweep removes unnecessarily.',
-      'Reduce only the Base Yaw endpoint and compare successive Test scores.',
-      'Debug a score near 98 by checking the stopping angle rather than the setup pose.',
-      'Find the exact one-block stopping angle that scores 100.',
+      'Predict the tool orientation at B = 105°.',
+      'Step B and watch the live B cell before sweeping X.',
+      'Debug a solution that changes Z instead of B.',
+      'Reach only the upper band with two commands.',
     ],
   },
   {
     id: 'lesson-7-narrow-band',
-    name: '7 · Precision',
-    description: 'A narrow band, and a wide sweep is nearly right but not right.',
+    name: '7 · Stop the Lower Band',
+    description: 'The lower band is narrow; the X endpoint decides whether two or three voxels come off.',
     goal:
-      'Sweeping all the way to 145° scores about 99.6 — close enough to look ' +
-      'correct and still wrong. Find the angle that stops exactly at the edge of ' +
-      'the band.',
-    startPose: { baseYaw: 35, shoulder: 140, elbow: 112.5, wrist: 70 },
-    solution: [step('baseYaw', 90)],
+      'Set Z · Elbow to 95°, then stop X · Base Yaw at 130°.',
+    startPose: { baseYaw: 90, shoulder: 90, elbow: 90, wrist: 90 },
+    solution: [step('elbow', 95), step('baseYaw', 130)],
     concepts: [
-      'A narrow target band makes small angle errors visible in the final voxel set.',
-      'The correct endpoint is found by controlling the absolute Base Yaw stop angle.',
-      'A score around 99.6 can still represent one boundary mismatch and is not solved.',
-      'Adding more blocks does not improve precision when one exact endpoint defines the cut.',
+      'The same Z band can contain different targets at different X endpoints.',
+      'Stopping at 130° removes two lower-band voxels.',
+      'Continuing to 135° removes one extra voxel and is therefore an overcut.',
+      'Both setup and endpoint must be correct for a precision score.',
     ],
     activities: [
-      'Predict whether the current attempt stops before or after the target edge.',
-      'Change the endpoint in small steps and compare the score direction.',
-      'Debug a nearly perfect attempt by inspecting the target outline.',
-      'Reach exactly 100 with one Base Yaw block.',
+      'Predict which lower-band edge remains at 130°.',
+      'Compare Test scores for X = 130° and X = 135°.',
+      'Debug the one-voxel overcut using target preview.',
+      'Reach exactly two lower-band voxels.',
     ],
   },
   {
     id: 'lesson-8-full-cut',
-    name: '8 · The Whole Crown',
-    description:
-      'Everything you have learned, and one patch that a single pass cannot reach.',
+    name: '8 · Two Working Bands',
+    description: 'Combine the lower Z band and upper B band from one all-90° Home.',
     goal:
-      'Twelve voxels, and no single sweep gets them all: one sits at a different ' +
-      'height. Set up, sweep both ways, change height, and sweep again.',
-    startPose: { baseYaw: 45, shoulder: 95, elbow: 72.5, wrist: 125 },
+      'Cut the lower band with Z = 95° and X = 135°. Return X and Z to 90°, ' +
+      'set B = 105°, then sweep X to 135° again.',
+    startPose: { baseYaw: 90, shoulder: 90, elbow: 90, wrist: 90 },
     solution: [
-      step('shoulder', 140),
-      step('elbow', 112.5),
-      step('wrist', 70),
-      step('baseYaw', 145),
-      step('baseYaw', 35),
-      step('shoulder', 120),
-      step('elbow', 152.5),
-      step('baseYaw', 145),
+      step('elbow', 95),
+      step('baseYaw', 135),
+      step('baseYaw', 90),
+      step('elbow', 90),
+      step('wrist', 105),
+      step('baseYaw', 135),
     ],
     concepts: [
-      'A complete crown cut can require multiple working heights and sweeps in both directions.',
-      'Each absolute Base Yaw command starts from the pose left by the previous command.',
-      'Changing height between sweeps reaches the patch that the first working plane misses.',
-      'Reordering setup, sweep, height change, and final sweep can collide or change the cut.',
+      'Multiple working bands require explicit transitions between absolute servo states.',
+      'Returning X to 90° creates the start position for the second sweep.',
+      'Returning Z to 90° prevents the second B setup from inheriting the lower band.',
+      'Skipping or reordering a reset changes the path and the cut.',
     ],
     activities: [
-      'Divide the solution into initial setup, first sweep pair, height change, and final sweep.',
-      'Use Step to inspect the pose at every transition between those phases.',
-      'Debug a program that gets most voxels but misses the second-height patch.',
-      'Build the full minimal program and verify all twelve target removals.',
+      'Divide the program into lower sweep, Home transition, and upper sweep.',
+      'Use Step to confirm every commanded 90° reset.',
+      'Debug a program that reaches only one of the two three-voxel bands.',
+      'Build the complete six-command program and verify all six target removals.',
     ],
   },
 ];
@@ -266,7 +252,12 @@ const SERVO_SECTION_COUNT = 20;
 
 function formatPose(pose: Readonly<Record<string, number>>): string {
   return Object.entries(pose)
-    .map(([joint, angle]) => `${joint} ${angle}°`)
+    .map(([jointId, angle]) => {
+      const joint = defaultChallengeDefinition.robotConfig.joints.find(
+        (candidate) => candidate.id === jointId,
+      );
+      return `${joint ? servoJointLabel(joint) : jointId} ${angle}°`;
+    })
     .join(' · ');
 }
 
@@ -292,7 +283,7 @@ function buildServoSections(seed: LessonSeed): ServoLessonSection[] {
     { title: 'Independent challenge', body: seed.activities[3], activity: 'challenge' },
     { title: 'Explain it back', body: `Explain why this rule matters here: ${seed.concepts[1]}`, activity: 'recap' },
     { title: 'Prepare the checkpoint', body: 'Reset to the lesson start, clear accidental extra blocks, and build your final answer without running it yet.', activity: 'recap' },
-    { title: 'Scored checkpoint', body: 'Press Test. Reach 100 completion to finish this lesson and unlock the next one. Use “Show me” only if you are stuck.', activity: 'recap' },
+    { title: 'Scored checkpoint', body: 'Build your own final program and press Test. Reach 100 completion to finish this lesson and unlock the next one.', activity: 'recap' },
   ];
   if (entries.length < SERVO_SECTION_COUNT) {
     throw new Error(`Servo lesson "${seed.id}" requires at least ${SERVO_SECTION_COUNT} sections.`);
@@ -303,13 +294,25 @@ function buildServoSections(seed: LessonSeed): ServoLessonSection[] {
   }));
 }
 
-export const LESSONS: readonly Lesson[] = LESSON_SEEDS.map((seed) => ({
+export const LESSONS: readonly Lesson[] = LESSON_SEEDS.map((seed, index) => ({
   id: seed.id,
   name: seed.name,
   description: seed.description,
   goal: seed.goal,
   startPose: seed.startPose,
   solution: seed.solution,
+  assessments: {
+    multipleChoice: buildConceptQuestion(
+      seed.name,
+      seed.concepts[0],
+      (index % 3) as 0 | 1 | 2,
+      [
+        'Every servo command adds an offset to the current angle rather than setting an absolute target.',
+        'Changing several joints at once always makes the cause of a score change easier to identify.',
+      ],
+    ),
+    practicalPrompt: 'Build your own Blockly program, press Test, and reach 100 completion.',
+  },
   sections: buildServoSections(seed),
 }));
 

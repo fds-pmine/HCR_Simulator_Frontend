@@ -11,6 +11,10 @@ import {
 } from '../../types/match';
 import type { Program } from '../blockly/programTypes';
 import type { PlayerIdentity } from './identity';
+import {
+  currentUtcOffsetMinutes,
+  loadResearchPreferences,
+} from '../preferences/researchPreferences';
 
 /**
  * How often the round state is re-read.
@@ -73,7 +77,11 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
   const resultsRef = useRef<MatchResults | undefined>(undefined);
 
   useEffect(() => {
-    matchProvider.setPlayer(identity);
+    const shareOffset = loadResearchPreferences().utcOffset;
+    matchProvider.setPlayer({
+      ...identity,
+      ...(shareOffset ? { utcOffsetMinutes: currentUtcOffsetMinutes() } : {}),
+    });
   }, [matchProvider, identity]);
 
   useEffect(() => {

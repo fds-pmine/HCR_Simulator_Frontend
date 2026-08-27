@@ -16,6 +16,25 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173',
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: 'http://127.0.0.1:4173',
+          localStorage: [
+            {
+              name: 'hcr.research-preferences.v1',
+              value: JSON.stringify({
+                programAndScores: true,
+                language: false,
+                utcOffset: false,
+                decided: true,
+              }),
+            },
+          ],
+        },
+      ],
+    },
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

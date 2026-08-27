@@ -114,12 +114,15 @@ describe('Cutter Grid ladder domain — Phase 1', () => {
       measureRobotHeadClearance(initialPose, challenge.voxelConfig, challenge.robotConfig.geometry),
     ).toBeGreaterThan(0);
 
+    // Folded hard into the head: the servo offsets that came with the 90° Home
+    // moved the old sample clear of it, and a sample that no longer collides
+    // proves nothing about the two primitives agreeing.
     const colliding: Record<JointId, number> = {
       baseYaw: 30,
       shoulderRoll: -45,
-      shoulder: 90,
-      elbow: 17.5,
-      wrist: 0,
+      shoulder: 70,
+      elbow: 162.5,
+      wrist: 90,
     };
     const collidingPose = computeRobotPose(challenge.robotConfig, colliding);
     expect(

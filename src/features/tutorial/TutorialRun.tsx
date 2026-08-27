@@ -12,6 +12,7 @@ import { useSimulationSnapshot } from '../simulation/useSimulationSnapshot';
 import { LESSONS } from './lessons';
 import { TutorialPanel } from './TutorialPanel';
 import { withBlankCanvas } from '../blockly/blankCanvas';
+import { useLocalization } from '../preferences/localization';
 
 interface TutorialRunProps {
   onExit: () => void;
@@ -27,6 +28,7 @@ interface TutorialRunProps {
  * down or because the catalog's first entry changed.
  */
 export function TutorialRun({ onExit }: TutorialRunProps) {
+  const { t } = useLocalization();
   const [challenge, setChallenge] = useState<Challenge>();
   const [error, setError] = useState<string>();
 
@@ -92,11 +94,11 @@ export function TutorialRun({ onExit }: TutorialRunProps) {
     return (
       <main className="bootstrap-screen" role="alert">
         <AlertTriangle size={30} />
-        <p className="phase-kicker">TUTORIAL</p>
-        <h1>Could not start</h1>
+        <p className="phase-kicker">{t('tutorial')}</p>
+        <h1>{t('programError')}</h1>
         <p>{error}</p>
         <button type="button" onClick={onExit}>
-          Back to Menu
+          {t('backToMenu')}
         </button>
       </main>
     );
@@ -106,8 +108,8 @@ export function TutorialRun({ onExit }: TutorialRunProps) {
     return (
       <main className="bootstrap-screen">
         <LoaderCircle className="spin" size={30} />
-        <p className="phase-kicker">TUTORIAL</p>
-        <h1>Setting up…</h1>
+        <p className="phase-kicker">{t('tutorial')}</p>
+        <h1>{t('loading')}…</h1>
       </main>
     );
   }

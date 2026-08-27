@@ -83,25 +83,17 @@ describe('buildArmPlan', () => {
     sourceBlockId: `block-${jointId}-${angleDeg}`,
   });
 
-  it('homes every firmware axis to 90° before entering the challenge start pose', () => {
+  it('initializes every firmware servo at 90° with no hidden staging moves', () => {
     const plan = buildArmPlan(challenge, []);
     const mapped = challenge.robotConfig.joints.filter((joint) => joint.servo);
+    expect(mapped.map((joint) => joint.initialAngleDeg)).toEqual(
+      mapped.map(() => 90),
+    );
     expect(plan.steps[0]).toEqual({
       type: 'home',
       durationMs: ARM_HOME_SETTLE_MS,
     });
-    expect(plan.steps).toHaveLength(mapped.length + 1);
-    for (const joint of mapped) {
-      expect(plan.steps).toContainEqual(
-        expect.objectContaining({
-          type: 'move',
-          axis: joint.servo?.axis,
-          value: joint.initialAngleDeg,
-        }),
-      );
-    }
-    // Only the last of the prologue holds; the rest are issued back to back.
-    expect(plan.steps.at(-1)?.durationMs).toBeGreaterThan(0);
+    expect(plan.steps).toHaveLength(1);
   });
 
   it('derives each move duration from the joint speed', () => {
@@ -182,18 +174,16 @@ describe('every simulator-legal program is also arm-legal', () => {
   });
 
   it('fits the longest possible program inside the sequencer step budget', () => {
-    // The prologue is firmware Home plus one step per mapped joint, followed
-    // by one step per compiled command.
-    const mapped = challenge.robotConfig.joints.filter((joint) => joint.servo).length;
-    const worstCase = 1 + mapped + MAX_RUNTIME_COMMANDS;
+    // The prologue is exactly one firmware Home, followed by compiled commands.
+    const worstCase = 1 + MAX_RUNTIME_COMMANDS;
 
     expect(worstCase).toBeLessThanOrEqual(sequencer.MAX_STEPS);
 
-    // Stated rather than implied: the margin is seven steps. Raising
-    // MAX_RUNTIME_COMMANDS or giving `shoulderRoll` a servo eats into it, and
+    // Stated rather than implied: the margin is eleven steps. Raising
+    // MAX_RUNTIME_COMMANDS eats into it, and
     // the symptom would be a maximal program refused as "the arm accepts at
     // most 512 steps" with nothing pointing at why.
-    expect(sequencer.MAX_STEPS - worstCase).toBe(7);
+    expect(sequencer.MAX_STEPS - worstCase).toBe(11);
   });
 
   it('builds a plan the sequencer accepts, for a program at the joint limits', () => {

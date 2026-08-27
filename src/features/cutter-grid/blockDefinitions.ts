@@ -5,47 +5,44 @@ import {
   CUTTER_GRID_BLOCK_TYPES,
 } from './blockConstants';
 import type { CutterGridDirection } from './types';
+import type { AppLocale } from '../preferences/localization';
+import { hcrBlockCopy } from '../blockly/blocklyLocalization';
 
-const DIRECTION_LABEL: Readonly<Record<CutterGridDirection, string>> = {
-  right: 'right',
-  left: 'left',
-  up: 'up',
-  down: 'down',
-  forward: 'forward',
-  backward: 'backward',
-};
-
-export function registerCutterGridBlocks(): void {
+export function registerCutterGridBlocks(appLocale: AppLocale = 'en'): void {
+  const copy = hcrBlockCopy(appLocale);
   for (const [direction, blockType] of Object.entries(
     CUTTER_GRID_BLOCK_TYPES,
   ) as Array<[CutterGridDirection, string]>) {
     Blockly.Blocks[blockType] = {
       init(this: Blockly.Block) {
         this.appendDummyInput()
-          .appendField(`Move ${DIRECTION_LABEL[direction]}`)
+          .appendField(copy.moveDirection[direction])
           .appendField(
             new Blockly.FieldNumber(1, 1, 12, 1),
             CUTTER_GRID_BLOCK_FIELDS.distance,
           )
-          .appendField('voxels');
+          .appendField(copy.voxelUnit);
         this.setPreviousStatement(true);
         this.setNextStatement(true);
         this.setColour('#18a6a6');
         this.setTooltip(
-          `Move the cutter ${DIRECTION_LABEL[direction]} on the fixed world grid`,
+          copy.moveTooltip(copy.moveDirection[direction]),
         );
       },
     };
   }
 }
 
-export function createCutterGridToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
+export function createCutterGridToolbox(
+  appLocale: AppLocale = 'en',
+): Blockly.utils.toolbox.ToolboxDefinition {
+  const copy = hcrBlockCopy(appLocale);
   return {
     kind: 'categoryToolbox',
     contents: [
       {
         kind: 'category',
-        name: 'Cutter Grid',
+        name: copy.cutterGridCategory,
         colour: '#18a6a6',
         contents: Object.values(CUTTER_GRID_BLOCK_TYPES).map((type) => ({
           kind: 'block',
@@ -54,7 +51,7 @@ export function createCutterGridToolbox(): Blockly.utils.toolbox.ToolboxDefiniti
       },
       {
         kind: 'category',
-        name: 'Control',
+        name: copy.controlCategory,
         colour: '#7c6ee6',
         contents: [
           { kind: 'block', type: BLOCK_TYPES.wait },

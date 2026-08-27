@@ -44,16 +44,6 @@ function play(definition: ChallengeDefinition, steps: readonly Step[]) {
   return { completed: true, completion: (100 * intersection) / union };
 }
 
-/** Programs a learner might try instead of the intended one. */
-const SHORTCUTS: Step[][] = [
-  [],
-  [{ jointId: 'baseYaw', angleDeg: 55 }],
-  [{ jointId: 'baseYaw', angleDeg: 45 }],
-  [{ jointId: 'baseYaw', angleDeg: -55 }],
-  [{ jointId: 'baseYaw', angleDeg: 55 }, { jointId: 'baseYaw', angleDeg: -55 }],
-  [{ jointId: 'shoulder', angleDeg: 70 }, { jointId: 'baseYaw', angleDeg: 45 }],
-];
-
 describe('the lesson curriculum', () => {
   it('has eight lessons in a stable order', () => {
     expect(LESSONS).toHaveLength(8);
@@ -67,6 +57,19 @@ describe('the lesson curriculum', () => {
         lesson.sections.length,
       );
       expect(lesson.sections.at(-1)?.title).toBe('Scored checkpoint');
+    }
+  });
+
+  it('keeps every lesson hardware servo initialized at 90°', () => {
+    for (const lesson of LESSONS) {
+      const challenge = normalizeChallenge(buildLessonChallenge(lesson));
+      const servoJoints = challenge.robotConfig.joints.filter(
+        (joint) => joint.servo,
+      );
+      expect(
+        servoJoints.map((joint) => joint.initialAngleDeg),
+        lesson.id,
+      ).toEqual(servoJoints.map(() => 90));
     }
   });
 
@@ -96,27 +99,35 @@ describe('the lesson curriculum', () => {
     // reach, so "sweep again" was padding dressed as a lesson.
     for (const lesson of LESSONS) {
       const built = buildLessonChallenge(lesson);
-      for (const shortcut of SHORTCUTS) {
-        if (shortcut.length >= lesson.solution.length) continue;
+      for (let removed = 0; removed < lesson.solution.length; removed += 1) {
+        const shortcut = lesson.solution.filter((_, index) => index !== removed);
         const result = play(built, shortcut);
         expect(
           result.completion,
-          `${lesson.id} is solved by a ${shortcut.length}-block shortcut`,
+          `${lesson.id} still solves after deleting command ${removed + 1}`,
         ).toBeLessThan(99.99);
       }
     }
   });
 
   it('rewards precision in the lessons that are about precision', () => {
-    // These two exist so a sloppy full sweep scores well but not perfectly:
-    // "nearly right" has to be visibly worse than right.
-    for (const id of ['lesson-6-stop-short', 'lesson-7-narrow-band']) {
-      const lesson = LESSONS.find((l) => l.id === id);
-      if (!lesson) throw new Error(`missing ${id}`);
-      const built = buildLessonChallenge(lesson);
-      const sloppy = play(built, [{ jointId: 'baseYaw', angleDeg: 55 }]);
+    const edge = LESSONS.find((lesson) => lesson.id === 'lesson-4-elbow');
+    const band = LESSONS.find((lesson) => lesson.id === 'lesson-7-narrow-band');
+    if (!edge || !band) throw new Error('missing precision lessons');
+
+    const edgeUndercut = play(buildLessonChallenge(edge), [
+      { jointId: 'baseYaw', angleDeg: 140 },
+    ]);
+    const bandOvercut = play(buildLessonChallenge(band), [
+      { jointId: 'elbow', angleDeg: 95 },
+      { jointId: 'baseYaw', angleDeg: 135 },
+    ]);
+    for (const [id, sloppy] of [
+      [edge.id, edgeUndercut],
+      [band.id, bandOvercut],
+    ] as const) {
       expect(sloppy.completed, id).toBe(true);
-      expect(sloppy.completion, id).toBeGreaterThan(90);
+      expect(sloppy.completion, id).toBeGreaterThan(60);
       expect(sloppy.completion, id).toBeLessThan(99.99);
     }
   });

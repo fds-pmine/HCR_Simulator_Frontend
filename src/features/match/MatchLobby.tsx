@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Bot,
   Check,
+  Clock3,
   Copy,
   EyeOff,
   LoaderCircle,
@@ -16,6 +17,8 @@ import type { MatchProvider } from '../../services/contracts';
 import type { MatchState } from '../../types/match';
 import { isPracticeBot } from '../../services/local/LocalMatchProvider';
 import { initialsOf, type PlayerIdentity } from './identity';
+import { formatPlayerLocalTime, formatUtcOffset } from './playerTime';
+import { useLocalization } from '../preferences/localization';
 
 interface MatchLobbyProps {
   state: MatchState;
@@ -34,6 +37,7 @@ export function MatchLobby({
   onStart,
   onLeave,
 }: MatchLobbyProps) {
+  const { t } = useLocalization();
   const [copied, setCopied] = useState(false);
   const minutes = Math.round(state.config.durationMs / 60_000);
 
@@ -53,18 +57,18 @@ export function MatchLobby({
 
       <button className="ghost-button menu-screen__back" type="button" onClick={onLeave}>
         <LogOut size={15} />
-        Leave
+        {t('leave')}
       </button>
 
       <header className="menu-screen__head">
-        <p className="phase-kicker">LOBBY</p>
-        <h1>Waiting to start</h1>
+        <p className="phase-kicker">{t('lobby')}</p>
+        <h1>{t('waitingStart')}</h1>
       </header>
 
       <div className="room-code">
-        <span>ROOM CODE</span>
+        <span>{t('roomCode')}</span>
         <strong data-testid="room-code">{state.matchId}</strong>
-        <button type="button" onClick={() => void copyCode()} aria-label="Copy room code">
+        <button type="button" onClick={() => void copyCode()} aria-label={t('roomCodeLabel')}>
           {copied ? <Check size={15} /> : <Copy size={15} />}
         </button>
       </div>
@@ -73,62 +77,67 @@ export function MatchLobby({
         <section className="menu-card">
           <h2>
             <Users size={15} />
-            Players
+            {t('players')}
             <em>
               {state.players.length} / {state.config.maxPlayers}
             </em>
           </h2>
           <ul className="roster">
-            {state.players.map((player) => (
+            {state.players.map((player) => {
+              const localTime = formatPlayerLocalTime(player.utcOffsetMinutes);
+              return (
               <li key={player.playerId} className="roster__row">
                 <span className="roster__avatar">{initialsOf(player.displayName)}</span>
                 <strong>{player.displayName}</strong>
                 {player.playerId === identity.playerId ? (
-                  <span className="tag tag--you">YOU</span>
+                  <span className="tag tag--you">{t('you')}</span>
                 ) : null}
                 {isPracticeBot(player.playerId) ? (
                   <span className="tag tag--bot">
                     <Bot size={11} />
-                    BOT
+                    {t('bot')}
+                  </span>
+                ) : null}
+                {localTime && player.utcOffsetMinutes !== undefined ? (
+                  <span
+                    className="roster__local-time"
+                    title={formatUtcOffset(player.utcOffsetMinutes)}
+                  >
+                    <Clock3 size={11} />
+                    {localTime}
                   </span>
                 ) : null}
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
 
         <section className="menu-card">
-          <h2>Rules</h2>
+          <h2>{t('rules')}</h2>
           <ul className="rule-list">
             <li>
               <Timer size={15} />
               <div>
-                <strong>{minutes} minutes, on the server clock</strong>
-                <span>
-                  A submission counts if the server receives it before the
-                  deadline. Your own clock is never consulted.
-                </span>
+                <strong>{minutes} {t('serverClockRule')}</strong>
+                <span>{t('serverClockBody')}</span>
               </div>
             </li>
             <li>
               <EyeOff size={15} />
               <div>
-                <strong>Standings stay hidden</strong>
-                <span>
-                  Nobody learns how they rank until the round closes. Test your
-                  own program as often as you like — what stays sealed is every
-                  official score, so there is no known bar to refine against.
-                </span>
+                <strong>{t('hiddenStandings')}</strong>
+                <span>{t('hiddenStandingsBody')}</span>
               </div>
             </li>
             <li>
               <ShieldCheck size={15} />
               <div>
-                <strong>Resubmit freely, best attempt counts</strong>
+                <strong>{t('bestAttempt')}</strong>
                 <span>
                   {kind === 'online'
-                    ? 'The server replays every program it scores, so the score is the program, not what the browser reports.'
-                    : 'This is a practice round: your own browser computes the score, so nothing here is a result.'}
+                    ? t('serverReplayBody')
+                    : t('localScoreBody')}
                 </span>
               </div>
             </li>
@@ -136,12 +145,8 @@ export function MatchLobby({
               <li className="rule-list__caveat">
                 <UserRoundX size={15} />
                 <div>
-                  <strong>Names are not verified</strong>
-                  <span>
-                    There are no accounts here — anyone can pick any name, so a
-                    standing is a bit of fun rather than a record of who did
-                    what.
-                  </span>
+                  <strong>{t('namesUnverified')}</strong>
+                  <span>{t('namesUnverifiedBody')}</span>
                 </div>
               </li>
             ) : null}
@@ -157,11 +162,10 @@ export function MatchLobby({
         data-testid="start-round"
       >
         {busy ? <LoaderCircle className="spin" size={18} /> : <Rocket size={18} />}
-        Start Round
+        {t('startRound')}
       </button>
       <p className="menu-screen__hint">
-        Anyone in the room can start it. The challenge is revealed to everyone at
-        the same instant.
+        {t('lobbyStartHint')}
       </p>
     </main>
   );

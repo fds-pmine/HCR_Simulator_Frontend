@@ -7,6 +7,59 @@ import { WorkbenchBootstrap } from './WorkbenchBootstrap';
 import { App } from './App';
 
 describe('App', () => {
+  it('requires an affirmative academic research choice before mounting the app', () => {
+    localStorage.removeItem('hcr.research-preferences.v1');
+    render(<App />);
+
+    expect(
+      screen.getByRole('heading', { name: 'Academic research participation' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('HCR Simulator')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Participate in the academic study' }),
+    );
+    expect(
+      JSON.parse(
+        localStorage.getItem('hcr.research-preferences.v1') ?? '{}',
+      ),
+    ).toEqual({
+      programAndScores: true,
+      language: true,
+      utcOffset: true,
+      decided: true,
+    });
+    expect(
+      screen.getByRole('heading', { name: 'HCR Simulator' }),
+    ).toBeInTheDocument();
+  });
+
+  it('defaults the first-visit detailed study settings to coarse language and UTC offset', () => {
+    localStorage.removeItem('hcr.research-preferences.v1');
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More settings' }));
+
+    expect(
+      screen.getByRole('checkbox', { name: /Primary language/ }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /UTC offset/ }),
+    ).toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    expect(
+      JSON.parse(
+        localStorage.getItem('hcr.research-preferences.v1') ?? '{}',
+      ),
+    ).toEqual({
+      programAndScores: true,
+      language: true,
+      utcOffset: true,
+      decided: true,
+    });
+  });
+
   it('opens on the menu with both modes offered', () => {
     render(<App />);
 

@@ -214,7 +214,7 @@ tests/
 - [x] 增加八步 Cutter Grid 引导，以认证五段路径逐步判定真实 Cutter Grid IR，并以真实 Test 评分完成最后操作步骤。
 - [x] Cutter Grid Lessons 从五课扩展为十课，每课至少二十个 section；补充反向移动、Waypoint Wait、路径顺序、程序压缩和认证完整剪发，并支持课内前后导航及连续下一课。
 - [x] 八个 Servo Angles Lessons 各扩展为至少二十个 section，第 20 节保留真实 100 Completion 评分门槛，切换下一课时重置课内进度。
-- [x] Tutorial 增加 `Grid → Servo Angles` 过渡展示，复用真实双模式 Workbench、独立 Workspace、Grid Inspector 与 Servo telemetry，并讲清硬件 Home 90°/Challenge 安全姿态边界。
+- [x] Tutorial 增加 `Grid → Servo Angles` 过渡展示，复用真实双模式 Workbench、独立 Workspace、Grid Inspector 与 Servo telemetry；统一初始状态为 X/Y/Z/B/E = 90°，以 `servo.offsetDeg` 校准 90° 对应的安全几何姿态，Inspector 实时显示 X/Y/Z/B（E parked 90°），Electron Servo 计划不插入隐藏姿态命令。
 - [x] 覆盖纯课程判定、选择/路由 UI，以及完整认证路径规划与评分 E2E；保持 Cutter Grid-only 与 Servo/后端隔离。
 
 阶段出口：首次用户可在不接触 Servo 角度的情况下完成一条真实认证 Grid 路径，并继续十课渐进课程。
@@ -242,6 +242,84 @@ tests/
 - [x] 产出 V2 Profile/签名资产，重认证参考程序、六方向和静态节点语义；完整 V2 参考轨迹签名仍在 Phase 3 全局规划后认证。
 
 阶段出口：V2 Profile 证明多入口与首版所有认证要求；V1 Profile 被 V2 入口 fail-closed 拒绝。
+
+### Cutter Grid Global IK Repair Phase 2.1 — 90° Home certification repair
+
+Moving every servo Home to 90° invalidated three assumptions the certification
+chain had inherited from the old 45°/95°/72.5° Home. All three are repaired in
+place; none of the certification gates were relaxed.
+
+- [x] Entry segments refine their sample grid until it resolves the certified
+      `voxelSize / 16` tool spacing, instead of refusing a segment the fixed
+      0.5°-per-sample grid under-resolves. The more extended Home arm sweeps
+      further per degree, which refused all 32 origin candidates on resolution
+      alone — with zero head collisions and zero hair contact.
+- [x] Profile V2 certifies direct entries first and falls back to the
+      deterministic PRM only below the two-entry minimum, so a candidate the
+      Profile discards can no longer force a multi-minute PRM build.
+- [x] The geometric reference search takes a kinematic reachability filter.
+      Geometry alone routed the certified cut through cells no arm pose
+      reaches, which surfaced only as a late `no-safe-ik-candidate` failure.
+      Both Profile generators supply a static IK check at the same 384 seed
+      budget the ladder planner escalates to.
+- [x] The V1 entry uses the same certified joint-space move as V2. A straight
+      Cartesian line from a tool parked above the crown always sweeps hair.
+
+Phase exit: `npm run cutter-grid:profile` re-certifies V1, V2 and V4 against
+the 90° Home challenge, and Run/Test/Step plan again in Cutter Grid mode.
+
+### Cutter Grid Global IK Repair Phase 2.2 — V4 sweep fidelity
+
+V4 flies one synchronized PTP per visible Move, so a long block follows a
+joint-space arc rather than the straight line of cells the grid language
+describes. Measured on the shipped arm and the Crown Trim target: a 6-cell
+block stays within 0.09 world units of the line and cuts exactly the target;
+an 8-cell block bows 0.19 — wider than a voxel — and removes two neighbouring
+voxels while missing one of its own.
+
+- [x] The certified reference program compresses adjacent moves only up to the
+      span both planners reproduce, so the challenge's own proof of
+      completability is executable by the planner that actually runs it.
+- [x] `npm run cutter-grid:profile` certifies the reference route under the
+      compact PTP planner and fails closed when its real sweep is not exactly
+      the target set. V4 previously inherited V2's flags without ever checking
+      its own sweep, which is how a 76.9-completion reference passed.
+- [x] Grid 9 no longer claims compression preserves the geometric path; it
+      teaches the endpoint/motion distinction and where merging stops being
+      free.
+
+Phase exit: the bundled reference route scores 100 completion through the V4
+planner, and the guided content teaches that route.
+
+### Cutter Grid V3 — status on the 90° Home arm
+
+V3 stays a historical record superseded by V4. Two findings from re-running it
+against the redesigned challenge, recorded so the Rust migration does not
+inherit them silently:
+
+- [x] `unwrapGeometryWaypoints` refused any branch that rides its own joint
+      limit. Shoulder Roll sits exactly on 45° for whole plans, and one
+      floating-point step above it left the ±360° search with an empty range,
+      reported as `joint-branch-discontinuity`. It now admits that step and
+      clamps the angle back onto the limit.
+- [ ] V3 no longer retimes faster than the V2 ladder it wraps: 1.12x slower on
+      the certified reference route, 1.35x slower on the global-IK regression
+      program. Its whole premise was the opposite. Nothing ships V3, so this is
+      recorded rather than tuned; decide it together with the V4 Rust
+      migration.
+
+### Tutorials and Lessons — practice gates progress
+
+- [x] A tutorial step with an engine-checked condition holds Next until the
+      condition is met; Exit stays available in the header. Skipping the
+      practice taught that the practice was optional.
+- [x] Lesson sections that ask for work gate the same way: `build` requires a
+      workspace program that shows the lesson's concept, `observe` and
+      `challenge` require a completed Test. Reading and predicting sections
+      never block, and the quiz and closing practical keep their own gates.
+- [x] The lesson checkpoint no longer prints the program it asks the learner to
+      rebuild from memory. The requirement stays visible as the practical
+      prompt beneath it.
 
 ### Cutter Grid Global IK Repair Phase 3 — 全局图、Worker 与生命周期
 

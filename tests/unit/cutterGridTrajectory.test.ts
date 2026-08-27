@@ -7,7 +7,10 @@ import {
 } from '../../src/features/cutter-grid/grid';
 import { solveCutterGridIk } from '../../src/features/cutter-grid/ik';
 import { expandCutterGridProgram } from '../../src/features/cutter-grid/programCompiler';
-import { findCutterGridReferenceProgram } from '../../src/features/cutter-grid/referenceProgram';
+import {
+  createCutterGridReferenceReachability,
+  findCutterGridReferenceProgram,
+} from '../../src/features/cutter-grid/referenceProgram';
 import { cutterGridChallengeSignature } from '../../src/features/cutter-grid/signature';
 import {
   CUTTER_GRID_TRAJECTORY_CONFIG,
@@ -46,7 +49,12 @@ describe('Cutter Grid trajectory planning', () => {
   });
 
   it('plans the geometric reference program as one frozen deterministic trajectory', () => {
-    const reference = findCutterGridReferenceProgram(challenge, originHairCoord);
+    // Same kinematic filter the Profile generators apply: an unfiltered route
+    // can climb past the reachable envelope, which no trajectory planner can
+    // follow.
+    const reference = findCutterGridReferenceProgram(challenge, originHairCoord, {
+      isReachable: createCutterGridReferenceReachability(challenge),
+    });
     expect(reference).toBeDefined();
     if (!reference) return;
     const initial = createInitialJointAngles(challenge.robotConfig);

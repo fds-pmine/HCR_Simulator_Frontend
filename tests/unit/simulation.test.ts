@@ -184,15 +184,15 @@ describe('robot kinematics', () => {
 describe('RobotController', () => {
   it('interpolates linearly at the configured joint speed', () => {
     const controller = new RobotController(defaultChallenge.robotConfig);
-    // Shoulder starts at servo 95° and runs at 45°/s, so 140° is exactly 1s.
-    controller.beginMove('shoulder', 140);
+    // Shoulder starts at firmware Home 90° and runs at 45°/s, so 135° is 1s.
+    controller.beginMove('shoulder', 135);
 
     const halfway = controller.advanceMove(500);
-    expect(controller.getAngles().shoulder).toBeCloseTo(117.5);
+    expect(controller.getAngles().shoulder).toBeCloseTo(112.5);
     expect(halfway.completed).toBe(false);
 
     const complete = controller.advanceMove(500);
-    expect(controller.getAngles().shoulder).toBe(140);
+    expect(controller.getAngles().shoulder).toBe(135);
     expect(complete.completed).toBe(true);
   });
 
@@ -346,7 +346,7 @@ describe('SimulationEngine', () => {
 
     expect(engine.getSnapshot().errorMessage).toBeUndefined();
     expect(engine.getSnapshot().status).toBe('completed');
-    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(5);
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(1);
     expect(engine.getSnapshot().metrics.estimatedDurationMs).toBeGreaterThan(
       0,
     );
@@ -474,7 +474,7 @@ describe('SimulationEngine', () => {
 
   it('freezes while paused and resumes from the same angle', () => {
     const { engine, compiled } = createContactEngine([
-      setJointCommand('shoulder', 90, 'move'),
+      setJointCommand('shoulder', 50, 'move'),
     ]);
     engine.run(compiled);
     engine.tick(100);
@@ -511,7 +511,7 @@ describe('SimulationEngine', () => {
 
   it('stops without scoring and resets the full simulation state', () => {
     const { engine, compiled, challenge } = createContactEngine([
-      setJointCommand('shoulder', 90, 'move'),
+      setJointCommand('shoulder', 50, 'move'),
     ]);
 
     engine.run(compiled);
@@ -608,10 +608,10 @@ function createUnsafeHeadCollisionProgram(): CompiledProgram {
   // Servo degrees; the geometric pose this drives into the head is
   // shoulder 50°, elbow −15°, wrist −30°, baseYaw −24°.
   const commands: RobotCommand[] = [
-    setJointCommand('shoulder', 100, 'unsafe-shoulder'),
-    setJointCommand('elbow', 137.5, 'unsafe-elbow'),
-    setJointCommand('wrist', 60, 'unsafe-wrist'),
-    setJointCommand('baseYaw', 66, 'unsafe-base'),
+    setJointCommand('shoulder', 70, 'unsafe-shoulder'),
+    setJointCommand('elbow', 65, 'unsafe-elbow'),
+    setJointCommand('wrist', 140, 'unsafe-wrist'),
+    setJointCommand('baseYaw', 111, 'unsafe-base'),
   ];
 
   return {

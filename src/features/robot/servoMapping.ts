@@ -82,6 +82,41 @@ export const SERVO_LIMITS: Readonly<
   E: { minDeg: 45, maxDeg: 100, homeDeg: 90 },
 };
 
+/** Firmware order used by its status payload and physical control surface. */
+export const SERVO_AXIS_ORDER: readonly ServoAxisId[] = ['X', 'Y', 'Z', 'B', 'E'];
+
+/**
+ * Project the simulator's current joint state onto the five names used by the
+ * firmware and Electron bridge.
+ *
+ * Joint state for mapped joints is already stored in servo degrees, so this is
+ * deliberately a name mapping rather than another geometric conversion. `E`
+ * has no simulated joint in v1 and therefore remains at the firmware Home
+ * value until cutter actuation is modelled.
+ */
+export function servoAnglesFromJointAngles(
+  robotConfig: Challenge['robotConfig'],
+  jointAngles: Readonly<Record<JointId, number>>,
+): Record<ServoAxisId, number> {
+  const angles = Object.fromEntries(
+    SERVO_AXIS_ORDER.map((axis) => [axis, SERVO_LIMITS[axis].homeDeg]),
+  ) as Record<ServoAxisId, number>;
+
+  for (const joint of robotConfig.joints) {
+    if (!joint.servo) continue;
+    const value = jointAngles[joint.id];
+    if (Number.isFinite(value)) {
+      angles[joint.servo.axis] = value;
+    }
+  }
+  return angles;
+}
+
+/** Label a mapped joint with the exact axis learners send to the firmware. */
+export function servoJointLabel(joint: JointConfig): string {
+  return joint.servo ? `${joint.servo.axis} · ${joint.name}` : joint.name;
+}
+
 /**
  * Build a mapping from two observations of the real arm.
  *
@@ -174,7 +209,18 @@ export function assertServoRange(joint: JointConfig): void {
     return;
   }
   const limits = SERVO_LIMITS[servo.axis];
-  for (const angle of [joint.minAngleDeg, joint.maxAngleDeg, joint.initialAngleDeg]) {
+  if (joint.initialAngleDeg !== limits.homeDeg) {
+    throw new Error(
+      `Joint "${joint.id}" must initialize servo ${servo.axis} at its ` +
+        `${limits.homeDeg}° firmware Home, not ${joint.initialAngleDeg}°; ` +
+        'calibrate the model geometry instead of adding a second start pose.',
+    );
+  }
+  for (const angle of [
+    joint.minAngleDeg,
+    joint.maxAngleDeg,
+    joint.initialAngleDeg,
+  ]) {
     if (angle < limits.minDeg || angle > limits.maxDeg) {
       throw new Error(
         `Joint "${joint.id}" uses ${angle}° on servo ${servo.axis}, ` +

@@ -14,6 +14,7 @@ export const CUTTER_GRID_LADDER_SIGNATURE_CONFIG = Object.freeze({
   entryOptionLimit: 32,
   edgeMaximumJointDeltaDeg: 0.5,
   edgeMaximumEndEffectorDistanceDivisor: 16,
+  edgeMaximumSampleRefinements: 6,
   entryPrmHaltonNodes: [2048, 8192],
   entryPrmNeighbors: 24,
 });
@@ -46,6 +47,9 @@ function cutterGridSignature(
         axis: joint.axis,
         minAngleDeg: joint.minAngleDeg,
         maxAngleDeg: joint.maxAngleDeg,
+        // Keep the certified planning signature keyed to the pose the planner
+        // actually starts from. Hardware initialization is always 90° and is
+        // deliberately outside the Cutter Grid geometry contract.
         initialAngleDeg: joint.initialAngleDeg,
         speedDegPerSec: joint.speedDegPerSec,
         servo: joint.servo,

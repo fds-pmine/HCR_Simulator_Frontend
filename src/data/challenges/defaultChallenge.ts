@@ -14,11 +14,10 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
     // "symmetric neat crop", which the arm cannot cut, and offered no way in —
     // so the honest reading of a low score was "this is broken", not "try
     // something else".
-    'Twelve voxels on the crown have to come off, and nothing else. Lift the ' +
-    'tool clear of the head first — the arm cannot swing across at rest — then ' +
-    'sweep Base Yaw over the crown. One pass gets most of it; the last patch ' +
-    'sits at a different height. Finish the Lessons if you want this broken ' +
-    'down step by step.',
+    'Eleven voxels on the crown have to come off, and nothing else. Every ' +
+    'hardware motor starts at 90°. Sweep X · Base Yaw from 90° to 150° while ' +
+    'leaving Y, Z, B, and E at Home. Finish the Lessons if you want the motion ' +
+    'broken down step by step.',
   robotConfig: {
     joints: [
       // Angles are servo degrees — what the arm's servo is commanded to, and
@@ -27,12 +26,12 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
         id: 'baseYaw',
         name: 'Base Yaw',
         axis: 'y',
-        // 底座 X. Geometric −60…60 centred on the servo's 90° home.
+        // 底座 X. The 90° Home pose faces safely along the left side of the head.
         minAngleDeg: 30,
         maxAngleDeg: 150,
-        initialAngleDeg: 45,
+        initialAngleDeg: 90,
         speedDegPerSec: 60,
-        servo: { axis: 'X', centerDeg: 90, direction: 1, offsetDeg: 0 },
+        servo: { axis: 'X', centerDeg: 90, direction: 1, offsetDeg: -45 },
       },
       {
         id: 'shoulderRoll',
@@ -50,23 +49,23 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
         id: 'shoulder',
         name: 'Shoulder',
         axis: 'z',
-        // 前后 Y. Geometric −20…100.
+        // 前后 Y. Home holds the upper arm at its certified cutting height.
         minAngleDeg: 30,
         maxAngleDeg: 150,
-        initialAngleDeg: 95,
+        initialAngleDeg: 90,
         speedDegPerSec: 45,
-        servo: { axis: 'Y', centerDeg: 90, direction: 1, offsetDeg: 40 },
+        servo: { axis: 'Y', centerDeg: 90, direction: 1, offsetDeg: 70 },
       },
       {
         id: 'elbow',
         name: 'Elbow',
         axis: 'z',
-        // 上下 Z. Geometric −135…10.
+        // 上下 Z. Home opens the elbow clear of the head.
         minAngleDeg: 17.5,
         maxAngleDeg: 162.5,
-        initialAngleDeg: 72.5,
+        initialAngleDeg: 90,
         speedDegPerSec: 60,
-        servo: { axis: 'Z', centerDeg: 90, direction: 1, offsetDeg: -62.5 },
+        servo: { axis: 'Z', centerDeg: 90, direction: 1, offsetDeg: 10 },
       },
       {
         id: 'wrist',
@@ -77,9 +76,9 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
         // arm would have silently disagreed with the screen at the extremes.
         minAngleDeg: 0,
         maxAngleDeg: 180,
-        initialAngleDeg: 125,
+        initialAngleDeg: 90,
         speedDegPerSec: 75,
-        servo: { axis: 'B', centerDeg: 90, direction: 1, offsetDeg: 0 },
+        servo: { axis: 'B', centerDeg: 90, direction: 1, offsetDeg: -80 },
       },
     ],
     geometry: {
@@ -113,8 +112,8 @@ export const defaultChallengeDefinition: ChallengeDefinition = {
       efficiency: 0.25,
       time: 0.15,
     },
-    referenceProgramCost: 6.25,
-    referenceTimeMs: 5_645,
+    referenceProgramCost: 1.25,
+    referenceTimeMs: 1_000,
     commandWeight: 0.25,
   },
 };

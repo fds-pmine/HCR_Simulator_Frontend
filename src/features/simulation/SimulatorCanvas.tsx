@@ -25,6 +25,7 @@ import type {
   CutterTrajectoryPlanV4,
 } from '../cutter-grid/types';
 import { CutterGridOverlay } from '../cutter-grid/CutterGridOverlay';
+import { useLocalization } from '../preferences/localization';
 
 interface SimulatorCanvasProps {
   engine: SimulationEngine;
@@ -46,6 +47,7 @@ export function SimulatorCanvas({
   showTarget,
   cutterGrid,
 }: SimulatorCanvasProps) {
+  const { t } = useLocalization();
   const [webglSupported] = useState(supportsWebGL);
   const [renderState, setRenderState] =
     useState<SceneRenderState>('recovering');
@@ -83,11 +85,8 @@ export function SimulatorCanvas({
   if (!webglSupported) {
     return (
       <div className="webgl-fallback" role="alert">
-        <strong>Unable to Start 3D Scene</strong>
-        <span>
-          This browser does not support WebGL. Please use the latest version of
-          Chrome or Edge.
-        </span>
+        <strong>{t('programError')}</strong>
+        <span>{t('webglUnsupported')}</span>
       </div>
     );
   }
@@ -97,7 +96,7 @@ export function SimulatorCanvas({
       className="simulator-canvas"
       data-testid="simulator-canvas"
       data-render-state={renderState}
-      aria-label="HCR 3D simulation scene"
+      aria-label={t('simulationStatus')}
     >
       <Canvas
         key={canvasGeneration}
@@ -133,20 +132,17 @@ export function SimulatorCanvas({
           {renderState === 'context-lost' ? (
             <>
               <AlertTriangle size={24} />
-              <strong>3D Rendering Interrupted</strong>
-              <span>
-                The WebGL context was lost, so the simulation was safely paused.
-                It will resume automatically once the scene is restored.
-              </span>
+              <strong>{t('paused')}</strong>
+              <span>{t('programError')}</span>
               <button type="button" onClick={reinitializeCanvas}>
                 <RotateCcw size={15} />
-                Reinitialize 3D
+                {t('reset')}
               </button>
             </>
           ) : (
             <>
               <LoaderCircle className="spin" size={22} />
-              <strong>Initializing 3D Scene</strong>
+              <strong>{t('loading')}…</strong>
             </>
           )}
         </div>

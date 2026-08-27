@@ -7,6 +7,7 @@ import {
 import { BLOCK_FIELDS } from './blockConstants';
 import { createToolbox, registerHcrBlocks } from './blockDefinitions';
 import type { ProgrammingMode } from './programmingMode';
+import type { AppLocale } from '../preferences/localization';
 
 /**
  * Fields that must be applied before any other field on the same block.
@@ -35,18 +36,22 @@ export function createHeadlessWorkspaceForMode(
 export function registerBlocksForMode(
   challenge: Challenge,
   mode: ProgrammingMode,
+  appLocale: AppLocale = 'en',
 ): void {
-  registerHcrBlocks(challenge.robotConfig.joints);
+  registerHcrBlocks(challenge.robotConfig.joints, appLocale);
   if (mode === 'cutter-grid') {
-    registerCutterGridBlocks();
+    registerCutterGridBlocks(appLocale);
   }
 }
 
 export function toolboxForMode(
   challenge: Challenge,
   mode: ProgrammingMode,
+  appLocale: AppLocale = 'en',
 ): Blockly.utils.toolbox.ToolboxDefinition {
-  return mode === 'servo' ? createToolbox(challenge) : createCutterGridToolbox();
+  return mode === 'servo'
+    ? createToolbox(challenge, appLocale)
+    : createCutterGridToolbox(appLocale);
 }
 
 export function initialWorkspaceState(

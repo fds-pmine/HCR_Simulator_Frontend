@@ -27,6 +27,9 @@ import {
   type CutterArmEndpoint,
   type UnsupportedJoint,
 } from '../../features/robot/armBridge';
+import { SERVO_AXIS_ORDER } from '../../features/robot/servoMapping';
+import { useLocalization } from '../../features/preferences/localization';
+import { hcrBlockCopy } from '../../features/blockly/blocklyLocalization';
 
 interface ArmDockProps {
   challenge: Challenge;
@@ -68,6 +71,8 @@ type Link =
  * into — the whole dock is absent rather than present and broken.
  */
 export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) {
+  const { t, locale } = useLocalization();
+  const blockCopy = hcrBlockCopy(locale);
   const [open, setOpen] = useState(false);
   const [address, setAddress] = useState('');
   const [draft, setDraft] = useState('');
@@ -78,6 +83,7 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
   const [error, setError] = useState<string | undefined>();
   const [unsupported, setUnsupported] = useState<UnsupportedJoint[]>([]);
   const [endpoints, setEndpoints] = useState<CutterArmEndpoint[]>([]);
+  const [hardwareAngles, setHardwareAngles] = useState<Record<string, number>>();
 
   const available = isArmAvailable();
 
@@ -130,7 +136,9 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
       setLink({ state: 'checking' });
       try {
         const health = await armCall((bridge) => bridge.check());
+        const angles = await armCall((bridge) => bridge.readAngles());
         setLink({ state: 'ok', runtime: health.runtime });
+        setHardwareAngles(angles);
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : String(caught);
         setLink({ state: 'failed', message });
@@ -160,13 +168,16 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
     });
 
   const handleHome = () => void guard(async () => {
-    await armCall((bridge) => bridge.home());
+    const angles = await armCall((bridge) => bridge.home());
+    setHardwareAngles(angles);
   });
 
   const send = async (steps: readonly ArmStep[]) => {
     setRunning(true);
     try {
       const result = await armCall((bridge) => bridge.run(steps));
+      const angles = await armCall((bridge) => bridge.readAngles());
+      setHardwareAngles(angles);
       setProgress(undefined);
       if (result.aborted) {
         setError(`Stopped after ${result.completed} of ${result.total} steps.`);
@@ -255,7 +266,7 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
       {open ? (
         <div className="arm-dock__body">
           <label className="arm-dock__field">
-            <span>ADDRESS</span>
+            <span>IP</span>
             <input
               type="text"
               value={draft}
@@ -267,7 +278,7 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
                   handleSaveAddress();
                 }
               }}
-              aria-label="Arm IPv4 address"
+              aria-label="IPv4"
             />
           </label>
 
@@ -278,7 +289,7 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
               onClick={handleSaveAddress}
               disabled={busy || draft === address}
             >
-              Save
+              {t('saveSettings')}
             </button>
             <button
               type="button"
@@ -292,23 +303,33 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
               ) : (
                 <Radio size={14} />
               )}
-              Test
+              {t('test')}
             </button>
             <button
               type="button"
               className="control-button control-button--quiet"
               onClick={handleDiscover}
               disabled={busy}
-              title="Ask the arm for its address on your Wi-Fi"
+              title={t('search')}
             >
-              Find on LAN
+              {t('search')}
             </button>
           </div>
 
           {link.state === 'ok' ? (
-            <p className="arm-dock__status arm-dock__status--ok">
-              Connected — {link.runtime}
-            </p>
+            <>
+              <p className="arm-dock__status arm-dock__status--ok">
+                {t('backendConnected')} · {link.runtime}
+              </p>
+              {hardwareAngles ? (
+                <p
+                  className="arm-dock__status arm-dock__angles"
+                  aria-label={t('servoAngles')}
+                >
+                  {formatHardwareAngles(hardwareAngles, t('servoAngles'), t('notPlanned'))}
+                </p>
+              ) : null}
+            </>
           ) : null}
 
           <div className="arm-dock__row">
@@ -319,7 +340,7 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
               disabled={busy || running || link.state !== 'ok'}
             >
               {running ? <LoaderCircle className="spin" size={14} /> : <Cable size={14} />}
-              Send to Arm
+              {t('submit')}
             </button>
             <button
               type="button"
@@ -328,7 +349,7 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
               disabled={!running}
             >
               <Square size={13} fill="currentColor" />
-              Stop
+              {t('stop')}
             </button>
             <button
               type="button"
@@ -343,25 +364,21 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
 
           {progress ? (
             <p className="arm-dock__status">
-              Step {progress.index + 1} of {progress.total} —{' '}
-              {describeStep(progress.step)}
+              {t('progress')} {progress.index + 1}/{progress.total} ·{' '}
+              {describeStep(progress.step, blockCopy.wait)}
             </p>
           ) : null}
 
           {endpoints.length > 0 ? (
             <p className="arm-dock__status">
-              {endpoints.length} destination
-              {endpoints.length === 1 ? '' : 's'} — one per block. The arm
-              solves its own pose for each; the path between them is not the
-              simulated one.
+              {t('endEffector')}: {endpoints.length}
             </p>
           ) : null}
 
           {unsupported.length > 0 ? (
             <p className="arm-dock__status arm-dock__status--warn">
               <TriangleAlert size={13} />
-              {unsupported.map((joint) => joint.name).join(', ')} has no servo on
-              this arm; those commands were not sent.
+              {t('programError')}: {unsupported.map((joint) => joint.name).join(', ')}
             </p>
           ) : null}
 
@@ -377,17 +394,33 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
 }
 
 /** One line of progress, for whichever step shape is running. */
-function describeStep(step: ArmStep): string {
+function describeStep(step: ArmStep, waitLabel: string): string {
   if (step.type === 'home') {
-    return 'Home all axes to 90°';
+    return 'Home · X/Y/Z/B/E 90°';
   }
   if (step.type === 'wait') {
-    return `wait ${step.durationMs}ms`;
+    return `${waitLabel} ${step.durationMs}ms`;
   }
   if (step.type === 'move') {
-    return `${step.axis} to ${step.value}°`;
+    return `${step.axis} → ${step.value}°`;
   }
   return step.moves
     .map((move) => `${move.axis} ${move.value.toFixed(1)}°`)
     .join('  ');
+}
+
+function formatHardwareAngles(
+  angles: Readonly<Record<string, unknown>>,
+  label: string,
+  unavailable: string,
+): string {
+  const values = SERVO_AXIS_ORDER.flatMap((axis) => {
+    const reported = angles[axis] ?? angles[axis.toLowerCase()];
+    const value =
+      typeof reported === 'number' || typeof reported === 'string'
+        ? Number(reported)
+        : Number.NaN;
+    return Number.isFinite(value) ? [`${axis} ${value.toFixed(1)}°`] : [];
+  });
+  return values.length > 0 ? `${label}: ${values.join(' · ')}` : unavailable;
 }

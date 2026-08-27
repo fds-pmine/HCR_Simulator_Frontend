@@ -66,6 +66,8 @@ export function matchConfig(overrides: Partial<MatchConfig> = {}): MatchConfig {
 export interface MatchPlayer {
   playerId: string;
   displayName: string;
+  /** Coarse current offset used only to render the player's local clock. */
+  utcOffsetMinutes?: number;
   connected: boolean;
   /** Whether they have submitted at least once. Never *what* they scored. */
   submitted: boolean;

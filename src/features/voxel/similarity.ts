@@ -14,8 +14,8 @@ import type { VoxelKey } from '../../types/domain';
  *
  * That is what this used to do, and its floor was not zero. Most of a hairstyle
  * is never meant to be touched, so an empty program already matched nearly all
- * of it: on the shipped challenge the target keeps 229 of 241 voxels, and doing
- * nothing scored **95.02**. The whole distance between "did nothing" and
+ * of it: an earlier challenge target kept 229 of 241 voxels, and doing nothing
+ * scored **95.02**. The whole distance between "did nothing" and
  * "perfect" was five points sitting on a 95-point floor that measured the
  * hairstyle rather than the learner.
  *

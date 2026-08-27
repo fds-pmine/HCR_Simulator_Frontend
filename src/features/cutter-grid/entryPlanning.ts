@@ -12,6 +12,10 @@ import { normalizedJointDistance } from './ik';
 export const CUTTER_GRID_ENTRY_CONFIG = Object.freeze({
   maxJointSampleDeltaDeg: 0.5,
   maxEndEffectorSampleDistanceDivisor: 16,
+  // A joint-angle grid does not bound tool travel on its own: the same 0.5°
+  // step sweeps further the more the arm is extended, so the sample spacing
+  // the certification is written against has to be reached by refinement.
+  maxSampleRefinements: 6,
   prmInitialHaltonNodes: 2048,
   prmMaximumHaltonNodes: 8192,
   prmNeighbors: 24,
@@ -20,6 +24,15 @@ export const CUTTER_GRID_ENTRY_CONFIG = Object.freeze({
 interface EntryValidation {
   waypoints: CutterTrajectoryWaypointV2[];
   minimumHeadClearance: number;
+}
+
+export interface CutterGridEntryPlanningOptions {
+  /**
+   * Profile generation certifies every origin candidate it can reach directly
+   * before it pays for the PRM. The fallback stays reachable — it just no
+   * longer runs for a candidate the Profile does not need.
+   */
+  allowPrmFallback?: boolean;
 }
 
 /**
@@ -32,10 +45,14 @@ export function planCertifiedCutterGridEntry(
   challenge: Challenge,
   id: string,
   targetAngles: Readonly<Record<JointId, number>>,
+  options: CutterGridEntryPlanningOptions = {},
 ): CutterGridEntryOptionV2 | undefined {
   const initial = createInitialJointAngles(challenge.robotConfig);
   const direct = validateJointSpaceEntrySegment(challenge, initial, targetAngles);
-  const validated = direct ?? planPrmEntry(challenge, initial, targetAngles);
+  const validated = direct ??
+    (options.allowPrmFallback === false
+      ? undefined
+      : planPrmEntry(challenge, initial, targetAngles));
   if (!validated) return undefined;
   const jointAngles = copyAngles(targetAngles, challenge);
   return {
@@ -67,7 +84,48 @@ export function validateJointSpaceEntrySegment(
       Math.ceil((1.5 * delta) / CUTTER_GRID_ENTRY_CONFIG.maxJointSampleDeltaDeg),
     );
   }
-  const waypoints = Array.from({ length: sampleCount + 1 }, (_, index) => {
+  const maximumSampleDistance =
+    challenge.voxelConfig.size / CUTTER_GRID_ENTRY_CONFIG.maxEndEffectorSampleDistanceDivisor;
+  // Rejecting a segment whose samples land too far apart would confuse "not
+  // resolved finely enough to certify" with "unsafe". Refine the grid until it
+  // resolves the certified distance, then run the contact checks on it: the
+  // outcome is the same motion checked more strictly, never a weaker gate. A
+  // segment that cannot be resolved inside the bound stays refused.
+  let waypoints = sampleEntrySegment(challenge, startAngles, endAngles, sampleCount, durationMs);
+  for (let refinement = 0; ; refinement += 1) {
+    const widest = widestEndEffectorStep(waypoints);
+    if (widest <= maximumSampleDistance + 1e-9) break;
+    if (refinement >= CUTTER_GRID_ENTRY_CONFIG.maxSampleRefinements) return undefined;
+    sampleCount = Math.ceil(sampleCount * Math.max(2, widest / maximumSampleDistance));
+    waypoints = sampleEntrySegment(challenge, startAngles, endAngles, sampleCount, durationMs);
+  }
+  let minimumHeadClearance = Number.POSITIVE_INFINITY;
+  for (const waypoint of waypoints) {
+    const pose = computeRobotPose(challenge.robotConfig, waypoint.jointAngles);
+    if (findRobotHeadCollision(pose, challenge.voxelConfig, challenge.robotConfig.geometry)) {
+      return undefined;
+    }
+    minimumHeadClearance = Math.min(
+      minimumHeadClearance,
+      measureRobotHeadClearance(pose, challenge.voxelConfig, challenge.robotConfig.geometry),
+    );
+  }
+  for (let index = 1; index < waypoints.length; index += 1) {
+    if (entryHairHits(challenge, waypoints[index - 1].endEffector, waypoints[index].endEffector).length > 0) {
+      return undefined;
+    }
+  }
+  return { waypoints, minimumHeadClearance };
+}
+
+function sampleEntrySegment(
+  challenge: Challenge,
+  startAngles: Readonly<Record<JointId, number>>,
+  endAngles: Readonly<Record<JointId, number>>,
+  sampleCount: number,
+  durationMs: number,
+): CutterTrajectoryWaypointV2[] {
+  return Array.from({ length: sampleCount + 1 }, (_, index) => {
     const progress = index / sampleCount;
     const smooth = smoothStep(progress);
     const slope = smoothStepDerivative(progress);
@@ -92,27 +150,17 @@ export function validateJointSpaceEntrySegment(
       endEffector: computeRobotPose(challenge.robotConfig, jointAngles).endEffector,
     } satisfies CutterTrajectoryWaypointV2;
   });
-  let minimumHeadClearance = Number.POSITIVE_INFINITY;
-  for (const waypoint of waypoints) {
-    const pose = computeRobotPose(challenge.robotConfig, waypoint.jointAngles);
-    if (findRobotHeadCollision(pose, challenge.voxelConfig, challenge.robotConfig.geometry)) {
-      return undefined;
-    }
-    minimumHeadClearance = Math.min(
-      minimumHeadClearance,
-      measureRobotHeadClearance(pose, challenge.voxelConfig, challenge.robotConfig.geometry),
+}
+
+function widestEndEffectorStep(waypoints: readonly CutterTrajectoryWaypointV2[]): number {
+  let widest = 0;
+  for (let index = 1; index < waypoints.length; index += 1) {
+    widest = Math.max(
+      widest,
+      distance(waypoints[index - 1].endEffector, waypoints[index].endEffector),
     );
   }
-  for (let index = 1; index < waypoints.length; index += 1) {
-    if (
-      distance(waypoints[index - 1].endEffector, waypoints[index].endEffector) >
-      challenge.voxelConfig.size / CUTTER_GRID_ENTRY_CONFIG.maxEndEffectorSampleDistanceDivisor + 1e-9
-    ) return undefined;
-    if (entryHairHits(challenge, waypoints[index - 1].endEffector, waypoints[index].endEffector).length > 0) {
-      return undefined;
-    }
-  }
-  return { waypoints, minimumHeadClearance };
+  return widest;
 }
 
 function planPrmEntry(

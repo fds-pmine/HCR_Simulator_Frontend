@@ -15,6 +15,10 @@ import { CutterGridTutorialRun } from '../features/tutorial/CutterGridTutorialRu
 import { TutorialPicker } from '../features/tutorial/TutorialPicker';
 import { CUTTER_GRID_LESSONS } from '../features/tutorial/cutterGridLessons';
 import { ControlModesTutorialRun } from '../features/tutorial/ControlModesTutorialRun';
+import {
+  loadLessonProgress,
+  saveCompletedLesson,
+} from '../features/tutorial/lessonProgress';
 import { HomeScreen } from './HomeScreen';
 import { useServices } from './servicesContext';
 
@@ -40,9 +44,12 @@ export function GameShell() {
   const [identity, setIdentity] = useState<PlayerIdentity>(loadIdentity);
   const [lessonId, setLessonId] = useState<string>();
   const [cutterGridLessonId, setCutterGridLessonId] = useState<string>();
-  const [solved, setSolved] = useState<ReadonlySet<string>>(new Set());
+  const [solved, setSolved] = useState<ReadonlySet<string>>(
+    () => loadLessonProgress().completed,
+  );
 
   const markSolved = useCallback((id: string) => {
+    saveCompletedLesson(id);
     setSolved((current) => (current.has(id) ? current : new Set([...current, id])));
   }, []);
 
@@ -92,6 +99,7 @@ export function GameShell() {
       return (
         <CutterGridLessonRun
           lessonId={cutterGridLessonId}
+          onSolved={markSolved}
           {...(next ? { onNext: () => setCutterGridLessonId(next.id) } : {})}
           onExit={() => setCutterGridLessonId(undefined)}
         />

@@ -4,6 +4,7 @@ import type { MatchProvider } from '../../services/contracts';
 import type { MatchResultRow, MatchResults } from '../../types/match';
 import { isPracticeBot } from '../../services/local/LocalMatchProvider';
 import { initialsOf, type PlayerIdentity } from './identity';
+import { useLocalization } from '../preferences/localization';
 
 interface MatchScoreboardProps {
   results: MatchResults;
@@ -20,27 +21,28 @@ export function MatchScoreboard({
   onPlayAgain,
   onExit,
 }: MatchScoreboardProps) {
+  const { t } = useLocalization();
   const you = results.rows.find((row) => row.playerId === identity.playerId);
   const winner = results.rows[0];
   const metricLabel =
-    results.rankBy === 'completion' ? 'Similarity to target' : 'Final score';
+    results.rankBy === 'completion' ? t('similarityMetric') : t('finalScoreMetric');
 
   return (
-    <div className="scoreboard" role="dialog" aria-label="Round results">
+    <div className="scoreboard" role="dialog" aria-label={t('roundResults')}>
       <div className="scoreboard__panel">
         <header className="scoreboard__head">
           <Trophy size={20} />
           <div>
-            <p className="phase-kicker">ROUND CLOSED</p>
+            <p className="phase-kicker">{t('roundClosed')}</p>
             <h2>
               {winner
                 ? winner.playerId === identity.playerId
-                  ? 'You win'
+                  ? t('youWin')
                   : `${winner.displayName} wins`
-                : 'No entries'}
+                : t('noEntries')}
             </h2>
           </div>
-          <span className="scoreboard__metric">Ranked by {metricLabel.toLowerCase()}</span>
+          <span className="scoreboard__metric">{t('rankedBy')} {metricLabel.toLowerCase()}</span>
         </header>
 
         <ol className="scoreboard__rows">
@@ -74,11 +76,11 @@ export function MatchScoreboard({
         <div className="scoreboard__actions">
           <button className="big-button big-button--primary" type="button" onClick={onPlayAgain}>
             <RotateCcw size={16} />
-            Play Again
+            {t('playAgain')}
           </button>
           <button className="big-button" type="button" onClick={onExit}>
             <LogOut size={16} />
-            Back to Menu
+            {t('backToMenu')}
           </button>
         </div>
       </div>
@@ -97,6 +99,7 @@ function ScoreRow({
   isYou: boolean;
   delayMs: number;
 }) {
+  const { t } = useLocalization();
   const headline = rankBy === 'final' ? row.finalScore : row.completionScore;
   const shown = useCountUp(headline, delayMs);
 
@@ -120,7 +123,7 @@ function ScoreRow({
             ? `${row.metrics.sourceBlockCount} block${
                 row.metrics.sourceBlockCount === 1 ? '' : 's'
               } · ${(row.metrics.estimatedDurationMs / 1_000).toFixed(1)}s`
-            : 'no attempt'}
+            : t('noAttempt')}
         </small>
       </div>
       <div className="scoreboard__bar">

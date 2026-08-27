@@ -40,6 +40,24 @@ beforeAll(() => {
 });
 
 describe('the angle field is bounded by the selected joint', () => {
+  it('initializes a new hardware-backed command at the firmware 90° Home', () => {
+    const { block } = angleBlock();
+
+    expect(block.getFieldValue(BLOCK_FIELDS.jointId)).toBe('baseYaw');
+    expect(angleOf(block)).toBe(90);
+    expect(
+      (block.getField(BLOCK_FIELDS.jointId) as Blockly.FieldDropdown)
+        .getOptions(false)
+        .map(([label]) => label),
+    ).toEqual([
+      'X · Base Yaw',
+      'Shoulder Roll',
+      'Y · Shoulder',
+      'Z · Elbow',
+      'B · Wrist',
+    ]);
+  });
+
   it.each(joints.map((joint) => [joint.id, joint] as const))(
     '%s rejects an angle above its own maximum',
     (_id, joint) => {

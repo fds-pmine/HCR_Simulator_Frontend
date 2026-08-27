@@ -10,7 +10,10 @@ import {
 } from './grid';
 import { solveCutterGridIk } from './ik';
 import { expandCutterGridProgram } from './programCompiler';
-import { findCutterGridReferenceProgram } from './referenceProgram';
+import {
+  createCutterGridReferenceReachability,
+  findCutterGridReferenceProgram,
+} from './referenceProgram';
 import { cutterGridChallengeSignature } from './signature';
 import {
   planCutterGridEntryTrajectory,
@@ -55,7 +58,9 @@ export function generateCutterGridProfile(
     deriveCutterGridBounds(challenge, originHairCoord),
     originHairCoord,
   );
-  const reference = findCutterGridReferenceProgram(challenge, originHairCoord);
+  const reference = findCutterGridReferenceProgram(challenge, originHairCoord, {
+    isReachable: createCutterGridReferenceReachability(challenge),
+  });
   if (!reference) {
     throw new Error('No geometric Cutter Grid reference program exists.');
   }

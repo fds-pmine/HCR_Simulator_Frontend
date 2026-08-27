@@ -48,10 +48,13 @@ describe('Cutter Grid Phase 0 domain', () => {
       pose.endEffector,
       challenge.voxelConfig,
     );
-    expect(origin).toEqual([0, -5, 8]);
+    // Home parks the tool above the crown now, so the cell it snaps to is no
+    // longer the certified grid origin — the Profiles pass [0, -5, 8]
+    // explicitly and this candidate only seeds the Phase 0 geometry audit.
+    expect(origin).toEqual([-5, 5, 4]);
     expect(deriveCutterGridBounds(challenge, origin)).toEqual({
-      min: [-6, -5, -6],
-      max: [6, 7, 8],
+      min: [-6, -4, -6],
+      max: [6, 7, 6],
     });
   });
 
@@ -97,7 +100,10 @@ describe('Cutter Grid Phase 0 domain', () => {
           ...challenge.robotConfig,
           joints: challenge.robotConfig.joints.map((joint, index) =>
             index === 0
-              ? { ...joint, initialAngleDeg: joint.initialAngleDeg + 1 }
+              ? {
+                  ...joint,
+                  initialAngleDeg: joint.initialAngleDeg + 1,
+                }
               : joint,
           ),
         },
@@ -150,9 +156,9 @@ describe('Cutter Grid geometric feasibility cache', () => {
   }, 15_000);
 
   it('passes only the geometry gate and leaves trajectory certification pending', () => {
-    expect(cached.originCandidate.hairCoord).toEqual([0, -5, 8]);
+    expect(cached.originCandidate.hairCoord).toEqual([-5, 5, 4]);
     expect(cached.originCandidate.hairHits).toEqual([]);
-    expect(cached.targetVoxelKeys).toHaveLength(12);
+    expect(cached.targetVoxelKeys).toHaveLength(11);
     expect(cached.uncoveredTargetVoxelKeys).toEqual([]);
     expect(cached.directionsWithoutSafeEdge).toEqual([]);
     expect(cached.safeCutEdgeCount).toBeGreaterThan(0);

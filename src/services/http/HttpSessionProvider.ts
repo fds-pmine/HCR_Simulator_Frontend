@@ -10,6 +10,7 @@ import type {
   SessionSnapshot,
 } from '../../types/session';
 import type { ApiClient } from './apiClient';
+import { researchHeaders } from '../../features/preferences/researchPreferences';
 
 /**
  * Adaptive practice against the real CAT engine.
@@ -39,10 +40,14 @@ export class HttpSessionProvider implements SessionProvider {
     // `sessionId` in the body is what binds the scored submission to this
     // session; without it the server scores the program but `respond` cannot
     // find it.
-    await this.client.post('/api/v1/submissions', {
-      ...submission,
-      sessionId,
-    });
+    await this.client.post(
+      '/api/v1/submissions',
+      {
+        ...submission,
+        sessionId,
+      },
+      researchHeaders(),
+    );
   }
 
   async respond(

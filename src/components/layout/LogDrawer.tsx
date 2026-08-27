@@ -1,5 +1,6 @@
 import { Terminal, X } from 'lucide-react';
 import type { SimulationLogEntry } from '../../features/simulation/SimulationEngine';
+import { useLocalization } from '../../features/preferences/localization';
 
 interface LogDrawerProps {
   logs: readonly SimulationLogEntry[];
@@ -8,12 +9,13 @@ interface LogDrawerProps {
 }
 
 export function LogDrawer({ logs, open, onToggle }: LogDrawerProps) {
+  const { t } = useLocalization();
   const latest = logs.at(-1);
 
   return (
     <section
       className={`log-drawer ${open ? 'is-open' : ''}`}
-      aria-label="Simulation event log"
+      aria-label={t('eventLog')}
     >
       <button
         type="button"
@@ -23,18 +25,18 @@ export function LogDrawer({ logs, open, onToggle }: LogDrawerProps) {
         data-testid="log-toggle"
       >
         <Terminal size={15} />
-        <span>EVENT LOG</span>
-        <p>{latest?.message ?? 'Waiting for simulation events…'}</p>
-        <small>{logs.length} EVENTS</small>
+        <span>{t('eventLog')}</span>
+        <p>{latest?.message ?? t('waitingEvents')}</p>
+        <small>{logs.length} {t('events')}</small>
       </button>
       {open ? (
         <div className="log-drawer__body" data-testid="event-log">
           <div className="log-drawer__title">
-            <span>Event Log · Latest {logs.length} Events</span>
+            <span>{t('eventLog')} · {logs.length} {t('events')}</span>
             <button
               type="button"
               onClick={onToggle}
-              aria-label="Close event log"
+              aria-label={t('closeEventLog')}
             >
               <X size={15} />
             </button>

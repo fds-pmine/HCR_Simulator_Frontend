@@ -32,10 +32,13 @@ describe('Cutter Grid V4 Phase 1 historical V3 baseline', () => {
     expect(regression.executedCommandCount).toBe(11);
     expect(regression.steps).toHaveLength(11);
     expect(regression.diagnostics.cartesianLayerCount).toBe(44);
-    expect(regression.diagnostics.validationSampleCount).toBe(4286);
-    expect(regression.estimatedDurationMs).toBe(6976);
-    expect(Math.min(...regression.steps.map((step) => step.durationMs))).toBe(91);
-    expect(Math.max(...regression.steps.map((step) => step.durationMs))).toBe(1318);
+    // Re-measured on the 90° Home arm. The old digits (4286 samples, 6976ms,
+    // 91–1318ms steps) described the pre-redesign geometry; what this test
+    // keeps is V3's cost being pinned at all, not those particular numbers.
+    expect(regression.diagnostics.validationSampleCount).toBe(3990);
+    expect(regression.estimatedDurationMs).toBe(9144);
+    expect(Math.min(...regression.steps.map((step) => step.durationMs))).toBe(113);
+    expect(Math.max(...regression.steps.map((step) => step.durationMs))).toBe(2930);
     expect(new Set(regression.steps.map((step) => step.sourceBlockId))).toEqual(
       new Set(['regression-up', 'regression-left', 'regression-forward']),
     );

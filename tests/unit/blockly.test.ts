@@ -51,20 +51,20 @@ describe('Blockly program compiler', () => {
     });
     const second = compileWorkspace(secondWorkspace, challenge);
 
-    expect(first.program.sourceBlockCount).toBe(5);
-    expect(first.executedCommandCount).toBe(5);
+    expect(first.program.sourceBlockCount).toBe(1);
+    expect(first.executedCommandCount).toBe(1);
     expect(first.runtimeCommands).toEqual(second.runtimeCommands);
     expect(first.runtimeCommands[0]).toMatchObject({
       type: 'set-joint-angle',
-      jointId: 'shoulderRoll',
-      angleDeg: 15,
-      sourceBlockId: 'starter-shoulder-roll',
+      jointId: 'baseYaw',
+      angleDeg: 150,
+      sourceBlockId: 'starter-base-sweep',
     });
     expect(
       first.runtimeCommands.filter(
         (command) => command.type === 'set-joint-angle',
       ),
-    ).toHaveLength(5);
+    ).toHaveLength(1);
 
     secondWorkspace.dispose();
   });
@@ -328,13 +328,7 @@ describe('workspace deserialization is independent of field order', () => {
         Number(block.getFieldValue(BLOCK_FIELDS.angle)),
       ]);
 
-    expect(angles).toEqual([
-      ['shoulderRoll', 15],
-      ['shoulder', 130],
-      ['elbow', 152.5],
-      ['wrist', 10],
-      ['baseYaw', 145],
-    ]);
+    expect(angles).toEqual([['baseYaw', 150]]);
   });
 
   it('compiles both field orders to the identical program', () => {

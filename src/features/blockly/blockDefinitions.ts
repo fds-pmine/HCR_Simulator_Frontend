@@ -1,11 +1,13 @@
 import * as Blockly from 'blockly/core';
-import * as en from 'blockly/msg/en';
 import type {
   AllowedBlockType,
   Challenge,
   JointConfig,
 } from '../../types/domain';
 import { BLOCK_FIELDS, BLOCK_TYPES } from './blockConstants';
+import { SERVO_LIMITS, servoJointLabel } from '../robot/servoMapping';
+import type { AppLocale } from '../preferences/localization';
+import { blocklyMessagePack, hcrBlockCopy } from './blocklyLocalization';
 
 const semanticToBlocklyType: Record<AllowedBlockType, string> = {
   'set-joint-angle': BLOCK_TYPES.setJointAngle,
@@ -13,20 +15,37 @@ const semanticToBlocklyType: Record<AllowedBlockType, string> = {
   repeat: BLOCK_TYPES.repeat,
 };
 
-export function registerHcrBlocks(joints: readonly JointConfig[]): void {
+export function registerHcrBlocks(
+  joints: readonly JointConfig[],
+  appLocale: AppLocale = 'en',
+): void {
   if (joints.length === 0) {
     throw new Error('At least one joint is required to register HCR blocks.');
   }
 
-  const locale = Object.fromEntries(
-    Object.entries(en).filter(([, value]) => typeof value === 'string'),
-  ) as Record<string, string>;
-  Blockly.setLocale(locale);
+  Blockly.setLocale(blocklyMessagePack(appLocale));
+  const copy = hcrBlockCopy(appLocale);
   const options = joints.map(
-    (joint) => [joint.name, joint.id] as [string, string],
+    (joint) => [servoJointLabel(joint), joint.id] as [string, string],
   );
   const initialJoint = joints[0];
   const jointById = new Map(joints.map((joint) => [joint.id, joint]));
+
+  /**
+   * A new hardware-backed command starts from the firmware's absolute Home
+   * angle. Simulation, Reset, Inspector and Electron all share that state;
+   * there is no hidden second Challenge pose.
+   */
+  const defaultCommandAngle = (joint: JointConfig): number => {
+    const homeDeg = joint.servo
+      ? SERVO_LIMITS[joint.servo.axis].homeDeg
+      : undefined;
+    return homeDeg !== undefined &&
+      homeDeg >= joint.minAngleDeg &&
+      homeDeg <= joint.maxAngleDeg
+      ? homeDeg
+      : joint.initialAngleDeg;
+  };
 
   Blockly.Blocks[BLOCK_TYPES.setJointAngle] = {
     init(this: Blockly.Block) {
@@ -37,7 +56,7 @@ export function registerHcrBlocks(joints: readonly JointConfig[]): void {
       const ANGLE_PRECISION_DEG = 0.1;
 
       const angleField = new Blockly.FieldNumber(
-        initialJoint.initialAngleDeg,
+        defaultCommandAngle(initialJoint),
         initialJoint.minAngleDeg,
         initialJoint.maxAngleDeg,
         ANGLE_PRECISION_DEG,
@@ -98,7 +117,7 @@ export function registerHcrBlocks(joints: readonly JointConfig[]): void {
       };
 
       this.appendDummyInput()
-        .appendField('Set')
+        .appendField(copy.set)
         .appendField(
           new Blockly.FieldDropdown(
             options,
@@ -111,20 +130,20 @@ export function registerHcrBlocks(joints: readonly JointConfig[]): void {
           ),
           BLOCK_FIELDS.jointId,
         )
-        .appendField('to')
+        .appendField(copy.to)
         .appendField(angleField, BLOCK_FIELDS.angle)
         .appendField('°');
       this.setPreviousStatement(true);
       this.setNextStatement(true);
       this.setColour('#18a6a6');
-      this.setTooltip('Move a joint to the specified absolute angle');
+      this.setTooltip(copy.setTooltip);
     },
   };
 
   Blockly.Blocks[BLOCK_TYPES.wait] = {
     init(this: Blockly.Block) {
       this.appendDummyInput()
-        .appendField('Wait')
+        .appendField(copy.wait)
         .appendField(
           new Blockly.FieldNumber(200, 0, 5_000, 100),
           BLOCK_FIELDS.duration,
@@ -133,33 +152,33 @@ export function registerHcrBlocks(joints: readonly JointConfig[]): void {
       this.setPreviousStatement(true);
       this.setNextStatement(true);
       this.setColour('#7c6ee6');
-      this.setTooltip(
-        'Hold the current pose and wait for the specified duration',
-      );
+      this.setTooltip(copy.waitTooltip);
     },
   };
 
   Blockly.Blocks[BLOCK_TYPES.repeat] = {
     init(this: Blockly.Block) {
       this.appendDummyInput()
-        .appendField('Repeat')
+        .appendField(copy.repeat)
         .appendField(
           new Blockly.FieldNumber(2, 1, 20, 1),
           BLOCK_FIELDS.count,
         )
-        .appendField('times');
-      this.appendStatementInput(BLOCK_FIELDS.body).appendField('Do');
+        .appendField(copy.times);
+      this.appendStatementInput(BLOCK_FIELDS.body).appendField(copy.do);
       this.setPreviousStatement(true);
       this.setNextStatement(true);
       this.setColour('#df8a35');
-      this.setTooltip('Repeat the nested commands in order');
+      this.setTooltip(copy.repeatTooltip);
     },
   };
 }
 
 export function createToolbox(
   challenge: Pick<Challenge, 'allowedBlocks'>,
+  appLocale: AppLocale = 'en',
 ): Blockly.utils.toolbox.ToolboxDefinition {
+  const copy = hcrBlockCopy(appLocale);
   const servoContents = challenge.allowedBlocks
     .filter((type) => type === 'set-joint-angle')
     .map((type) => ({
@@ -178,13 +197,13 @@ export function createToolbox(
     contents: [
       {
         kind: 'category',
-        name: 'Servo',
+        name: copy.servoCategory,
         colour: '#18a6a6',
         contents: servoContents,
       },
       {
         kind: 'category',
-        name: 'Control',
+        name: copy.controlCategory,
         colour: '#7c6ee6',
         contents: controlContents,
       },

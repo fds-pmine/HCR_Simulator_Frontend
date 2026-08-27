@@ -32,9 +32,10 @@
 ## 默认角度的正确分层
 
 - `SERVO_LIMITS.*.homeDeg = 90` 是固件归中命令。
-- `JointConfig.initialAngleDeg` 是带头模挑战的碰撞安全起始姿态，不应自动等于固件 home。
-- `servo.offsetDeg` / `direction` 描述 90° 时实体连杆的几何姿态，当前仍是从旧规格迁移的占位值，不是实机测量。
-- 机械臂每次运行都必须先调用固件 `/api/home`，令 X/Y/Z/B/E 全部回到 90°，等待 1.5 秒后才进入 Challenge 的安全起始姿态；Electron main-process sequencer 会拒绝任何未以 Home 开头的计划。ArmDock 的独立 Home 按钮仍保留。
+- 所有硬件映射关节的 `JointConfig.initialAngleDeg = 90`，表示舵机通电/Electron 连接后的初始命令值。
+- `JointConfig.initialAngleDeg = 90` 同时是固件 Home、Challenge、Reset 和 Electron 连接后的唯一初始舵机状态；不再维护第二套隐藏起始角。
+- `servo.offsetDeg` / `direction` 描述 90° 时实体连杆的安全几何姿态；当前值仍是仿真校准值，实体值必须由实机测量确认。
+- 机械臂每次 Servo 运行都必须先调用固件 `/api/home`，令 X/Y/Z/B/E 全部回到 90°；Electron 不再插入隐藏的 Challenge 姿态命令。main-process sequencer 会拒绝任何未以 Home 开头的计划，ArmDock 的独立 Home 按钮仍保留。
 
 ## Phase A — 实机校准（需要硬件测量）
 
@@ -44,7 +45,7 @@
 2. 从 90° 单轴增加 30° 后的几何角，用于确定 `direction`；
 3. 不接触机械止挡、线材和头模的最小/最大安全舵机角；
 4. 四轴同时 home 时的照片/姿态，以及建议的无头安全归中顺序；
-5. 带头模时可作为 Challenge 开场的安全 servo 姿态。
+5. 验证带头模时 X/Y/Z/B/E 全 90° Home 本身就是安全 Challenge 开场姿态。
 
 测量后：
 

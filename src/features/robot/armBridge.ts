@@ -158,10 +158,10 @@ const START_POSE_SETTLE_MS = 1500;
  * what keeps a later command from being sent while the previous move is still
  * in flight.
  *
- * The plan first executes the firmware's 90° Home command, then drives every
- * mapped joint to the challenge's initial angle. Homing gives Electron a known
- * physical starting state; the challenge prologue then makes hardware and the
- * simulator agree before the learner's first command.
+ * The plan begins at the firmware's 90° Home and sends no hidden per-axis
+ * staging commands. Every hardware-backed `initialAngleDeg` is therefore 90°,
+ * exactly matching the state Electron establishes before the learner's first
+ * command. The simulator uses that same all-90° state for Challenge and Reset.
  */
 export function buildArmPlan(
   challenge: Challenge,
@@ -176,17 +176,6 @@ export function buildArmPlan(
 
   for (const joint of challenge.robotConfig.joints) {
     angles[joint.id] = joint.initialAngleDeg;
-    if (joint.servo) {
-      steps.push({
-        type: 'move',
-        axis: joint.servo.axis,
-        value: joint.initialAngleDeg,
-        durationMs: 0,
-      });
-    }
-  }
-  if (steps.length > 1) {
-    steps[steps.length - 1].durationMs = START_POSE_SETTLE_MS;
   }
 
   for (const command of commands) {
@@ -739,7 +728,8 @@ export function buildCutterArmEndpointPlan(
       type: 'pose',
       moves: driven.map((joint) => ({
         axis: joint.servo!.axis,
-        value: solution.jointAngles[joint.id] ?? joint.initialAngleDeg,
+        value:
+          solution.jointAngles[joint.id] ?? joint.initialAngleDeg,
       })),
       durationMs:
         steps.length === 0

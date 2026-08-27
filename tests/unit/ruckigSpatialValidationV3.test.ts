@@ -77,12 +77,13 @@ describe('Cutter Grid local Ruckig spatial certification', () => {
       hairVoxels: new Set(),
     }), 'joint-limit');
 
+    // Folded hard into the head under the 90° Home servo offsets.
     const colliding = {
       baseYaw: 30,
       shoulderRoll: -45,
-      shoulder: 90,
-      elbow: 17.5,
-      wrist: 0,
+      shoulder: 70,
+      elbow: 162.5,
+      wrist: 90,
     };
     const collidingEndEffector = computeRobotPose(challenge.robotConfig, colliding).endEffector;
     expectSpatialFailure(() => validateCutterGridRuckigSpatialSamplesV3(challenge, [

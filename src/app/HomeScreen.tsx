@@ -6,6 +6,16 @@ import {
   type PlayerIdentity,
 } from '../features/match/identity';
 import type { MatchProvider } from '../services/contracts';
+import {
+  SUPPORTED_LOCALES,
+  type AppLocale,
+  useLocalization,
+} from '../features/preferences/localization';
+import {
+  anyResearchEnabled,
+  loadResearchPreferences,
+} from '../features/preferences/researchPreferences';
+import { DataConsentDialog } from '../features/preferences/DataConsentDialog';
 
 interface HomeScreenProps {
   identity: PlayerIdentity;
@@ -27,6 +37,13 @@ export function HomeScreen({
   onVersus,
 }: HomeScreenProps) {
   const [draft, setDraft] = useState(identity.displayName);
+  const [researchEnabled, setResearchEnabled] = useState(
+    () => anyResearchEnabled(loadResearchPreferences()),
+  );
+  const [showDataSettings, setShowDataSettings] = useState(
+    () => kind === 'online' && !loadResearchPreferences().decided,
+  );
+  const { locale, setLocale, t } = useLocalization();
 
   return (
     <main className="home">
@@ -39,7 +56,7 @@ export function HomeScreen({
         <p className="phase-kicker">HAIRCUT CONTROL RUNTIME</p>
         <h1>HCR Simulator</h1>
         <p className="home__tagline">
-          Program the arm. Carve the hair. Beat the clock.
+          {t('tagline')}
         </p>
       </header>
 
@@ -52,12 +69,11 @@ export function HomeScreen({
           <span className="mode-card__icon">
             <GraduationCap size={22} />
           </span>
-          <strong>Tutorial</strong>
+          <strong>{t('tutorial')}</strong>
           <span className="mode-card__body">
-            Guided Grid, Grid-to-Angles, and Servo tracks. Compare spatial paths
-            with joint commands on the live simulator.
+            {t('tutorialBody')}
           </span>
-          <span className="mode-card__go">Learn →</span>
+          <span className="mode-card__go">{t('learn')}</span>
         </button>
 
         <button
@@ -68,42 +84,39 @@ export function HomeScreen({
           <span className="mode-card__icon">
             <ListChecks size={22} />
           </span>
-          <strong>Lessons</strong>
+          <strong>{t('lessons')}</strong>
           <span className="mode-card__body">
-            Ten Cutter Grid and eight Servo Angles lessons, all with 20 sections.
-            Learn spatial paths first, then drive each joint yourself.
+            {t('lessonsBody')}
           </span>
-          <span className="mode-card__go">Practise →</span>
+          <span className="mode-card__go">{t('practise')}</span>
         </button>
 
         <button className="mode-card mode-card--solo" type="button" onClick={onSolo}>
           <span className="mode-card__icon">
             <Scissors size={22} />
           </span>
-          <strong>Solo Practice</strong>
+          <strong>{t('solo')}</strong>
           <span className="mode-card__body">
-            No clock. Finish one and the next arrives — harder or easier, chosen
-            from how you are doing.
+            {t('soloBody')}
           </span>
-          <span className="mode-card__go">Start →</span>
+          <span className="mode-card__go">{t('start')}</span>
         </button>
 
         <button className="mode-card mode-card--versus" type="button" onClick={onVersus}>
           <span className="mode-card__icon">
             <Swords size={22} />
           </span>
-          <strong>Versus Round</strong>
+          <strong>{t('versus')}</strong>
           <span className="mode-card__body">
-            Everyone gets the same hairstyle at the same moment. Closest to the
-            target when the clock runs out wins.
+            {t('versusBody')}
           </span>
-          <span className="mode-card__go">Play →</span>
+          <span className="mode-card__go">{t('play')}</span>
         </button>
       </div>
 
       <footer className="home__foot">
         <label className="name-field">
-          <span>PLAYER</span>
+          <span>{t('player')}</span>
           <input
             value={draft}
             maxLength={MAX_NAME_LENGTH}
@@ -111,14 +124,29 @@ export function HomeScreen({
             onBlur={() =>
               onRename(normalizeDisplayName(draft, identity.displayName))
             }
-            aria-label="Display name"
+            aria-label={t('player')}
             spellCheck={false}
           />
         </label>
 
+        <label className="name-field locale-field">
+          <span>{t('language')}</span>
+          <select
+            value={locale}
+            onChange={(event) => setLocale(event.target.value as AppLocale)}
+            aria-label={t('language')}
+          >
+            {SUPPORTED_LOCALES.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <span className={`link-chip link-chip--${kind}`}>
           {kind === 'online' ? <Wifi size={13} /> : <WifiOff size={13} />}
-          {kind === 'online' ? 'BACKEND CONNECTED' : 'OFFLINE · PRACTICE'}
+          {kind === 'online' ? t('backendConnected') : t('offlinePractice')}
         </span>
       </footer>
 
@@ -128,11 +156,26 @@ export function HomeScreen({
         anywhere, so the notice would be false there.
       */}
       {kind === 'online' ? (
-        <p className="home__notice">
-          Open to everyone, with no sign-in — anyone can pick any name. Scores
-          and programs you submit are recorded to study how people learn to
-          program the arm; your name is not stored with them.
-        </p>
+        <section className="home__privacy" aria-label={t('dataSettings')}>
+          <p className="home__notice">{t('requiredData')}</p>
+          <p className="research-choice">
+            <span>{t('researchChoice')}</span>
+            <strong>{researchEnabled ? t('on') : t('off')}</strong>
+          </p>
+          <p className="research-choice__hint">{t('researchHint')}</p>
+          <button type="button" className="ghost-button" onClick={() => setShowDataSettings(true)}>
+            {t('dataSettings')}
+          </button>
+        </section>
+      ) : null}
+
+      {showDataSettings ? (
+        <DataConsentDialog
+          onClose={(preferences) => {
+            setResearchEnabled(anyResearchEnabled(preferences));
+            setShowDataSettings(false);
+          }}
+        />
       ) : null}
     </main>
   );

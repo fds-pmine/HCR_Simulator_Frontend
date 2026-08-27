@@ -1,5 +1,6 @@
 import type { Challenge, VoxelKey } from '../../types/domain';
 import { findSweptVoxelHits } from '../voxel/contactDetection';
+import { enumerateCutterGridIkCandidates } from './ik';
 import {
   CUTTER_GRID_DIRECTIONS,
   cutterGridBoundsContain,
@@ -32,10 +33,23 @@ export interface CutterGridReferenceSolution {
   expectedCutVoxels: VoxelKey[];
 }
 
+export interface CutterGridReferenceSearchOptions {
+  /**
+   * Necessary kinematic condition for standing at a cell. Geometry alone can
+   * route the cutter through cells no arm pose reaches — the shortest sweep
+   * over the crown climbs straight past the top of the reachable envelope —
+   * and the trajectory planners can only report that as a late failure. The
+   * Profile generators pass their own static IK check here so an
+   * uncertifiable route is never proposed in the first place.
+   */
+  isReachable?: (coord: CutterGridCoord) => boolean;
+}
+
 /** Deterministic shortest geometric route that cuts every target and nothing else. */
 export function findCutterGridReferenceProgram(
   challenge: Challenge,
   originHairCoord: CutterGridCoord,
+  options: CutterGridReferenceSearchOptions = {},
 ): CutterGridReferenceSolution | undefined {
   const targetKeys = [...challenge.initialHair.voxels]
     .filter((key) => !challenge.targetHair.voxels.has(key))
@@ -63,6 +77,7 @@ export function findCutterGridReferenceProgram(
       if (!cutterGridBoundsContain(bounds, nextCoord)) continue;
       const hits = edgeHits(challenge, current.coord, nextCoord);
       if (hits.some((key) => !targetIndex.has(key))) continue;
+      if (options.isReachable && !options.isReachable(nextCoord)) continue;
       let cutMask = current.cutMask;
       for (const key of hits) cutMask |= 1 << (targetIndex.get(key) ?? 0);
       const next: SearchState = { coord: nextCoord, cutMask };
@@ -97,11 +112,63 @@ export function findCutterGridReferenceProgram(
   };
 }
 
+/**
+ * A lower budget than the ladder planner's 384 escalation on purpose. Seed
+ * budgets nest — every candidate 96 finds, 384 finds too — so a cell that
+ * passes here is one the planner can certainly pose at, and the filter stays a
+ * conservative necessary condition rather than a second planner. The search
+ * visits thousands of cells, and 384 would spend minutes proving what 96
+ * already settles.
+ */
+const REFERENCE_REACHABILITY_SEED_BUDGET = 96;
+
+/** Memoized static IK existence check, in hair coordinates. */
+export function createCutterGridReferenceReachability(
+  challenge: Challenge,
+): (hairCoord: CutterGridCoord) => boolean {
+  const cache = new Map<string, boolean>();
+  return (hairCoord) => {
+    const key = hairCoord.join(',');
+    const cached = cache.get(key);
+    if (cached !== undefined) return cached;
+    const candidates = enumerateCutterGridIkCandidates(
+      challenge,
+      voxelCoordToWorld(
+        { x: hairCoord[0], y: hairCoord[1], z: hairCoord[2] },
+        challenge.voxelConfig.origin,
+        challenge.voxelConfig.size,
+      ),
+      {
+        maxError: challenge.voxelConfig.size / 16,
+        seedBudget: REFERENCE_REACHABILITY_SEED_BUDGET,
+        candidateLimit: 1,
+        candidateNamespace: 'reference-reachability',
+      },
+    );
+    cache.set(key, candidates.length > 0);
+    return candidates.length > 0;
+  };
+}
+
+/**
+ * How far one Move may run in the certified reference program.
+ *
+ * The block language allows 12, but V4 flies one synchronized PTP per visible
+ * Move, and a joint-space arc bows further off the straight cell line the
+ * longer it gets. Measured on the shipped arm: 6 cells stays within 0.09 world
+ * units of the line and cuts exactly the target, while 8 bows 0.19 — wider
+ * than a voxel — and takes two neighbours with it. The reference program is
+ * the challenge's proof that the target is cuttable, so it stays inside the
+ * span both planners reproduce. Player programs are not capped; their real
+ * swept path is what the score reports.
+ */
+const REFERENCE_COMPRESSION_LIMIT = 6;
+
 function compressMoves(directions: CutterGridDirection[]): CutterGridMoveV1[] {
   const result: CutterGridMoveV1[] = [];
   for (const direction of directions) {
     const previous = result.at(-1);
-    if (previous?.direction === direction && previous.distance < 12) {
+    if (previous?.direction === direction && previous.distance < REFERENCE_COMPRESSION_LIMIT) {
       previous.distance += 1;
       continue;
     }

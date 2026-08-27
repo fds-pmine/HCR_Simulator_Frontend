@@ -59,12 +59,13 @@ describe('Cutter Grid compact PTP V4 geometry', () => {
   });
 
   it('rejects a head-colliding compact PTP before it can become a primitive', () => {
+    // Folded hard into the head under the 90° Home servo offsets.
     const colliding = {
       baseYaw: 30,
       shoulderRoll: -45,
-      shoulder: 90,
-      elbow: 17.5,
-      wrist: 0,
+      shoulder: 70,
+      elbow: 162.5,
+      wrist: 90,
     };
     const primitive = createCutterGridSyncPtpPrimitiveV4(challenge, colliding, colliding);
 

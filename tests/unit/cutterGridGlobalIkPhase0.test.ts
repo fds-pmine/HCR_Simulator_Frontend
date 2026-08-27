@@ -53,7 +53,10 @@ describe('Cutter Grid global IK repair — Phase 0 diagnostic contract', () => {
       CUTTER_GRID_GLOBAL_IK_REGRESSION_CUT_VOXELS,
     );
     expect(CUTTER_GRID_GLOBAL_IK_REGRESSION_CUT_VOXELS).toContain('-2,1,4');
-    expect(challenge.targetHair.voxels.has('-2,1,4')).toBe(false);
+    // The Crown Trim redesign moved this voxel into the kept set, so the
+    // baseline now records a contact the challenge actively does not want —
+    // which is the point: the sweep is never filtered by target membership.
+    expect(challenge.targetHair.voxels.has('-2,1,4')).toBe(true);
   });
 
   it('proves that the alleged failure sample has a low-Wrist, collision-free static IK branch', () => {

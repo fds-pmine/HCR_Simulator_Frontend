@@ -1,5 +1,6 @@
 import { Gauge, LoaderCircle, TrendingUp } from 'lucide-react';
 import type { SessionProvider } from '../../services/contracts';
+import { useLocalization } from '../preferences/localization';
 
 interface PracticePanelProps {
   kind: SessionProvider['kind'];
@@ -17,12 +18,13 @@ export function PracticePanel({
   remaining,
   busy,
 }: PracticePanelProps) {
+  const { t } = useLocalization();
   const adaptive = kind === 'adaptive';
 
   return (
     <div className="hud">
       <div className="hud__timer hud__timer--calm">
-        <span>{adaptive ? 'ABILITY' : 'PROGRESS'}</span>
+        <span>{adaptive ? t('ability') : t('progress')}</span>
         <strong>
           {/*
             Offline the sequence is fixed, so there is no estimate to show — a
@@ -43,7 +45,7 @@ export function PracticePanel({
         {busy ? (
           <>
             <LoaderCircle className="spin" size={12} />
-            Choosing your next challenge…
+            {t('choosingNext')}
           </>
         ) : adaptive ? (
           <>

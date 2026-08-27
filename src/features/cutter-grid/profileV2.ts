@@ -1,4 +1,4 @@
-import type { Challenge, VoxelKey } from '../../types/domain';
+import type { Challenge, JointId, VoxelKey } from '../../types/domain';
 import { calculateScore } from '../scoring/scoring';
 import { findSweptVoxelHits } from '../voxel/contactDetection';
 import {
@@ -13,7 +13,10 @@ import { planCertifiedCutterGridEntry } from './entryPlanning';
 import { enumerateCutterGridIkCandidates } from './ik';
 import { planCutterGridLadderTrajectory } from './ladderPlanner';
 import { expandCutterGridProgram } from './programCompiler';
-import { findCutterGridReferenceProgram } from './referenceProgram';
+import {
+  createCutterGridReferenceReachability,
+  findCutterGridReferenceProgram,
+} from './referenceProgram';
 import { cutterGridChallengeSignatureV2, fnv1a64 } from './signature';
 import {
   CUTTER_GRID_LADDER_PLANNER_VERSION,
@@ -29,6 +32,10 @@ export interface CutterGridProfileV2GenerationOptions {
 }
 
 const DEFAULT_PROFILE_V2_ENTRY_TARGET = 8;
+
+function entryOptionId(index: number): string {
+  return `entry-${index.toString().padStart(2, '0')}`;
+}
 
 /**
  * Build a fail-closed multi-entry Profile.  A profile is usable only after the
@@ -55,27 +62,45 @@ export function generateCutterGridProfileV2(
     shouldCancel: options.shouldCancel,
   });
   const entryOptions = [] as CutterGridProfileV2['entryOptions'];
+  // The V2 contract permits at most 32 entries, rather than requiring every
+  // static candidate to be certified.  Eight diversified direct entries
+  // already cover the low-Wrist origin branch, so take the direct ones first:
+  // a candidate the Profile never needed used to be able to force a full PRM
+  // build, which costs minutes of generation for an entry that is then
+  // discarded at the eighth.
+  const withoutDirectEntry = [] as { index: number; jointAngles: Record<JointId, number> }[];
   for (const [index, candidate] of originCandidates.entries()) {
     if (options.shouldCancel?.()) throw new Error('Cutter Grid Profile V2 generation cancelled.');
     const entry = planCertifiedCutterGridEntry(
       challenge,
-      `entry-${index.toString().padStart(2, '0')}`,
+      entryOptionId(index),
+      candidate.jointAngles,
+      { allowPrmFallback: false },
+    );
+    if (entry) entryOptions.push(entry);
+    else withoutDirectEntry.push({ index, jointAngles: candidate.jointAngles });
+    if (entryOptions.length >= DEFAULT_PROFILE_V2_ENTRY_TARGET) break;
+  }
+  // Below the two-entry minimum the deterministic PRM fallback is what keeps
+  // the Profile generatable at all, so it still runs — just for the candidates
+  // that direct motion could not reach.
+  for (const candidate of withoutDirectEntry) {
+    if (entryOptions.length >= 2) break;
+    if (options.shouldCancel?.()) throw new Error('Cutter Grid Profile V2 generation cancelled.');
+    const entry = planCertifiedCutterGridEntry(
+      challenge,
+      entryOptionId(candidate.index),
       candidate.jointAngles,
     );
     if (entry) entryOptions.push(entry);
-    // The V2 contract permits at most 32 entries, rather than requiring every
-    // static candidate to be certified.  Eight diversified direct entries
-    // already cover the low-Wrist origin branch; stop before an unrelated
-    // candidate can force an expensive PRM build.  If fewer than two direct
-    // entries exist, the loop continues and each failed direct route invokes
-    // the deterministic PRM fallback in planCertifiedCutterGridEntry.
-    if (entryOptions.length >= DEFAULT_PROFILE_V2_ENTRY_TARGET) break;
   }
   entryOptions.sort((left, right) => left.id.localeCompare(right.id));
   if (entryOptions.length < 2) {
     throw new Error(`Cutter Grid Profile V2 requires at least two certified entries; found ${entryOptions.length}.`);
   }
-  const reference = findCutterGridReferenceProgram(challenge, originHairCoord);
+  const reference = findCutterGridReferenceProgram(challenge, originHairCoord, {
+    isReachable: createCutterGridReferenceReachability(challenge),
+  });
   if (!reference) throw new Error('No geometric Cutter Grid reference program exists.');
   const geometricReference = certifyGeometricReference(challenge, originHairCoord, reference);
   const nodeMap = options.includeNodeMap

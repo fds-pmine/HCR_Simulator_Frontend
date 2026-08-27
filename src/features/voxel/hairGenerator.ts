@@ -28,13 +28,12 @@ export interface GeneratedHairstyles {
  * *below* doing nothing, because the 11 voxels it removed were all hair meant to
  * stay and none of the hair meant to go.
  *
- * Across 5,880 programs the tool can ever touch only 50 of the 241 hair voxels,
- * and no single program removes more than 12. Anything a challenge asks for
+ * Across the calibrated search space the tool can touch only part of the 241
+ * hair voxels, and this one-axis Home sweep removes 11. Anything a challenge asks for
  * outside that set is unwinnable, so the target is now derived from a program
  * that demonstrably works rather than drawn by eye.
  */
 const TRIM_KEYS: ReadonlySet<string> = new Set([
-  '-2,1,4',
   '-2,4,-1',
   '-2,4,-2',
   '-2,4,0',
@@ -59,15 +58,7 @@ export const REFERENCE_SOLUTION: readonly {
   jointId: string;
   angleDeg: number;
 }[] = [
-  // Servo degrees; geometric equivalents in comments.
-  { jointId: 'shoulder', angleDeg: 140 }, // 90
-  { jointId: 'elbow', angleDeg: 112.5 }, // -40
-  { jointId: 'wrist', angleDeg: 70 }, // -20
-  { jointId: 'baseYaw', angleDeg: 145 }, // 55
-  { jointId: 'baseYaw', angleDeg: 35 }, // -55
-  { jointId: 'shoulder', angleDeg: 120 }, // 70
-  { jointId: 'elbow', angleDeg: 152.5 }, // 0
-  { jointId: 'baseYaw', angleDeg: 145 }, // 55
+  { jointId: 'baseYaw', angleDeg: 150 },
 ];
 
 export function generateDefaultHairstyles(): GeneratedHairstyles {
@@ -84,9 +75,8 @@ export function generateDefaultHairstyles(): GeneratedHairstyles {
     },
     targetHair: {
       id: 'neat-short-cap',
-      // Not "Symmetric" any more, and the name should not claim otherwise: the
-      // trim is what the arm can actually reach, and the arm sweeps from one
-      // side, so a mirror-symmetric cut is not something it can perform.
+      // The name describes the measured reachable crown trim without making
+      // symmetry itself part of the scoring contract.
       name: 'Neat Crown Trim',
       voxels: target,
     },

@@ -22,7 +22,6 @@ import {
 import type { CompiledProgram } from '../../features/blockly/programTypes';
 import type { EditorCompilation } from '../../features/blockly/editorCompilation';
 import {
-  PROGRAMMING_MODE_LABEL,
   canSwitchProgrammingMode,
   type ProgrammingMode,
 } from '../../features/blockly/programmingMode';
@@ -55,6 +54,10 @@ import { SimulationControls } from '../controls/SimulationControls';
 import { ArmDock } from '../controls/ArmDock';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { LogDrawer } from './LogDrawer';
+import { useLocalization } from '../../features/preferences/localization';
+import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
+import { LESSONS } from '../../data/challenges/lessons';
+import { localizeServoLesson } from '../../features/tutorial/servoLessonLocalization';
 
 /**
  * Everything a competitive round adds to the workbench.
@@ -98,6 +101,11 @@ export interface WorkbenchTutorial {
   ) => void;
   /** Test was pressed. */
   onTested: () => void;
+  /**
+   * When defined, changing this key clears Blockly and resets the simulation.
+   * Lesson assessments use it when the learner enters a closed-book quiz.
+   */
+  clearWorkspaceKey?: string;
   /** Active Blockly language, used by tutorials that teach mode switching. */
   onProgrammingModeChange?: (mode: ProgrammingMode) => void;
 }
@@ -131,6 +139,7 @@ export function SimulationWorkbench({
   cutterGridPlannerMode = 'local',
   challengeVersion = 1,
 }: SimulationWorkbenchProps) {
+  const { locale, t } = useLocalization();
   const editorRef = useRef<BlocklyEditorHandle>(null);
   const planner = useMemo(
     () =>
@@ -199,6 +208,7 @@ export function SimulationWorkbench({
     if (!workspace) return;
     const onWorkspaceChange = (event: Blockly.Events.Abstract) => {
       if (event.isUiEvent) return;
+      setCompileError(undefined);
       workspaceVersionRef.current += 1;
       cutterPlanRef.current = undefined;
       setCutterPlan(undefined);
@@ -210,11 +220,20 @@ export function SimulationWorkbench({
     };
     workspace.addChangeListener(onWorkspaceChange);
     return () => workspace.removeChangeListener(onWorkspaceChange);
-  }, [challenge, engine, planner, programmingMode]);
+  }, [challenge, engine, locale, planner, programmingMode]);
 
   useEffect(() => {
     editorRef.current?.highlightBlock(snapshot.currentBlockId);
   }, [snapshot.currentBlockId]);
+
+  const clearWorkspaceKey = tutorial?.clearWorkspaceKey;
+  useEffect(() => {
+    if (clearWorkspaceKey === undefined) return;
+    editorRef.current?.clear();
+    editorRef.current?.highlightBlock();
+    planner.cancel();
+    engine.reset();
+  }, [clearWorkspaceKey, engine, planner]);
 
   // Report the workspace to the tutorial on every edit. Subscribing here rather
   // than inside the editor keeps the editor unaware that a tutorial exists.
@@ -249,7 +268,7 @@ export function SimulationWorkbench({
     publish();
     workspace.addChangeListener(publish);
     return () => workspace.removeChangeListener(publish);
-  }, [programmingMode, report]);
+  }, [challenge, locale, programmingMode, report]);
 
   const compile = (): CompiledProgram | undefined => {
     try {
@@ -455,6 +474,12 @@ export function SimulationWorkbench({
   };
 
   const visibleError = compileError ?? snapshot.errorMessage;
+  const displayLesson = LESSONS.find(({ id }) => id === challenge.id);
+  const challengeName = challenge.id === DEFAULT_CHALLENGE_ID
+    ? t('defaultChallengeName')
+    : displayLesson
+      ? localizeServoLesson(displayLesson, locale).name
+      : challenge.name;
 
   return (
     <main className="workbench">
@@ -470,18 +495,18 @@ export function SimulationWorkbench({
         </div>
 
         <div className="challenge-crumb">
-          <span>CHALLENGE</span>
+          <span>{t('challenge')}</span>
           <ChevronRight size={14} />
-          <strong>{challenge.name}</strong>
+          <strong>{challengeName}</strong>
         </div>
 
         <div className="topbar-actions">
           <span className={`local-badge ${match ? 'local-badge--live' : ''}`}>
             <i />
-            {modeLabel ?? 'LOCAL'}
+            {modeLabel ?? t('local')}
           </span>
           {onExit ? (
-            <button type="button" onClick={onExit} aria-label="Leave and return to the menu">
+            <button type="button" onClick={onExit} aria-label={t('backToMenu')}>
               <LogOut size={16} />
             </button>
           ) : null}
@@ -490,8 +515,8 @@ export function SimulationWorkbench({
             onClick={toggleLeftPanel}
             aria-label={
               leftPanelOpen
-                ? 'Collapse program panel'
-                : 'Expand program panel'
+                ? t('collapseProgram')
+                : t('expandProgram')
             }
             aria-pressed={leftPanelOpen}
           >
@@ -505,7 +530,7 @@ export function SimulationWorkbench({
             type="button"
             onClick={toggleRightPanel}
             aria-label={
-              rightPanelOpen ? 'Collapse status panel' : 'Expand status panel'
+              rightPanelOpen ? t('collapseInspector') : t('expandInspector')
             }
             aria-pressed={rightPanelOpen}
           >
@@ -539,17 +564,17 @@ export function SimulationWorkbench({
           className={`side-panel side-panel--left ${
             leftPanelOpen ? 'is-open' : 'is-closed'
           }`}
-          aria-label="Blockly program panel"
+          aria-label={t('programPanel')}
         >
           <div className="panel-header">
             <div>
-              <span>PROGRAM</span>
-              <strong>{PROGRAMMING_MODE_LABEL[programmingMode]} Program</strong>
+              <span>{t('program')}</span>
+              <strong>{t(programmingMode === 'servo' ? 'servoAnglesProgram' : 'cutterGridProgram')}</strong>
             </div>
             <button
               type="button"
               onClick={toggleLeftPanel}
-              aria-label="Collapse program panel"
+              aria-label={t('collapseProgram')}
             >
               <ChevronLeft size={17} />
             </button>
@@ -558,7 +583,7 @@ export function SimulationWorkbench({
             <div
               className="programming-mode-switch segmented"
               role="group"
-              aria-label="Programming mode"
+              aria-label={t('programmingMode')}
             >
               {availableProgrammingModes.map((mode) => (
                 <button
@@ -569,7 +594,7 @@ export function SimulationWorkbench({
                   disabled={!canSwitchProgrammingMode(snapshot.status)}
                   onClick={() => handleProgrammingModeChange(mode)}
                 >
-                  {PROGRAMMING_MODE_LABEL[mode]}
+                  {t(mode === 'servo' ? 'servoAnglesMode' : 'cutterGridMode')}
                 </button>
               ))}
             </div>
@@ -584,9 +609,9 @@ export function SimulationWorkbench({
           <div className="panel-footer">
             <span>
               <Cpu size={13} />
-              PROGRAM IR
+              {t('programIr')}
             </span>
-            <span>{snapshot.metrics.sourceBlockCount} BLOCKS</span>
+            <span>{snapshot.metrics.sourceBlockCount} {t('blocks')}</span>
           </div>
         </aside>
 
@@ -594,17 +619,17 @@ export function SimulationWorkbench({
           className={`side-panel side-panel--right ${
             rightPanelOpen ? 'is-open' : 'is-closed'
           }`}
-          aria-label="Simulation status panel"
+          aria-label={t('simulationStatus')}
         >
           <div className="panel-header">
             <div>
-              <span>INSPECTOR</span>
-              <strong>Simulation Status</strong>
+              <span>{t('inspector')}</span>
+              <strong>{t('simulationStatus')}</strong>
             </div>
             <button
               type="button"
               onClick={toggleRightPanel}
-              aria-label="Collapse status panel"
+              aria-label={t('collapseInspector')}
             >
               <ChevronRight size={17} />
             </button>
@@ -639,7 +664,7 @@ export function SimulationWorkbench({
             onClick={toggleLeftPanel}
           >
             <PanelLeftOpen size={15} />
-            PROGRAM
+            {t('program')}
           </button>
         ) : null}
         {!rightPanelOpen ? (
@@ -648,7 +673,7 @@ export function SimulationWorkbench({
             type="button"
             onClick={toggleRightPanel}
           >
-            INSPECTOR
+            {t('inspector')}
             <PanelRightOpen size={15} />
           </button>
         ) : null}
@@ -658,12 +683,12 @@ export function SimulationWorkbench({
 
         {visibleError ? (
           <div className="error-banner" role="alert">
-            <strong>PROGRAM ERROR</strong>
+            <strong>{t('programError')}</strong>
             <span>{visibleError}</span>
             <button
               type="button"
               onClick={() => setCompileError(undefined)}
-              aria-label="Dismiss error message"
+              aria-label={t('dismissError')}
             >
               ×
             </button>
@@ -671,7 +696,7 @@ export function SimulationWorkbench({
         ) : null}
 
         <div className="stage-readout" aria-hidden="true">
-          <span>CAMERA / ORBIT</span>
+          <span>{t('cameraOrbit')}</span>
           <strong>
             X {snapshot.endEffector[0].toFixed(2)} · Y{' '}
             {snapshot.endEffector[1].toFixed(2)} · Z{' '}
@@ -697,7 +722,7 @@ export function SimulationWorkbench({
                     programmingMode === 'cutter-grid' || !match.canSubmit,
                   busy: match.submitting,
                   ...(programmingMode === 'cutter-grid'
-                    ? { title: 'Backend replay not yet supported' }
+                    ? { title: t('backendReplayUnsupported') }
                     : {}),
                 },
               }

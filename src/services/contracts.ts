@@ -69,7 +69,11 @@ export interface MatchProvider {
   readonly kind: 'online' | 'practice';
 
   /** Identity used for `join` and `submit`. */
-  setPlayer(player: { playerId: string; displayName: string }): void;
+  setPlayer(player: {
+    playerId: string;
+    displayName: string;
+    utcOffsetMinutes?: number;
+  }): void;
 
   /**
    * Open a lobby.

@@ -14,12 +14,26 @@ export interface CutterGridTutorialStep extends Omit<Lesson, 'done'> {
   done?: (context: CutterGridTutorialContext) => boolean;
 }
 
+/**
+ * The certified route, as the bundled Profile defines it. Kept in step with
+ * `referenceProgram` by `cutterGridTutorial.test.ts`: a tutorial that teaches
+ * a stale route would strand a learner on the final step, which now waits for
+ * a real 100 completion instead of offering to skip.
+ *
+ * The repeated directions are the lesson, not a mistake: V4 flies one
+ * synchronized PTP per visible Move, and a longer block bows further off the
+ * straight cell line than the cut can afford.
+ */
 const REFERENCE_ROUTE = [
   ['left', 3],
-  ['up', 7],
-  ['forward', 3],
-  ['up', 3],
+  ['up', 6],
+  ['up', 2],
+  ['forward', 1],
+  ['up', 1],
+  ['forward', 1],
+  ['up', 1],
   ['forward', 6],
+  ['forward', 1],
 ] as const;
 
 /**
@@ -49,18 +63,19 @@ export const CUTTER_GRID_TUTORIAL_STEPS: readonly CutterGridTutorialStep[] = [
     id: 'grid-up',
     title: 'Climb on a second axis',
     body:
-      'Connect “Move up 7 voxels” underneath the first block. Connected blocks ' +
+      'Connect “Move up 6 voxels” underneath the first block. Connected blocks ' +
       'run from top to bottom.',
     hint: 'Up is +Y. Make sure the two blocks snap into one stack.',
     done: ({ program }) => hasRoutePrefix(program, REFERENCE_ROUTE.slice(0, 2)),
   },
   {
     id: 'grid-forward',
-    title: 'Add depth',
+    title: 'Climb the rest in a second block',
     body:
-      'Connect “Move forward 3 voxels”. Forward is −Z; the axes stay fixed even ' +
-      'while the arm turns.',
-    hint: 'The program should now read Left 3 → Up 7 → Forward 3.',
+      'Connect “Move up 2 voxels”. Two blocks, not one Move up 8: the planner ' +
+      'flies each block as a single smooth motion, and a long one curves away ' +
+      'from the straight line of cells you are aiming at.',
+    hint: 'The program should now read Left 3 → Up 6 → Up 2.',
     done: ({ program }) => hasRoutePrefix(program, REFERENCE_ROUTE.slice(0, 3)),
   },
   {
@@ -74,9 +89,12 @@ export const CUTTER_GRID_TUTORIAL_STEPS: readonly CutterGridTutorialStep[] = [
     id: 'grid-complete-route',
     title: 'Finish the certified route',
     body:
-      'Add “Move up 3 voxels”, then “Move forward 6 voxels”. This five-block ' +
-      'route removes the twelve target voxels without an extra cut.',
-    hint: 'Left 3 → Up 7 → Forward 3 → Up 3 → Forward 6.',
+      'Add the remaining six blocks: Forward 1, Up 1, Forward 1, Up 1, ' +
+      'Forward 6, Forward 1. This nine-block route removes the eleven target ' +
+      'voxels without an extra cut.',
+    hint:
+      'Left 3 → Up 6 → Up 2 → Forward 1 → Up 1 → Forward 1 → Up 1 → ' +
+      'Forward 6 → Forward 1.',
     done: ({ program }) => isExactRoute(program, REFERENCE_ROUTE),
   },
   {

@@ -39,7 +39,7 @@
 - [x] Cutter Grid 显示十课渐进课程，每课至少二十个 section，提供明确目标、可执行示例、课内前后导航和连续下一课入口，且不暴露 Servo 模式。
 - [x] Grid 教程 E2E 完整覆盖认证路径注入、逐步完成判定、V4 规划、Test 回放与最终完成状态。
 - [x] 八个 Servo Angles Lessons 每课至少二十个 section；第 20 节只有真实 Test 达到 100 Completion 才解锁下一课。
-- [x] `Grid → Servo Angles` 教程在真实 Workbench 完成 Grid Move、Servo 模式切换、绝对角度积木和返回 Grid Workspace 保留验证，并明确 Home 90° 不替代 Challenge 安全初始角度。
+- [x] `Grid → Servo Angles` 教程在真实 Workbench 完成 Grid Move、Servo 模式切换、绝对角度积木和返回 Grid Workspace 保留验证；硬件初始值与新建积木使用 Home 90°，Inspector 的 X/Y/Z/B 显示并实时更新当前仿真舵机角度，E 明确停放在 90°，Electron Servo 计划仅以 Home 开头。
 
 ## Cutter Grid 全局多分支 IK 修复
 

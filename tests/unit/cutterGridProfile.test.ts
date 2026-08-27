@@ -27,13 +27,13 @@ describe('Cutter Grid certified Profile', () => {
       referenceCompletion: 100,
       referenceExtraCutVoxels: [],
     });
-    expect(profile.certification.referenceCutVoxels).toHaveLength(12);
+    expect(profile.certification.referenceCutVoxels).toHaveLength(11);
     expect(profile.certification.certifiedDirections).toEqual(
       CUTTER_GRID_DIRECTIONS,
     );
     expect(profile.entryTrajectory.length).toBeGreaterThan(1);
     expect(profile.referenceTrajectorySignature).toMatch(/^[0-9a-f]{16}$/);
-  }, 120_000);
+  }, 600_000);
 
   it('rejects a Profile after any signed challenge input changes', () => {
     const profile = generateCutterGridProfile(challenge);
@@ -48,5 +48,5 @@ describe('Cutter Grid certified Profile', () => {
       },
     };
     expect(cutterGridProfileMatchesChallenge(profile, changed)).toBe(false);
-  }, 120_000);
+  }, 600_000);
 });

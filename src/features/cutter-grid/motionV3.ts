@@ -843,6 +843,9 @@ function snapNumericalJointLimitNoise(
   })) as Record<JointId, number>;
 }
 
+/** One floating-point step at the scale of a servo angle, not a real margin. */
+const JOINT_RANGE_TOLERANCE_DEG = 1e-9;
+
 /**
  * Choose a deterministic equivalent angle representation before smoothing.
  * The V2 graph has already selected the IK branch; this only prevents a
@@ -858,8 +861,13 @@ function unwrapGeometryWaypoints(
     let previous: number | undefined;
     for (const waypoint of result) {
       const raw = waypoint.jointAngles[joint.id];
-      const minimumTurn = Math.ceil((joint.minAngleDeg - raw) / 360);
-      const maximumTurn = Math.floor((joint.maxAngleDeg - raw) / 360);
+      // A branch that rides its own limit — Shoulder Roll sits exactly on 45°
+      // for whole plans — lands a floating-point step outside the range, and
+      // an exact comparison then reports no representation at all. The
+      // tolerance admits that one step; the value is clamped back onto the
+      // limit so nothing downstream sees an out-of-range angle either.
+      const minimumTurn = Math.ceil((joint.minAngleDeg - JOINT_RANGE_TOLERANCE_DEG - raw) / 360);
+      const maximumTurn = Math.floor((joint.maxAngleDeg + JOINT_RANGE_TOLERANCE_DEG - raw) / 360);
       let selected: number | undefined;
       for (let turn = minimumTurn; turn <= maximumTurn; turn += 1) {
         const candidate = raw + turn * 360;
@@ -880,8 +888,9 @@ function unwrapGeometryWaypoints(
           { sourceBlockId: step.sourceBlockId, targetCoord: step.endCoord, actionIndex: step.index },
         );
       }
-      waypoint.jointAngles[joint.id] = selected;
-      previous = selected;
+      const clamped = Math.min(joint.maxAngleDeg, Math.max(joint.minAngleDeg, selected));
+      waypoint.jointAngles[joint.id] = clamped;
+      previous = clamped;
     }
   }
   return result.map((waypoint) => ({

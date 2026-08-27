@@ -4,6 +4,7 @@ import type { Challenge } from '../types/domain';
 import { SimulationEngine } from '../features/simulation/SimulationEngine';
 import { SimulationWorkbench } from '../components/layout/SimulationWorkbench';
 import { useServices } from './servicesContext';
+import { useLocalization } from '../features/preferences/localization';
 
 interface WorkbenchBootstrapProps {
   /** Which challenge to open. Falls back to the head of the listing. */
@@ -16,6 +17,7 @@ export function WorkbenchBootstrap({
   challengeId,
   onExit,
 }: WorkbenchBootstrapProps = {}) {
+  const { t } = useLocalization();
   const { challengeProvider, scoreProvider } = useServices();
   const [challenge, setChallenge] = useState<Challenge>();
   const [error, setError] = useState<string>();
@@ -68,8 +70,8 @@ export function WorkbenchBootstrap({
     return (
       <main className="bootstrap-screen" role="alert">
         <AlertTriangle size={30} />
-        <p className="phase-kicker">HCR / PROVIDER ERROR</p>
-        <h1>Unable to Load Challenge</h1>
+        <p className="phase-kicker">HCR / {t('programError')}</p>
+        <h1>{t('practiceFailed')}</h1>
         <p>{error}</p>
         <button
           type="button"
@@ -80,7 +82,7 @@ export function WorkbenchBootstrap({
           }}
         >
           <RotateCcw size={16} />
-          Retry
+          {t('retry')}
         </button>
       </main>
     );
@@ -90,9 +92,9 @@ export function WorkbenchBootstrap({
     return (
       <main className="bootstrap-screen">
         <LoaderCircle className="spin" size={30} />
-        <p className="phase-kicker">HCR / LOCAL PROVIDER</p>
+        <p className="phase-kicker">HCR / {t('local')}</p>
         <h1>HCR Simulator</h1>
-        <p>Loading the local challenge and simulation engine…</p>
+        <p>{t('loading')}…</p>
       </main>
     );
   }

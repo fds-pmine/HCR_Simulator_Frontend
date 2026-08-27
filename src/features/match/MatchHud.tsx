@@ -1,4 +1,4 @@
-import { Bot, Check, CircleDot, EyeOff } from 'lucide-react';
+import { Bot, Check, CircleDot, Clock3, EyeOff } from 'lucide-react';
 import type { MatchState, MatchSubmissionAck } from '../../types/match';
 import { REJECTION_LABELS } from '../../types/match';
 import { isPracticeBot } from '../../services/local/LocalMatchProvider';
@@ -9,6 +9,8 @@ import {
   useRemainingMs,
 } from './countdown';
 import { initialsOf, type PlayerIdentity } from './identity';
+import { formatPlayerLocalTime, formatUtcOffset } from './playerTime';
+import { useLocalization } from '../preferences/localization';
 
 interface MatchHudProps {
   state: MatchState;
@@ -31,6 +33,7 @@ interface MatchHudProps {
  * because that is what would give somebody a known bar to refine against.
  */
 export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) {
+  const { t } = useLocalization();
   const remainingMs = useRemainingMs(state.closesAt, offsetMs);
   const urgency = countdownUrgency(remainingMs);
   const fraction = remainingFraction(remainingMs, state.config.durationMs);
@@ -38,23 +41,23 @@ export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) 
   return (
     <div className="hud">
       <div className={`hud__timer hud__timer--${urgency}`} data-testid="match-timer">
-        <span>{urgency === 'closed' ? 'CLOSED' : 'TIME LEFT'}</span>
+        <span>{urgency === 'closed' ? t('closed') : t('timeLeft')}</span>
         <strong>{formatCountdown(remainingMs)}</strong>
         <div className="hud__timer-track">
           <i style={{ transform: `scaleX(${fraction})` }} />
         </div>
       </div>
 
-      <ul className="hud__roster" aria-label="Players">
-        {state.players.map((player) => (
+      <ul className="hud__roster" aria-label={t('players')}>
+        {state.players.map((player) => {
+          const localTime = formatPlayerLocalTime(player.utcOffsetMinutes);
+          return (
           <li
             key={player.playerId}
             className={`hud__player ${player.submitted ? 'is-submitted' : ''} ${
               player.playerId === identity.playerId ? 'is-you' : ''
             }`}
-            title={`${player.displayName} — ${
-              player.submitted ? 'has an attempt in' : 'no attempt yet'
-            }`}
+            title={`${player.displayName} — ${player.submitted ? t('attemptLocked') : t('noAttempt')}`}
           >
             <span className="roster__avatar">
               {isPracticeBot(player.playerId) ? (
@@ -64,14 +67,20 @@ export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) 
               )}
             </span>
             <em>{player.displayName}</em>
+            {localTime && player.utcOffsetMinutes !== undefined ? (
+              <small title={formatUtcOffset(player.utcOffsetMinutes)}>
+                <Clock3 size={10} /> {localTime}
+              </small>
+            ) : null}
             {player.submitted ? <Check size={13} /> : <CircleDot size={13} />}
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       <p className="hud__secrecy">
         <EyeOff size={12} />
-        Scores are sealed until the round closes
+        {t('scoresSealed')}
       </p>
 
       {lastAck ? (
@@ -81,10 +90,10 @@ export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) 
           data-testid="match-ack"
         >
           {lastAck.accepted
-            ? 'Attempt locked in. Submit again to improve it — your best one counts.'
+            ? t('attemptLocked')
             : (lastAck.rejectedReason
                 ? REJECTION_LABELS[lastAck.rejectedReason]
-                : 'That attempt was not accepted.')}
+                : t('attemptRejected'))}
         </div>
       ) : null}
     </div>

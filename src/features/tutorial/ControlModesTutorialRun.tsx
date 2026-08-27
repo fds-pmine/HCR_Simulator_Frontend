@@ -12,8 +12,10 @@ import { programmingWorkspaceMemory } from '../blockly/workspaceMemory';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { CONTROL_MODES_TUTORIAL_STEPS } from './controlModesTutorial';
 import { TutorialPanel } from './TutorialPanel';
+import { useLocalization } from '../preferences/localization';
 
 export function ControlModesTutorialRun({ onExit }: { onExit: () => void }) {
+  const { t } = useLocalization();
   const [challenge, setChallenge] = useState<Challenge>();
   const [error, setError] = useState<string>();
   const [step, setStep] = useState(0);
@@ -54,10 +56,10 @@ export function ControlModesTutorialRun({ onExit }: { onExit: () => void }) {
     return (
       <main className="bootstrap-screen" role="alert">
         <AlertTriangle size={30} />
-        <p className="phase-kicker">GRID TO ANGLES</p>
-        <h1>Could not start</h1>
+        <p className="phase-kicker">{t('controlModesTutorial')}</p>
+        <h1>{t('programError')}</h1>
         <p>{error}</p>
-        <button type="button" onClick={onExit}>Back to Tutorials</button>
+        <button type="button" onClick={onExit}>{t('back')}</button>
       </main>
     );
   }
@@ -65,8 +67,8 @@ export function ControlModesTutorialRun({ onExit }: { onExit: () => void }) {
     return (
       <main className="bootstrap-screen">
         <LoaderCircle className="spin" size={30} />
-        <p className="phase-kicker">GRID TO ANGLES</p>
-        <h1>Setting up…</h1>
+        <p className="phase-kicker">{t('controlModesTutorial')}</p>
+        <h1>{t('loading')}…</h1>
       </main>
     );
   }

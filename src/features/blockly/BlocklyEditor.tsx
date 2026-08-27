@@ -20,6 +20,7 @@ import {
   toolboxForMode,
 } from './workspaceFactory';
 import { programmingWorkspaceMemory } from './workspaceMemory';
+import { useLocalization } from '../preferences/localization';
 
 export interface BlocklyEditorHandle {
   compile: () => EditorCompilation;
@@ -43,6 +44,7 @@ export const BlocklyEditor = forwardRef<
   { challenge, locked, visible, programmingMode },
   ref,
 ) {
+  const { locale, t } = useLocalization();
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | undefined>(undefined);
 
@@ -52,9 +54,9 @@ export const BlocklyEditor = forwardRef<
       return;
     }
 
-    registerBlocksForMode(challenge, programmingMode);
+    registerBlocksForMode(challenge, programmingMode, locale);
     const workspace = Blockly.inject(container, {
-      toolbox: toolboxForMode(challenge, programmingMode),
+      toolbox: toolboxForMode(challenge, programmingMode, locale),
       renderer: 'zelos',
       theme: Blockly.Themes.Zelos,
       trashcan: true,
@@ -127,7 +129,7 @@ export const BlocklyEditor = forwardRef<
       workspace.dispose();
       workspaceRef.current = undefined;
     };
-  }, [challenge, programmingMode]);
+  }, [challenge, locale, programmingMode]);
 
   useEffect(() => {
     const workspace = workspaceRef.current;
@@ -193,14 +195,14 @@ export const BlocklyEditor = forwardRef<
     <div
       className="blockly-editor"
       data-testid="blockly-editor"
-      aria-label="Blockly program editor"
+      aria-label={t('programPanel')}
       aria-disabled={locked}
     >
       <div ref={containerRef} className="blockly-editor__surface" />
       {locked ? (
         <div className="blockly-editor__lock" aria-live="polite">
-          <span>PROGRAM LOCKED</span>
-          Editing is locked during positioning, planning, or execution
+          <span>{t('programLocked')}</span>
+          {t('programLockedBody')}
         </div>
       ) : null}
     </div>

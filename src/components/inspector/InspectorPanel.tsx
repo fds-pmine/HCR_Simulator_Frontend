@@ -12,6 +12,15 @@ import type {
   CutterTrajectoryPlanV4,
 } from '../../features/cutter-grid/types';
 import type { CutterGridPlannerSource } from '../../features/cutter-grid/plannerProvider';
+import {
+  SERVO_AXIS_ORDER,
+  servoAnglesFromJointAngles,
+} from '../../features/robot/servoMapping';
+import { useLocalization } from '../../features/preferences/localization';
+import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
+import { LESSONS } from '../../data/challenges/lessons';
+import { localizeServoLesson } from '../../features/tutorial/servoLessonLocalization';
+import { hcrBlockCopy } from '../../features/blockly/blocklyLocalization';
 
 interface InspectorPanelProps {
   challenge: Challenge;
@@ -27,17 +36,15 @@ interface InspectorPanelProps {
   };
 }
 
-const STATUS_LABELS: Record<SimulationSnapshot['status'], string> = {
-  loading: 'Loading',
-  positioning: 'Positioning',
-  planning: 'Planning',
-  idle: 'Idle',
-  running: 'Running',
-  paused: 'Paused',
-  completed: 'Completed',
-  stopped: 'Stopped',
-  error: 'Error',
-};
+const STATUS_KEYS = {
+  loading: 'loading', positioning: 'positioning', planning: 'planning',
+  idle: 'idle', running: 'running', paused: 'paused', completed: 'completed',
+  stopped: 'stopped', error: 'error',
+} as const;
+
+const SERVO_AXIS_KEYS = {
+  X: 'baseYaw', Y: 'shoulder', Z: 'elbow', B: 'wrist', E: 'cutterParked',
+} as const;
 
 export function InspectorPanel({
   challenge,
@@ -46,22 +53,44 @@ export function InspectorPanel({
   onToggleTarget,
   cutterGrid,
 }: InspectorPanelProps) {
+  const { locale, t } = useLocalization();
+  const blockCopy = hcrBlockCopy(locale);
+  const lesson = LESSONS.find(({ id }) => id === challenge.id);
+  const displayLesson = lesson ? localizeServoLesson(lesson, locale) : undefined;
+  const challengeName = challenge.id === DEFAULT_CHALLENGE_ID
+    ? t('defaultChallengeName')
+    : displayLesson?.name ?? challenge.name;
+  const challengeDescription = challenge.id === DEFAULT_CHALLENGE_ID
+    ? t('defaultChallengeDescription')
+    : displayLesson?.description ?? challenge.description;
   const result = snapshot.scoreResult;
+  const servoAngles = servoAnglesFromJointAngles(
+    challenge.robotConfig,
+    snapshot.jointAngles,
+  );
+  const jointByServoAxis = new Map(
+    challenge.robotConfig.joints.flatMap((joint) =>
+      joint.servo ? [[joint.servo.axis, joint] as const] : [],
+    ),
+  );
+  const simulationOnlyJoints = challenge.robotConfig.joints.filter(
+    (joint) => !joint.servo,
+  );
 
   return (
     <div className="inspector">
       <section className="inspector-section challenge-card">
         <div className="section-heading">
-          <span>CHALLENGE 01</span>
+          <span>{t('challenge')} 01</span>
           <span
             className={`status-pill status-pill--${snapshot.status}`}
             data-testid="simulation-status"
           >
-            {STATUS_LABELS[snapshot.status]}
+            {t(STATUS_KEYS[snapshot.status])}
           </span>
         </div>
-        <h2>{challenge.name}</h2>
-        <p>{challenge.description}</p>
+        <h2>{challengeName}</h2>
+        <p>{challengeDescription}</p>
         <button
           type="button"
           className={`target-toggle ${showTarget ? 'is-active' : ''}`}
@@ -69,16 +98,16 @@ export function InspectorPanel({
           aria-pressed={showTarget}
         >
           {showTarget ? <Eye size={15} /> : <EyeOff size={15} />}
-          Target Hairstyle Preview
-          <span>{showTarget ? 'ON' : 'OFF'}</span>
+          {t('targetPreview')}
+          <span>{showTarget ? t('on') : t('off')}</span>
         </button>
       </section>
 
       {cutterGrid ? (
         <section className="inspector-section cutter-grid-inspector">
           <div className="section-heading">
-            <span>CUTTER GRID</span>
-            <span>WORLD AXES</span>
+            <span>{t('cutterGrid')}</span>
+            <span>{t('worldAxes')}</span>
           </div>
           <button
             type="button"
@@ -87,34 +116,34 @@ export function InspectorPanel({
             aria-pressed={cutterGrid.visible}
           >
             {cutterGrid.visible ? <Eye size={15} /> : <EyeOff size={15} />}
-            Grid and planned path
-            <span>{cutterGrid.visible ? 'ON' : 'OFF'}</span>
+            {t('gridPlannedPath')}
+            <span>{cutterGrid.visible ? t('on') : t('off')}</span>
           </button>
           <dl className="cutter-grid-summary">
-            <div><dt>Axes</dt><dd>+X Right · +Y Up · −Z Forward</dd></div>
-            <div><dt>Current</dt><dd>({(snapshot.cutterGrid?.currentCoord ?? [0, 0, 0]).join(', ')})</dd></div>
-            <div><dt>Next</dt><dd>{snapshot.cutterGrid?.nextCoord ? `(${snapshot.cutterGrid.nextCoord.join(', ')})` : '—'}</dd></div>
-            <div><dt>Progress</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : 'Not planned'}</dd></div>
-            <div><dt>Path state</dt><dd>{snapshot.cutterGrid?.diagnostics ? 'Connected for this program' : 'Static IK map only'}</dd></div>
-            <div><dt>Branch</dt><dd>{snapshot.cutterGrid?.entryOptionId ?? cutterGridEntryOptionId(cutterGrid.plan)}</dd></div>
+            <div><dt>{t('axes')}</dt><dd>{`+X ${blockCopy.moveDirection.right} · +Y ${blockCopy.moveDirection.up} · −Z ${blockCopy.moveDirection.forward}`}</dd></div>
+            <div><dt>{t('current')}</dt><dd>({(snapshot.cutterGrid?.currentCoord ?? [0, 0, 0]).join(', ')})</dd></div>
+            <div><dt>{t('next')}</dt><dd>{snapshot.cutterGrid?.nextCoord ? `(${snapshot.cutterGrid.nextCoord.join(', ')})` : '—'}</dd></div>
+            <div><dt>{t('progress')}</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : t('notPlanned')}</dd></div>
+            <div><dt>{t('pathState')}</dt><dd>{snapshot.cutterGrid?.diagnostics ? t('connectedProgram') : t('staticIkOnly')}</dd></div>
+            <div><dt>{t('branch')}</dt><dd>{snapshot.cutterGrid?.entryOptionId ?? cutterGridEntryOptionId(cutterGrid.plan)}</dd></div>
             {snapshot.cutterGrid?.diagnostics && 'seedBudgetUsed' in snapshot.cutterGrid.diagnostics ? (
-              <div><dt>Search</dt><dd>{`${snapshot.cutterGrid.diagnostics.seedBudgetUsed} seeds · ${snapshot.cutterGrid.diagnostics.candidateCounts.join('/')} candidates`}</dd></div>
+              <div><dt>{t('search')}</dt><dd>{`${snapshot.cutterGrid.diagnostics.seedBudgetUsed} · ${snapshot.cutterGrid.diagnostics.candidateCounts.join('/')}`}</dd></div>
             ) : null}
-            <div><dt>Trajectory</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
+            <div><dt>{t('trajectory')}</dt><dd>{snapshot.cutterGrid?.trajectorySignature ?? cutterGrid.plan?.trajectorySignature ?? '—'}</dd></div>
             {cutterGrid.plannerSource ? (
-              <div><dt>Planner</dt><dd>{cutterGrid.plannerSource === 'rust-backend' ? 'Rust backend' : 'TypeScript fallback'}</dd></div>
+              <div><dt>{t('planner')}</dt><dd>{cutterGrid.plannerSource === 'rust-backend' ? 'Rust backend' : 'TypeScript fallback'}</dd></div>
             ) : null}
             {cutterGrid.plan?.version === 4 ? (
               <>
-                <div><dt>Motion</dt><dd>{`${cutterGrid.plan.actions.filter((action) => action.type === 'move').reduce((sum, action) => sum + action.primitives.length, 0)} synchronized PTP`}</dd></div>
-                <div><dt>Expected cuts</dt><dd>{cutterGrid.plan.actions.reduce((sum, action) => sum + action.expectedCutVoxels.length, 0)}</dd></div>
-                <div><dt>Speed</dt><dd>{`${formatNumber(cutterGrid.plan.diagnostics.actualSpeedScale, 2)}x requested ${formatNumber(cutterGrid.plan.diagnostics.requestedSpeedScale, 2)}x`}</dd></div>
+                <div><dt>{t('motion')}</dt><dd>{`${cutterGrid.plan.actions.filter((action) => action.type === 'move').reduce((sum, action) => sum + action.primitives.length, 0)} synchronized PTP`}</dd></div>
+                <div><dt>{t('expectedCuts')}</dt><dd>{cutterGrid.plan.actions.reduce((sum, action) => sum + action.expectedCutVoxels.length, 0)}</dd></div>
+                <div><dt>{t('speed')}</dt><dd>{`${formatNumber(cutterGrid.plan.diagnostics.actualSpeedScale, 2)}x / ${formatNumber(cutterGrid.plan.diagnostics.requestedSpeedScale, 2)}x`}</dd></div>
               </>
             ) : null}
           </dl>
           {snapshot.cutterGrid?.motionDiagnostics ? (
             <details className="cutter-grid-motion-diagnostics" data-testid="cutter-grid-motion-diagnostics">
-              <summary>Motion diagnostics (development)</summary>
+              <summary>{t('motion')} · DEV</summary>
               <dl className="cutter-grid-summary">
                 <div><dt>Frames</dt><dd>{snapshot.cutterGrid.motionDiagnostics.frameCount}</dd></div>
                 <div><dt>Long frames</dt><dd>{snapshot.cutterGrid.motionDiagnostics.longFrameCount}</dd></div>
@@ -147,22 +176,49 @@ export function InspectorPanel({
               ) : null}
             </details>
           ) : null}
-          <div className="cutter-grid-legend" aria-label="Cutter Grid legend">
-            <span><i className="is-reachable" />Safe IK known</span>
-            <span><i className="is-blocked" />No safe IK found</span>
-            <span><i className="is-executed" />Executed</span>
-            <span><i className="is-planned" />Planned</span>
+          <div className="cutter-grid-legend" aria-label={t('cutterGrid')}>
+            <span><i className="is-reachable" />{t('safeIkKnown')}</span>
+            <span><i className="is-blocked" />{t('noSafeIk')}</span>
+            <span><i className="is-executed" />{t('executed')}</span>
+            <span><i className="is-planned" />{t('planned')}</span>
           </div>
         </section>
       ) : null}
 
+      <section className="inspector-section" aria-label={t('servoAngles')}>
+        <div className="section-heading">
+          <span>{t('servoAngles')}</span>
+          <span>{t('liveDegrees')}</span>
+        </div>
+        <div className="servo-angle-grid">
+          {SERVO_AXIS_ORDER.map((axis) => {
+            const joint = jointByServoAxis.get(axis);
+            return (
+              <div
+                className={`servo-angle-cell ${
+                  joint?.id === snapshot.activeJointId ? 'is-active' : ''
+                }`}
+                key={axis}
+                title={joint ? `${axis} · ${joint.name}` : `${axis} · Cutter (parked)`}
+              >
+                <strong>{axis}</strong>
+                <output data-testid={`servo-angle-${axis}`}>
+                  {formatNumber(servoAngles[axis], 1)}°
+                </output>
+                <small>{t(SERVO_AXIS_KEYS[axis])}</small>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       <section className="inspector-section">
         <div className="section-heading">
-          <span>JOINT TELEMETRY</span>
-          <span>DEG</span>
+          <span>{t('modelState')}</span>
+          <span>{t('simulationOnly')}</span>
         </div>
         <div className="joint-list">
-          {challenge.robotConfig.joints.map((joint) => (
+          {simulationOnlyJoints.map((joint) => (
             <div
               className={`joint-row ${
                 snapshot.activeJointId === joint.id ? 'is-active' : ''
@@ -178,7 +234,7 @@ export function InspectorPanel({
           ))}
         </div>
         <div className="coordinate-readout">
-          <span>END EFFECTOR</span>
+          <span>{t('endEffector')}</span>
           <div>
             {(['X', 'Y', 'Z'] as const).map((axis, index) => (
               <span key={axis}>
@@ -192,29 +248,29 @@ export function InspectorPanel({
 
       <section className="inspector-section">
         <div className="section-heading">
-          <span>RUN METRICS</span>
-          <span>LIVE</span>
+          <span>{t('runMetrics')}</span>
+          <span>{t('live')}</span>
         </div>
         <div className="metric-grid">
           <Metric
-            label="Current Voxels"
+            label={t('currentVoxels')}
             value={snapshot.hairVoxels.size}
             testId="current-voxel-count"
           />
-          <Metric label="Target Voxels" value={snapshot.targetVoxelCount} />
+          <Metric label={t('targetVoxels')} value={snapshot.targetVoxelCount} />
           <Metric
-            label="Source Blocks"
+            label={t('sourceBlocks')}
             value={snapshot.metrics.sourceBlockCount}
             testId="source-block-count"
           />
           <Metric
-            label="Executed Commands"
+            label={t('executedCommands')}
             value={snapshot.metrics.executedCommandCount}
             testId="executed-command-count"
           />
         </div>
         <div className="duration-row">
-          <span>Estimated Duration</span>
+          <span>{t('estimatedDuration')}</span>
           <strong>
             {(snapshot.metrics.estimatedDurationMs / 1_000).toFixed(2)}s
           </strong>
@@ -223,13 +279,13 @@ export function InspectorPanel({
 
       <section className="inspector-section result-section">
         <div className="section-heading">
-          <span>SCORE BREAKDOWN</span>
+          <span>{t('scoreBreakdown')}</span>
           <Target size={14} />
         </div>
         {result ? (
           <>
             <div className="final-score">
-              <span>FINAL SCORE</span>
+              <span>{t('finalScore')}</span>
               <strong data-testid="final-score">
                 {result.finalScore.toFixed(1)}
               </strong>
@@ -237,22 +293,22 @@ export function InspectorPanel({
             </div>
             <div className="score-bars">
               <ScoreBar
-                label="Completion"
+                label={t('completion')}
                 score={result.completionScore}
                 testId="completion-score"
               />
               <ScoreBar
-                label="Program Efficiency"
+                label={t('programEfficiency')}
                 score={result.efficiencyScore}
               />
-              <ScoreBar label="Time" score={result.timeScore} />
+              <ScoreBar label={t('time')} score={result.timeScore} />
             </div>
           </>
         ) : (
           <div className="result-placeholder">
             {snapshot.status === 'stopped'
-              ? 'Stopped: current metrics are provisional; no official score was generated.'
-              : 'Official scores will appear here after the program completes normally.'}
+              ? t('scoreStopped')
+              : t('scorePending')}
           </div>
         )}
       </section>

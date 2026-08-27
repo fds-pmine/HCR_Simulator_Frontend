@@ -61,10 +61,14 @@ describe('Cutter Grid tutorial', () => {
   it('accepts the certified route one prefix at a time', () => {
     const route = [
       ['left', 3],
-      ['up', 7],
-      ['forward', 3],
-      ['up', 3],
+      ['up', 6],
+      ['up', 2],
+      ['forward', 1],
+      ['up', 1],
+      ['forward', 1],
+      ['up', 1],
       ['forward', 6],
+      ['forward', 1],
     ] as const;
 
     expect(step('grid-left').done?.(context())).toBe(false);
@@ -76,21 +80,19 @@ describe('Cutter Grid tutorial', () => {
   });
 
   it('rejects a reordered or extended final route', () => {
-    const reordered = program([
-      ['up', 7],
+    const certified = [
       ['left', 3],
-      ['forward', 3],
-      ['up', 3],
+      ['up', 6],
+      ['up', 2],
+      ['forward', 1],
+      ['up', 1],
+      ['forward', 1],
+      ['up', 1],
       ['forward', 6],
-    ]);
-    const extended = program([
-      ['left', 3],
-      ['up', 7],
-      ['forward', 3],
-      ['up', 3],
-      ['forward', 6],
-      ['backward', 1],
-    ]);
+      ['forward', 1],
+    ] as const;
+    const reordered = program([certified[1], certified[0], ...certified.slice(2)]);
+    const extended = program([...certified, ['backward', 1]]);
     expect(step('grid-complete-route').done?.(context({ program: reordered }))).toBe(false);
     expect(step('grid-complete-route').done?.(context({ program: extended }))).toBe(false);
   });

@@ -1,9 +1,15 @@
+import {
+  buildConceptQuestion,
+  type LessonAssessments,
+} from './lessonAssessments';
+
 export interface CutterGridLesson {
   id: string;
   name: string;
   description: string;
   goal: string;
   example: string;
+  assessments: LessonAssessments;
   sections: readonly CutterGridLessonSection[];
 }
 
@@ -14,7 +20,7 @@ export interface CutterGridLessonSection {
   activity: 'read' | 'predict' | 'build' | 'observe' | 'challenge' | 'recap';
 }
 
-interface CutterGridLessonSeed extends Omit<CutterGridLesson, 'sections'> {
+interface CutterGridLessonSeed extends Omit<CutterGridLesson, 'sections' | 'assessments'> {
   concepts: readonly [string, string, string, string];
   activities: readonly [string, string, string, string];
 }
@@ -176,13 +182,13 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     id: 'cutter-grid-compress',
     name: 'Grid 9 · Compact Programs',
     description: 'Express a straight run with one distance field.',
-    goal: 'Replace adjacent moves in the same direction with one block. The path stays the same while the source gets clearer.',
+    goal: 'Replace adjacent moves in the same direction with one block, and know where that stops being free: the endpoints match, the motion between them does not.',
     example: 'Up 1 → Up 1 → Up 1 becomes Up 3.',
     concepts: [
       'Adjacent moves in the same direction can be merged when their total distance is at most 12.',
-      'Compression reduces source blocks but preserves logical distance, command cost, and geometric path.',
+      'Compression reduces source blocks and preserves logical distance, command cost, and every endpoint.',
       'Moves separated by Wait, another direction, or a Repeat boundary are not blindly merged.',
-      'Fewer blocks improve readability but never justify changing a safe waypoint or swept path.',
+      'The planner flies one synchronized motion per visible block, so a merged run curves further from the straight line of cells than the separate moves did — past roughly six cells that difference starts cutting neighbours.',
     ],
     activities: [
       'Compress four Forward 1 blocks into one equivalent move.',
@@ -196,15 +202,15 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     name: 'Grid 10 · Certified Haircut',
     description: 'Combine all three axes into a complete target cut.',
     goal: 'Build the certified route, press Test, and reach 100 completion without an extra cut.',
-    example: 'Left 3 → Up 7 → Forward 3 → Up 3 → Forward 6',
+    example: 'Left 3 → Up 6 → Up 2 → Forward 1 → Up 1 → Forward 1 → Up 1 → Forward 6 → Forward 1',
     concepts: [
-      'The certified route combines X, Y, and Z moves to remove exactly twelve target voxels.',
+      'The certified route combines X, Y, and Z moves to remove exactly eleven target voxels.',
       'Run, Test, and Step reuse the same frozen V4 plan and therefore must agree on the final cut.',
       'A 100 Completion result requires all target removals without changing the safety contract.',
       'The Challenge safe initial pose is distinct from the hardware Home 90° pose used for connection.',
     ],
     activities: [
-      'Trace every waypoint of the five-block reference route.',
+      'Trace every waypoint of the nine-block reference route.',
       'Build the complete route from an empty Cutter Grid workspace.',
       'Debug one changed distance by comparing it with the certified sequence.',
       'Press Test, confirm 100 Completion, then replay the same plan with Run or Step.',
@@ -235,7 +241,10 @@ function buildSections(seed: CutterGridLessonSeed): CutterGridLessonSection[] {
     { title: 'Independent challenge', body: seed.activities[3], activity: 'challenge' },
     { title: 'Explain it back', body: `Explain in one sentence why this is true: ${seed.concepts[1]}`, activity: 'recap' },
     { title: 'Transfer the idea', body: 'Name one place this rule changes how you would design a longer haircut route.', activity: 'recap' },
-    { title: 'Lesson checkpoint', body: `Rebuild “${seed.example}” from memory, predict it, and verify it with Test.`, activity: 'recap' },
+    // Deliberately without the example: the checkpoint asks for recall, and
+    // printing the program next to "from memory" hands over the answer. The
+    // requirement the learner has to satisfy is the practical prompt below it.
+    { title: 'Lesson checkpoint', body: 'Rebuild this lesson\u2019s program from memory, predict what it does, then verify it with Test.', activity: 'recap' },
   ];
   if (entries.length < SECTION_COUNT) {
     throw new Error(`Cutter Grid lesson "${seed.id}" requires at least ${SECTION_COUNT} sections.`);
@@ -247,11 +256,23 @@ function buildSections(seed: CutterGridLessonSeed): CutterGridLessonSection[] {
 }
 
 export const CUTTER_GRID_LESSONS: readonly CutterGridLesson[] =
-  CUTTER_GRID_LESSON_SEEDS.map((seed) => ({
+  CUTTER_GRID_LESSON_SEEDS.map((seed, index) => ({
     id: seed.id,
     name: seed.name,
     description: seed.description,
     goal: seed.goal,
     example: seed.example,
+    assessments: {
+      multipleChoice: buildConceptQuestion(
+        seed.name,
+        seed.concepts[0],
+        (index % 3) as 0 | 1 | 2,
+        [
+          'The camera view defines the movement axes, so orbiting the camera changes the program.',
+          'A program that compiles is guaranteed to follow a safe path and make the intended cut.',
+        ],
+      ),
+      practicalPrompt: seed.activities[3],
+    },
     sections: buildSections(seed),
   }));
