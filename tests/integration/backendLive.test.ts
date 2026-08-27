@@ -2,14 +2,14 @@
  * Live integration against a running HCR backend.
  *
  * Exercises the real client path — `HttpChallengeProvider` → `ApiClient` → HTTP
- * → `hcr_service` → the Rust replay engine — with no mocking anywhere. Unit
+ * → `hcr` → the Rust replay engine — with no mocking anywhere. Unit
  * tests stub `fetch`, which proves the client is self-consistent; only this
  * proves the two halves actually agree.
  *
  * Skips itself when no backend is listening, so `npm test` stays green offline.
  * To run it:
  *
- *   cargo run -p hcr_service --features hotaru --example serve   # in hcr-backend
+ *   cargo run -p hcr --features hotaru --example serve   # in hcr-backend
  *   npm test
  */
 import { beforeAll, describe, expect, it } from 'vitest';
