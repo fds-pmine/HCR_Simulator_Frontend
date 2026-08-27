@@ -362,47 +362,20 @@ test.describe('HCR Simulator workbench', () => {
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('keeps Cutter Grid optional, isolated, local-only and stepwise', async ({
+  test('keeps Cutter Grid isolated, local-only and stepwise', async ({
     page,
   }) => {
     test.setTimeout(180_000);
-    const servoMode = page.getByRole('button', {
-      name: 'Servo Angles',
-      exact: true,
-    });
-    const cutterMode = page.getByRole('button', {
-      name: 'Cutter Grid',
-      exact: true,
-    });
-    await expect(servoMode).toHaveAttribute('aria-pressed', 'true');
-    await expect(cutterMode).toBeVisible();
-
-    await cutterMode.click();
-    await expect(cutterMode).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText('Servo Angles Program')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cutter Grid', exact: true })).toHaveCount(0);
+    await openFirstCutterGridLesson(page);
     await expect(page.getByText('Cutter Grid Program')).toBeVisible();
-    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
-      timeout: 20_000,
-    });
-    const submit = page.getByTestId('submit-button');
-    await expect(submit).toBeDisabled();
-    await expect(submit).toHaveAttribute(
-      'title',
-      'Backend replay not yet supported',
-    );
-    await expect(
-      page.getByText(/Backend replay not yet supported\. Scoring stays/),
-    ).toBeVisible();
+    await expect(page.getByTestId('submit-button')).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: /Grid and planned path/ }),
     ).toHaveAttribute('aria-pressed', 'true');
 
     await seedWorkspace(page, cutterGridRightWorkspaceState, 2);
-    await servoMode.click();
-    await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(0);
-    await cutterMode.click();
-    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
-      timeout: 20_000,
-    });
     await expect(page.locator('.blocklyBlockCanvas .blocklyDraggable')).toHaveCount(2);
 
     await page.getByTestId('step-button').click();
@@ -412,8 +385,6 @@ test.describe('HCR Simulator workbench', () => {
       'true',
     );
     await expect(page.getByText(/Editing is locked during positioning/)).toBeVisible();
-    await expect(servoMode).toBeDisabled();
-    await expect(cutterMode).toBeDisabled();
     await expect(page.getByTestId('simulation-status')).toHaveText('Paused', {
       timeout: 120_000,
     });
@@ -451,12 +422,7 @@ test.describe('HCR Simulator workbench', () => {
     page,
   }) => {
     test.setTimeout(120_000);
-    await page
-      .getByRole('button', { name: 'Cutter Grid', exact: true })
-      .click();
-    await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
-      timeout: 20_000,
-    });
+    await openFirstCutterGridLesson(page);
     await seedWorkspace(page, cutterGridBlockedWorkspaceState, 1);
     await page.getByTestId('run-button').click();
 
@@ -513,6 +479,16 @@ test.describe('HCR Simulator workbench', () => {
     await expectReadableFontSizes(page);
   });
 });
+
+async function openFirstCutterGridLesson(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Back to Menu' }).click();
+  await page.getByRole('button', { name: /Lessons/ }).click();
+  await page.getByRole('button', { name: /Fixed World Axes/ }).click();
+  await expect(page.getByText('Cutter Grid Program')).toBeVisible();
+  await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
+    timeout: 20_000,
+  });
+}
 
 async function expectReadableFontSizes(
   page: import('@playwright/test').Page,

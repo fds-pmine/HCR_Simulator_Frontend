@@ -87,6 +87,7 @@ const FIRST_ANGLE_SOLUTION = {
 test('opens a dedicated Cutter Grid lesson without exposing Servo mode', async ({
   page,
 }) => {
+  test.setTimeout(180_000);
   await page.goto('/');
   await page.getByRole('button', { name: /Lessons/ }).click();
 

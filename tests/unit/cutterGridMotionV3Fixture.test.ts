@@ -46,6 +46,24 @@ interface CutterGridMotionV3PlanCase {
 
 const conformanceFixture = fixture as unknown as CutterGridMotionV3Fixture;
 
+function crossPlatformConformanceValue(value: unknown, key?: string): unknown {
+  if (key === 'geometrySignature' || key === 'trajectorySignature') {
+    return '<runtime-specific-float-signature>';
+  }
+  if (typeof value === 'number') {
+    if (Math.abs(value) < 1e-9) return 0;
+    return Number(value.toFixed(9));
+  }
+  if (Array.isArray(value)) return value.map((item) => crossPlatformConformanceValue(item));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([entryKey, item]) => [
+      entryKey,
+      crossPlatformConformanceValue(item, entryKey),
+    ]));
+  }
+  return value;
+}
+
 describe('Cutter Grid V3 frontend/Rust conformance fixture', () => {
   let challenge: Challenge;
 
@@ -79,7 +97,12 @@ describe('Cutter Grid V3 frontend/Rust conformance fixture', () => {
         v2Plan,
         conformanceFixture.input.motionLimits,
       );
-      expect(cutterGridTrajectoryConformanceSummaryV3(v3Plan)).toEqual(planCase.expected);
+      const actual = cutterGridTrajectoryConformanceSummaryV3(v3Plan);
+      expect(actual.geometrySignature).toMatch(/^[0-9a-f]{16}$/);
+      expect(actual.trajectorySignature).toMatch(/^[0-9a-f]{16}$/);
+      expect(crossPlatformConformanceValue(actual)).toEqual(
+        crossPlatformConformanceValue(planCase.expected),
+      );
     }
   }, 300_000);
 

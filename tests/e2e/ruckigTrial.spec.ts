@@ -35,9 +35,9 @@ test.describe('local Ruckig Cutter Grid trial', () => {
   test('plans the global-IK regression program and reaches its first Step boundary', async ({ page }) => {
     test.setTimeout(240_000);
     await page.goto('/');
-    await page.getByRole('button', { name: /Solo Practice/ }).click();
+    await page.getByRole('button', { name: /Lessons/ }).click();
+    await page.getByRole('button', { name: /Fixed World Axes/ }).click();
     await expect(page.getByTestId('blockly-editor')).toBeVisible();
-    await page.getByRole('button', { name: 'Cutter Grid', exact: true }).click();
     await expect(page.getByTestId('simulation-status')).toHaveText('Idle', { timeout: 20_000 });
     await seedWorkspace(page, globalIkRegressionWorkspace);
 

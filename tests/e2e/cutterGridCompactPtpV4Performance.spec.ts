@@ -76,7 +76,7 @@ async function collectPlanningSamples(
 ): Promise<number[]> {
   const samples: number[] = [];
   for (let sample = 0; sample < SAMPLE_COUNT; sample += 1) {
-    await openCutterGridPractice(page);
+    await openFirstCutterGridLesson(page);
     await seedWorkspace(page, workspace);
     const planningFinished = page.waitForFunction(
       () => {
@@ -101,11 +101,11 @@ function percentile95(samples: readonly number[]): number {
   return ordered[Math.ceil(ordered.length * 0.95) - 1];
 }
 
-async function openCutterGridPractice(page: Page): Promise<void> {
+async function openFirstCutterGridLesson(page: Page): Promise<void> {
   await page.goto('/');
-  await page.getByRole('button', { name: /Solo Practice/ }).click();
+  await page.getByRole('button', { name: /Lessons/ }).click();
+  await page.getByRole('button', { name: /Fixed World Axes/ }).click();
   await expect(page.getByTestId('blockly-editor')).toBeVisible();
-  await page.getByRole('button', { name: 'Cutter Grid', exact: true }).click();
   await expect(page.getByTestId('simulation-status')).toHaveText('Idle', { timeout: 20_000 });
 }
 

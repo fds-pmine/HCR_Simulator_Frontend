@@ -62,4 +62,42 @@ describe('localization coverage', () => {
     expect(completeRouteBody).toContain('11');
     expect(completeRouteBody).not.toContain('7');
   });
+
+  it.each(internationalLocales)('%s retains the all-90 hardware bridge contract', (locale) => {
+    for (const id of ['bridge-home-angle', 'bridge-telemetry', 'bridge-done']) {
+      const source = CONTROL_MODES_TUTORIAL_STEPS.find((step) => step.id === id)!;
+      expect(localizeTutorialStep(source, locale as AppLocale).body).toContain('90');
+    }
+  });
+
+  it.each(internationalLocales)('%s retains operation-critical Grid lesson values', (locale) => {
+    const requiredValues: Readonly<Record<string, readonly string[]>> = {
+      'cutter-grid-distance': ['1', '12', '3', '4', '−3', '2', '0'],
+      'cutter-grid-repeat': ['500', '1', '20'],
+      'cutter-grid-wait': ['0', '5000', '250', '1000'],
+      'cutter-grid-compress': ['12', '6'],
+      'cutter-grid-certified-cut': ['9', '11', '90', '100'],
+    };
+
+    for (const [lessonId, values] of Object.entries(requiredValues)) {
+      const source = CUTTER_GRID_LESSONS.find((lesson) => lesson.id === lessonId)!;
+      const translated = localizeCutterGridLesson(source, locale as AppLocale);
+      const visibleCopy = [
+        translated.description,
+        translated.goal,
+        translated.assessments.practicalPrompt,
+        ...translated.sections.map((section) => section.body),
+      ].join(' ');
+      for (const value of values) expect(visibleCopy).toContain(value);
+    }
+  });
+
+  it.each(internationalLocales)('%s retains Servo destinations and the scored target', (locale) => {
+    for (const source of LESSONS) {
+      const translated = localizeServoLesson(source, locale as AppLocale);
+      expect(translated.description).toContain('90');
+      expect(translated.assessments.practicalPrompt).toContain('100');
+      for (const { angleDeg } of source.solution) expect(translated.goal).toContain(String(angleDeg));
+    }
+  });
 });

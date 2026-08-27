@@ -68,6 +68,65 @@ const COPY: Record<CourseLocale, CourseCopy> = {
   }),
 };
 
+/**
+ * Operation-critical values that the generic international lesson prose must
+ * never hide. Keep these keyed by lesson id so a copy refresh cannot silently
+ * drop a compiler limit or a scored target.
+ */
+const GRID_FACTS: Record<CourseLocale, Readonly<Record<string, string>>> = {
+  ja: {
+    'cutter-grid-distance': '距離は1〜12の整数です。3と4を比較し、2ブロックだけで座標（−3, 2, 0）へ到達します。',
+    'cutter-grid-repeat': '展開後は最大500コマンド、繰り返し回数は1〜20です。',
+    'cutter-grid-wait': '待機時間は0〜5000 msです。同じ経由点で250 msと1000 msを比較します。',
+    'cutter-grid-compress': '同方向の連続移動は合計12以下なら統合できますが、およそ6セルを超えると掃引経路の差が隣接セルに影響し得ます。',
+    'cutter-grid-certified-cut': '9ブロックで11個の対象ボクセルだけを除去し、ハードウェアHome 90°とは別の安全開始姿勢から100 Completionを達成します。',
+  },
+  ko: {
+    'cutter-grid-distance': '거리는 1–12 사이의 정수입니다. 3과 4를 비교하고 블록 두 개만으로 좌표 (−3, 2, 0)에 도달하세요.',
+    'cutter-grid-repeat': '펼친 프로그램은 최대 500개 명령이며 반복 횟수는 1–20입니다.',
+    'cutter-grid-wait': '대기 시간은 0–5000 ms입니다. 같은 경유점에서 250 ms와 1000 ms를 비교하세요.',
+    'cutter-grid-compress': '같은 방향의 연속 이동은 합계가 12 이하일 때 합칠 수 있지만, 약 6셀을 넘으면 스윕 경로 차이가 이웃 셀에 영향을 줄 수 있습니다.',
+    'cutter-grid-certified-cut': '9개 블록으로 목표 복셀 11개만 제거하고, 하드웨어 Home 90°와 다른 안전 시작 자세에서 100 Completion을 달성하세요.',
+  },
+  es: {
+    'cutter-grid-distance': 'La distancia debe ser un entero de 1 a 12. Compara 3 con 4 y alcanza (−3, 2, 0) usando solo dos bloques.',
+    'cutter-grid-repeat': 'El programa expandido admite como máximo 500 órdenes y el recuento de repetición debe estar entre 1 y 20.',
+    'cutter-grid-wait': 'La espera admite de 0 a 5000 ms. Compara 250 ms con 1000 ms en el mismo punto.',
+    'cutter-grid-compress': 'Los movimientos consecutivos en la misma dirección se pueden unir si suman como máximo 12; por encima de unas 6 celdas, la diferencia del barrido puede afectar a celdas vecinas.',
+    'cutter-grid-certified-cut': 'Usa 9 bloques para retirar solo los 11 vóxeles objetivo y alcanza 100 Completion desde la postura inicial segura, que no es el Home de hardware a 90°.',
+  },
+  fr: {
+    'cutter-grid-distance': 'La distance doit être un entier de 1 à 12. Comparez 3 et 4, puis atteignez (−3, 2, 0) avec seulement deux blocs.',
+    'cutter-grid-repeat': 'Le programme développé est limité à 500 commandes et le nombre de répétitions doit rester entre 1 et 20.',
+    'cutter-grid-wait': 'L’attente accepte de 0 à 5000 ms. Comparez 250 ms et 1000 ms au même point de passage.',
+    'cutter-grid-compress': 'Des mouvements consécutifs de même direction peuvent être fusionnés si leur total ne dépasse pas 12 ; au-delà d’environ 6 cellules, l’écart de balayage peut toucher les cellules voisines.',
+    'cutter-grid-certified-cut': 'Utilisez 9 blocs pour retirer uniquement les 11 voxels cibles et atteindre 100 Completion depuis la pose initiale sûre, distincte du Home matériel à 90°.',
+  },
+  ru: {
+    'cutter-grid-distance': 'Дистанция должна быть целым числом от 1 до 12. Сравните 3 и 4 и достигните точки (−3, 2, 0), используя только два блока.',
+    'cutter-grid-repeat': 'После раскрытия допускается не более 500 команд, а число повторов должно быть от 1 до 20.',
+    'cutter-grid-wait': 'Допустимое ожидание — от 0 до 5000 мс. Сравните 250 мс и 1000 мс в одной путевой точке.',
+    'cutter-grid-compress': 'Последовательные перемещения в одном направлении можно объединять при сумме не более 12; после примерно 6 ячеек различие траектории может затронуть соседние ячейки.',
+    'cutter-grid-certified-cut': 'Используйте 9 блоков, удалите только 11 целевых вокселей и достигните 100 Completion из безопасной начальной позы, отличной от аппаратного Home 90°.',
+  },
+  de: {
+    'cutter-grid-distance': 'Die Distanz muss eine ganze Zahl von 1 bis 12 sein. Vergleiche 3 mit 4 und erreiche (−3, 2, 0) mit nur zwei Blöcken.',
+    'cutter-grid-repeat': 'Das expandierte Programm ist auf 500 Befehle begrenzt; die Wiederholungszahl muss zwischen 1 und 20 liegen.',
+    'cutter-grid-wait': 'Warten erlaubt 0 bis 5000 ms. Vergleiche am selben Wegpunkt 250 ms mit 1000 ms.',
+    'cutter-grid-compress': 'Aufeinanderfolgende Bewegungen in derselben Richtung können bei einer Summe bis 12 zusammengeführt werden; ab ungefähr 6 Zellen kann der abweichende Schwenk Nachbarzellen treffen.',
+    'cutter-grid-certified-cut': 'Entferne mit 9 Blöcken nur die 11 Zielvoxel und erreiche 100 Completion aus der sicheren Startpose, die nicht der Hardware-Home-Stellung bei 90° entspricht.',
+  },
+};
+
+const COMPLETION_COPY: Record<CourseLocale, string> = {
+  ja: '余分に切らず100 Completionを達成してください。',
+  ko: '불필요한 절단 없이 100 Completion을 달성하세요.',
+  es: 'Alcanza 100 Completion sin cortes adicionales.',
+  fr: 'Atteignez 100 Completion sans coupe supplémentaire.',
+  ru: 'Достигните 100 Completion без лишних срезов.',
+  de: 'Erreiche 100 Completion ohne zusätzlichen Schnitt.',
+};
+
 function makeCopy(input: Omit<CourseCopy, 'sectionBodies'> & { fixed: readonly string[] }): CourseCopy {
   return { ...input, sectionBodies: (n, d, g, e) => sectionBodies(input.fixed, n, d, g, e) };
 }
@@ -90,9 +149,10 @@ export function localizeInternationalGridLesson(lesson: CutterGridLesson, locale
   const name = copy.gridNames[index];
   const translatedExample = translateExample(lesson.example, copy);
   const example = translatedExample === lesson.example ? copy.gridNames[index] : translatedExample;
-  const description = copy.gridDescription(name, example);
+  const fact = GRID_FACTS[locale][lesson.id];
+  const description = [copy.gridDescription(name, example), fact].filter(Boolean).join(' ');
   const goal = copy.gridGoal(example);
-  return { ...lesson, name, description, goal, assessments: { multipleChoice: { ...buildConceptQuestion(name, goal, lesson.assessments.multipleChoice.correctOptionIndex, copy.falseOptions), question: copy.question(name) }, practicalPrompt: copy.practical(goal) }, sections: localizedSections(lesson.sections, copy, name, description, goal, example) };
+  return { ...lesson, name, description, goal, assessments: { multipleChoice: { ...buildConceptQuestion(name, goal, lesson.assessments.multipleChoice.correctOptionIndex, copy.falseOptions), question: copy.question(name) }, practicalPrompt: copy.practical(`${goal} ${COMPLETION_COPY[locale]}`) }, sections: localizedSections(lesson.sections, copy, name, description, goal, example) };
 }
 
 export function localizeInternationalServoLesson(lesson: Lesson, locale: CourseLocale): Lesson {
@@ -103,7 +163,7 @@ export function localizeInternationalServoLesson(lesson: Lesson, locale: CourseL
   const commands = lesson.solution.map(({ jointId, angleDeg }) => copy.setCommand(copy.joints[jointId] ?? jointId, angleDeg)).join(' → ');
   const description = copy.servoDescription(name);
   const goal = copy.servoGoal(commands);
-  return { ...lesson, name, description, goal, assessments: { multipleChoice: { ...buildConceptQuestion(name, goal, lesson.assessments.multipleChoice.correctOptionIndex, copy.falseOptions), question: copy.question(name) }, practicalPrompt: copy.practical(goal) }, sections: localizedSections(lesson.sections, copy, name, description, goal, commands) };
+  return { ...lesson, name, description, goal, assessments: { multipleChoice: { ...buildConceptQuestion(name, goal, lesson.assessments.multipleChoice.correctOptionIndex, copy.falseOptions), question: copy.question(name) }, practicalPrompt: copy.practical(`${goal} ${COMPLETION_COPY[locale]}`) }, sections: localizedSections(lesson.sections, copy, name, description, goal, commands) };
 }
 
 const GRID_IDS = ['cutter-grid-fixed-axes','cutter-grid-distance','cutter-grid-repeat','cutter-grid-overcut','cutter-grid-blocked','cutter-grid-opposites','cutter-grid-wait','cutter-grid-route-order','cutter-grid-compress','cutter-grid-certified-cut'];

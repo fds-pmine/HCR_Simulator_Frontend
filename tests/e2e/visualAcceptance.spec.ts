@@ -26,7 +26,7 @@ for (const viewport of VIEWPORTS) {
   }, testInfo) => {
     test.setTimeout(60_000);
     await page.setViewportSize(viewport);
-    await openCutterGridPractice(page);
+    await openFirstCutterGridLesson(page);
     await page.evaluate((state) => {
       const seed = (
         window as unknown as {
@@ -56,7 +56,8 @@ for (const viewport of VIEWPORTS) {
     await expect(cutterGridSummary).toContainText('Connected for this program');
     await expect(cutterGridSummary).toContainText('synchronized PTP');
     await expect(cutterGridSummary).toContainText('Expected cuts');
-    await expect(page.getByText(/Backend replay not yet supported/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Why this matters' })).toBeVisible();
+    await expect(page.getByTestId('submit-button')).toHaveCount(0);
 
     const overflow = await page.evaluate(() => ({
       horizontal:
@@ -79,13 +80,12 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
-async function openCutterGridPractice(page: Page): Promise<void> {
+async function openFirstCutterGridLesson(page: Page): Promise<void> {
   await page.goto('/');
-  await page.getByRole('button', { name: /Solo Practice/ }).click();
+  await page.getByRole('button', { name: /Lessons/ }).click();
+  await page.getByRole('button', { name: /Fixed World Axes/ }).click();
   await expect(page.getByTestId('blockly-editor')).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Cutter Grid', exact: true })
-    .click();
+  await expect(page.getByText('Cutter Grid Program')).toBeVisible();
   await expect(page.getByTestId('simulation-status')).toHaveText('Idle', {
     timeout: 20_000,
   });
