@@ -46,19 +46,40 @@ interface CutterGridMotionV3PlanCase {
 
 const conformanceFixture = fixture as unknown as CutterGridMotionV3Fixture;
 
-function crossPlatformConformanceValue(value: unknown, key?: string): unknown {
+const DEFAULT_ZERO_TOLERANCE = 1e-9;
+const ENDPOINT_JERK_ZERO_TOLERANCE = 1e-8;
+
+function crossPlatformConformanceValue(
+  value: unknown,
+  key?: string,
+  inheritedZeroTolerance = DEFAULT_ZERO_TOLERANCE,
+): unknown {
   if (key === 'geometrySignature' || key === 'trajectorySignature') {
     return '<runtime-specific-float-signature>';
   }
+  // These summaries contain only the first and last waypoint of each motion.
+  // Their boundary jerk is analytically zero, but V8/libm can leave a few
+  // billionths of a degree/s^3 after solving the same curve on another OS.
+  // Keep the tighter default for every other quantity so this does not mask a
+  // real trajectory divergence.
+  const zeroTolerance = key === 'jointJerksDegPerSec3'
+    ? ENDPOINT_JERK_ZERO_TOLERANCE
+    : inheritedZeroTolerance;
   if (typeof value === 'number') {
-    if (Math.abs(value) < 1e-9) return 0;
+    if (Math.abs(value) < zeroTolerance) return 0;
     return Number(value.toFixed(9));
   }
-  if (Array.isArray(value)) return value.map((item) => crossPlatformConformanceValue(item));
+  if (Array.isArray(value)) {
+    return value.map((item) => crossPlatformConformanceValue(
+      item,
+      undefined,
+      zeroTolerance,
+    ));
+  }
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([entryKey, item]) => [
       entryKey,
-      crossPlatformConformanceValue(item, entryKey),
+      crossPlatformConformanceValue(item, entryKey, zeroTolerance),
     ]));
   }
   return value;
@@ -69,6 +90,31 @@ describe('Cutter Grid V3 frontend/Rust conformance fixture', () => {
 
   beforeAll(() => {
     challenge = normalizeChallenge(conformanceFixture.input.challengeDefinition);
+  });
+
+  it('normalizes only cross-runtime endpoint jerk round-off', () => {
+    expect(crossPlatformConformanceValue({
+      jointJerksDegPerSec3: {
+        elbow: -6e-9,
+        wrist: 8e-9,
+      },
+      jointAngles: {
+        elbow: 8e-9,
+      },
+    })).toEqual({
+      jointJerksDegPerSec3: {
+        elbow: 0,
+        wrist: 0,
+      },
+      jointAngles: {
+        elbow: 8e-9,
+      },
+    });
+    expect(crossPlatformConformanceValue({
+      jointJerksDegPerSec3: { elbow: 11e-9 },
+    })).toEqual({
+      jointJerksDegPerSec3: { elbow: 11e-9 },
+    });
   });
 
   it('reproduces both full-plan signatures and every atomic checkpoint summary', () => {
