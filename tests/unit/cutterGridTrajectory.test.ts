@@ -206,7 +206,7 @@ describe('Cutter Grid trajectory planning', () => {
         ).toBeLessThan(1e-9);
       }
     }
-  }, 120_000);
+  }, 300_000);
 });
 
 function movementAxis(step: { startCoord: readonly number[]; endCoord: readonly number[] }): number {

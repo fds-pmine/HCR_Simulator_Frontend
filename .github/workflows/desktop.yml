@@ -23,7 +23,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Tag must match package.json version
         run: |
           tag="${GITHUB_REF_NAME#v}"
@@ -57,9 +57,9 @@ jobs:
             # Linux 32-bit after v4, so there is no binary to package.
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -89,7 +89,7 @@ jobs:
       # The build can "succeed" having produced nothing if a target silently
       # drops out. `if-no-files-found: error` is what turns that into a red run.
       - name: Upload installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hcr-simulator-${{ matrix.label }}
           path: |
@@ -111,10 +111,10 @@ jobs:
       # The only elevated permission in this pipeline, and only on this job.
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Collect every platform's installers
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
