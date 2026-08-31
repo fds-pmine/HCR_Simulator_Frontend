@@ -163,7 +163,19 @@ test('opens a dedicated Cutter Grid lesson without exposing Servo mode', async (
   await expect(page.getByTestId('next-grid-lesson')).toHaveCount(0);
 });
 
+/*
+ * The three course walkthroughs below need a budget, not the 30s default.
+ *
+ * Each boots the app, drives a WebGL canvas, and plays a scored run to
+ * completion; on the one-worker CI runner with a software rasteriser they
+ * measured 19–23s, which is under 1.5× of the default. A runner ~30% slower
+ * than usual — an ordinary occurrence, and one that inflated every spec in
+ * this suite by that much on 2026-08-31 — pushed the section walkthrough to
+ * 31.2s and failed it three times over, retries included. Nothing about the
+ * app changed; the budget was never sized for the work.
+ */
 test('opens the guided Cutter Grid tutorial before Servo control', async ({ page }) => {
+  test.setTimeout(180_000);
   await page.goto('/');
   await page.getByRole('button', { name: /^Tutorial/ }).click();
 
@@ -223,6 +235,7 @@ test('opens the guided Cutter Grid tutorial before Servo control', async ({ page
 });
 
 test('demonstrates the live transition from Grid intent to Servo angles', async ({ page }) => {
+  test.setTimeout(180_000);
   await page.goto('/');
   await page.getByRole('button', { name: /^Tutorial/ }).click();
   await page.getByRole('button', { name: /Grid → Servo Angles/ }).click();
@@ -282,6 +295,7 @@ test('demonstrates the live transition from Grid intent to Servo angles', async 
 });
 
 test('keeps a Servo Angles lesson in twenty sections before its scored gate', async ({ page }) => {
+  test.setTimeout(180_000);
   // Servo lessons unlock behind the whole Grid course, so this seeds the
   // prerequisite rather than playing ten lessons to reach the one under test.
   await page.addInitScript((completed: string[]) => {
