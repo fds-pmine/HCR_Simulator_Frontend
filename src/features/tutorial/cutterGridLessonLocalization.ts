@@ -82,7 +82,7 @@ const ZH_TW_GRID_SEEDS: Readonly<Record<string, LocalizedGridSeed>> = {
       '預測一條雙軸 L 形路徑會經過哪些體素。',
       '顛倒兩個 Move 的順序，然後比較「測試」結果。',
       '找出第一段穿過非目標頭髮的路徑，解釋意外切除的原因。',
-      '到達相同終點，但避開已觀察到的額外切除。',
+      '建立一條雙軸 L 形路徑，再交換兩個 Move 的順序，比較兩種順序各自切除哪些體素。',
     ],
   },
   'cutter-grid-blocked': {
@@ -99,7 +99,7 @@ const ZH_TW_GRID_SEEDS: Readonly<Record<string, LocalizedGridSeed>> = {
       '根據疊加層圖例，找出一個可到達和一個被封鎖的座標。',
       '先判斷再多走一格會靠近還是遠離安全區域。',
       '執行一條刻意經過封鎖節點的路徑，查看系統標示的來源積木塊。',
-      '只替換失敗的路段，其餘路徑保持不變。',
+      '建立一條至少三個 Move 的路徑，並且只到達機械臂可以認證的座標。',
     ],
   },
   'cutter-grid-opposites': {
@@ -150,7 +150,7 @@ const ZH_TW_GRID_SEEDS: Readonly<Record<string, LocalizedGridSeed>> = {
       '計算 Left 3 → Up 2 與 Up 2 → Left 3 共同的終點。',
       '測試兩種順序，並比較預計切除數量與分數。',
       '找出造成結果不同的第一段路徑。',
-      '建立兩條終點相同的三積木塊路徑，再比較它們的掃掠路徑。',
+      '建立一條改變兩個軸的三積木塊路徑，再顛倒順序，比較兩次「測試」的結果。',
     ],
   },
   'cutter-grid-compress': {

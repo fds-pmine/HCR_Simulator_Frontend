@@ -31,6 +31,18 @@ function gridProgram(
   return { blocks: { languageVersion: 0, blocks: [block(0)] } };
 }
 
+/**
+ * Grid 1's printed example, which is also the program its practical asks for:
+ * a three-axis route ending one cell out on every axis. The certified route
+ * above satisfies neither — the build section wants the printed route and the
+ * practical wants the prompt's endpoint.
+ */
+const GRID_ONE_ROUTE = gridProgram([
+  ['right', 1],
+  ['up', 1],
+  ['forward', 1],
+]);
+
 const ONE_GRID_MOVE = {
   blocks: {
     languageVersion: 0,
@@ -116,7 +128,7 @@ test('opens a dedicated Cutter Grid lesson without exposing Servo mode', async (
 
   // Build and observe sections no longer hand out a skip: the workspace has to
   // hold a program and Test has to have run before they release Next.
-  await seedWorkspace(page, CERTIFIED_ROUTE);
+  await seedWorkspace(page, GRID_ONE_ROUTE);
   await page.getByTestId('test-button').click();
   await expect(page.getByTestId('simulation-status')).toHaveText('Completed', {
     timeout: 60_000,
@@ -145,7 +157,7 @@ test('opens a dedicated Cutter Grid lesson without exposing Servo mode', async (
   // from an empty canvas — and the lesson only opens the next one once that
   // practical actually passes.
   await expect(page.getByTestId('next-grid-lesson')).toHaveCount(0);
-  await seedWorkspace(page, CERTIFIED_ROUTE);
+  await seedWorkspace(page, GRID_ONE_ROUTE);
   await page.getByTestId('test-button').click();
   await expect(page.getByTestId('simulation-status')).toHaveText('Completed', {
     timeout: 60_000,

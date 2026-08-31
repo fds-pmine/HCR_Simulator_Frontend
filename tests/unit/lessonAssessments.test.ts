@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   lessonSectionRequirement,
+  matchesCutterGridExample,
   meetsCutterGridSectionRequirement,
   meetsServoSectionRequirement,
   passesCutterGridPractical,
@@ -37,17 +38,70 @@ describe('Cutter Grid Blockly practical gates', () => {
     expect(passesCutterGridPractical('cutter-grid-fixed-axes', workspace, 1, 100, 'completed')).toBe(true);
   });
 
-  it('checks the concept assigned to each Grid lesson', () => {
-    expect(passesCutterGridPractical('cutter-grid-distance', program([move('left', 3)]), 1, 0, 'completed')).toBe(true);
-    expect(passesCutterGridPractical('cutter-grid-repeat', program([{
+  const passes = (lessonId: string, nodes: CutterGridNodeV1[]) =>
+    passesCutterGridPractical(lessonId, program(nodes), 1, 0, 'completed');
+
+  it('accepts the program each practical actually asks for', () => {
+    // "Reach coordinate (−3, 2, 0) using only two visible Move blocks."
+    expect(passes('cutter-grid-distance', [move('left', 3), move('up', 2)])).toBe(true);
+    // "Build a four-edge loop and repeat it twice…"
+    expect(passes('cutter-grid-repeat', [{
+      type: 'repeat',
+      count: 2,
+      body: [move('up'), move('right'), move('down'), move('left')],
+      sourceBlockId: 'repeat',
+    }])).toBe(true);
+    // "Build a three-block route that changes two axes…"
+    expect(passes('cutter-grid-route-order', [move('left'), move('up'), move('left')])).toBe(true);
+    // "Build a three-axis outbound route and its exact return path."
+    expect(passes('cutter-grid-opposites', [
+      move('left', 2), move('up'), move('forward'),
+      move('backward'), move('down'), move('right', 2),
+    ])).toBe(true);
+    // "Place two different waits in a three-move route…"
+    expect(passes('cutter-grid-wait', [
+      move('up'),
+      { type: 'wait', durationMs: 100, sourceBlockId: 'wait-a' },
+      move('right'),
+      { type: 'wait', durationMs: 500, sourceBlockId: 'wait-b' },
+      move('forward'),
+    ])).toBe(true);
+    // "Rewrite a seven-block route with the fewest safe visible blocks."
+    expect(passes('cutter-grid-compress', [move('up', 4), move('left', 3)])).toBe(true);
+    // "Build a three-axis route that ends one cell from the origin on every axis."
+    expect(passes('cutter-grid-fixed-axes', [move('right'), move('up'), move('forward')])).toBe(true);
+    // "Build a two-axis L-shaped route…"
+    expect(passes('cutter-grid-overcut', [move('left', 2), move('up', 2)])).toBe(true);
+    // "Build a route of at least three moves…"
+    expect(passes('cutter-grid-blocked', [move('right'), move('up', 2), move('forward')])).toBe(true);
+  });
+
+  /**
+   * Every one of these passed before the checks were written to match the
+   * prompts above them, so a learner who pressed Test on almost anything was
+   * told the practical had passed and the next lesson opened.
+   */
+  it('rejects a program that only gestures at the concept', () => {
+    // Two cells moved, but not to (−3, 2, 0), and only one block.
+    expect(passes('cutter-grid-distance', [move('left', 3)])).toBe(false);
+    // A Repeat, but the body is one edge and the loop never closes.
+    expect(passes('cutter-grid-repeat', [{
       type: 'repeat', count: 2, body: [move('up')], sourceBlockId: 'repeat',
-    }]), 1, 0, 'completed')).toBe(true);
-    expect(passesCutterGridPractical('cutter-grid-route-order', program([move('left'), move('up')]), 1, 0, 'completed')).toBe(true);
-    expect(passesCutterGridPractical('cutter-grid-opposites', program([move('left'), move('right')]), 1, 0, 'completed')).toBe(true);
-    expect(passesCutterGridPractical('cutter-grid-wait', program([
+    }])).toBe(false);
+    // Two axes, but the route-order practical asks for three blocks.
+    expect(passes('cutter-grid-route-order', [move('left'), move('up')])).toBe(false);
+    // One opposite pair on one axis, with no outbound three-axis route.
+    expect(passes('cutter-grid-opposites', [move('left'), move('right')])).toBe(false);
+    // One wait, and two moves rather than three.
+    expect(passes('cutter-grid-wait', [
       move('up'), { type: 'wait', durationMs: 100, sourceBlockId: 'wait' },
-    ]), 1, 0, 'completed')).toBe(true);
-    expect(passesCutterGridPractical('cutter-grid-compress', program([move('up', 3)]), 1, 0, 'completed')).toBe(true);
+    ])).toBe(false);
+    // Three cells compressed into one block is not a seven-cell route.
+    expect(passes('cutter-grid-compress', [move('up', 3)])).toBe(false);
+    // Three axes, but the endpoint is not one cell out on every axis.
+    expect(passes('cutter-grid-fixed-axes', [move('right', 5), move('up'), move('forward')])).toBe(false);
+    // A single move used to be enough for the whole blocked-nodes lesson.
+    expect(passes('cutter-grid-blocked', [move('right')])).toBe(false);
   });
 
   it('requires a perfect scored run for the certified-cut practical', () => {
@@ -68,7 +122,7 @@ describe('section gates', () => {
   it('accepts a Test only for the section it was pressed on', () => {
     const tested = [10];
     const gridSection = (index: number) =>
-      meetsCutterGridSectionRequirement('test', 'cutter-grid-distance', undefined, {
+      meetsCutterGridSectionRequirement('test', 'Left 3', undefined, {
         tested: tested.includes(index),
         stepped: false,
         overlayShown: false,
@@ -97,7 +151,7 @@ describe('section gates', () => {
     expect(lessonSectionRequirement(servoStepSection!)).toBe('step');
 
     const gate = (evidence: { tested: boolean; stepped: boolean; overlayShown: boolean }) =>
-      meetsCutterGridSectionRequirement('step', 'cutter-grid-fixed-axes', undefined, evidence);
+      meetsCutterGridSectionRequirement('step', 'Left 3', undefined, evidence);
     expect(gate({ tested: false, stepped: true, overlayShown: false })).toBe(true);
     expect(gate({ tested: true, stepped: false, overlayShown: false })).toBe(false);
     expect(meetsServoSectionRequirement('step', 5, { tested: true, stepped: false, overlayShown: false })).toBe(false);
@@ -117,7 +171,7 @@ describe('section gates', () => {
     expect(lessonSectionRequirement(overlaySection!)).toBe('overlay');
 
     const gate = (evidence: { tested: boolean; stepped: boolean; overlayShown: boolean }) =>
-      meetsCutterGridSectionRequirement('overlay', 'cutter-grid-distance', undefined, evidence);
+      meetsCutterGridSectionRequirement('overlay', 'Left 3', undefined, evidence);
     expect(gate({ tested: false, stepped: false, overlayShown: true })).toBe(true);
     expect(gate({ tested: true, stepped: true, overlayShown: false })).toBe(false);
   });
@@ -128,15 +182,48 @@ describe('section gates', () => {
     expect(lessonSectionRequirement({ activity: 'challenge' })).toBe('test');
     expect(lessonSectionRequirement({ activity: 'build' })).toBe('program');
     expect(
-      meetsCutterGridSectionRequirement('none', 'cutter-grid-distance', undefined, NOTHING_DONE),
+      meetsCutterGridSectionRequirement('none', 'Left 3', undefined, NOTHING_DONE),
     ).toBe(true);
-    expect(
-      meetsCutterGridSectionRequirement(
-        'program',
-        'cutter-grid-distance',
-        program([move('left', 3)]),
-        NOTHING_DONE,
-      ),
-    ).toBe(true);
+  });
+
+  /**
+   * The build section prints a route and says "create this program in Blockly".
+   * It is checked against that route, not against the lesson's practical: the
+   * two sections ask for different programs.
+   */
+  it('holds a build section until the workspace holds the printed route', () => {
+    const build = (example: string, nodes: CutterGridNodeV1[]) =>
+      meetsCutterGridSectionRequirement('program', example, program(nodes), NOTHING_DONE);
+
+    expect(build('Left 3', [move('left', 3)])).toBe(true);
+    expect(build('Left 3', [move('left', 2)])).toBe(false);
+    expect(build('Left 3', [move('left', 3), move('up')])).toBe(false);
+    expect(build('Right 1 → Up 1 → Forward 1', [
+      move('right'), move('up'), move('forward'),
+    ])).toBe(true);
+    expect(build('Up 2 → Wait 500 ms → Forward 2', [
+      move('up', 2),
+      { type: 'wait', durationMs: 500, sourceBlockId: 'wait' },
+      move('forward', 2),
+    ])).toBe(true);
+    expect(build('Repeat 3 × [Up 1 → Down 1]', [{
+      type: 'repeat', count: 3, body: [move('up'), move('down')], sourceBlockId: 'repeat',
+    }])).toBe(true);
+    expect(build('Repeat 3 × [Up 1 → Down 1]', [{
+      type: 'repeat', count: 2, body: [move('up'), move('down')], sourceBlockId: 'repeat',
+    }])).toBe(false);
+  });
+
+  it('parses every lesson example it is asked to check', () => {
+    for (const lesson of CUTTER_GRID_LESSONS) {
+      expect(
+        matchesCutterGridExample(lesson.example, undefined),
+        `${lesson.id} example`,
+      ).toBe(false);
+    }
+    // A route that parses but does not match still fails, so a parse failure
+    // and a mismatch cannot be told apart by the false above alone.
+    expect(matchesCutterGridExample('Left 3', program([move('left', 3)]))).toBe(true);
+    expect(matchesCutterGridExample('not a route', program([move('left', 3)]))).toBe(false);
   });
 });

@@ -106,7 +106,7 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Predict which voxels a two-axis L-shaped route crosses.',
       'Reverse the order of two moves and compare the Test result.',
       'Debug an unwanted cut by locating the first segment that crosses it.',
-      'Find a route that reaches the same endpoint while avoiding an observed extra cut.',
+      'Build a two-axis L-shaped route, then swap its two moves and compare which voxels each order removes.',
     ],
   },
   {
@@ -125,7 +125,7 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Use the overlay legend to identify one reachable and one blocked coordinate.',
       'Predict whether adding another cell continues toward or away from the safe region.',
       'Run an intentionally blocked route and read the highlighted source block.',
-      'Replace only the failing segment while keeping the rest of the route unchanged.',
+      'Build a route of at least three moves that only reaches coordinates the arm can certify.',
     ],
   },
   {
@@ -182,7 +182,7 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Calculate the shared endpoint of Left 3 → Up 2 and Up 2 → Left 3.',
       'Test both orders and compare expected cuts and score.',
       'Debug the first segment responsible for a difference between the results.',
-      'Find two three-block routes with the same endpoint and compare their swept paths.',
+      'Build a three-block route that changes two axes, then reverse its order and compare both Test results.',
     ],
   },
   {

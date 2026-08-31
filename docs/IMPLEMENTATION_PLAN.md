@@ -325,6 +325,15 @@ inherit them silently:
       Grid overlay: each told the learner to use a control that then did not
       release the section, leaving Test as the only way forward. "Inspect
       telemetry" asks only for reading, and no longer demands a run at all.
+- [x] Each practical enforces the prompt printed above it. The structural
+      checks were far looser than the prompts — "reach (−3, 2, 0) with two Move
+      blocks" accepted any single two-cell move — so pressing Test on almost
+      anything completed the lesson and opened the next one. Prompts that no
+      single program could satisfy were restated rather than left unchecked,
+      and every practical is pinned to a worked answer that is reachable on the
+      certified grid.
+- [x] A build section is checked against the route it printed, not against the
+      lesson's practical. The two sections ask for different programs.
 - [x] Every Grid lesson example is a route, because three sections template it
       as "read / trace / build this program". Four lessons carried prose there,
       which those sections rendered unbuildable — and left English inside every

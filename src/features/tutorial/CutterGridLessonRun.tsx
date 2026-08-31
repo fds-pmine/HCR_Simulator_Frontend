@@ -297,7 +297,7 @@ function CutterGridLessonStage({
   const section = lesson.sections[sectionIndex];
   const sectionSatisfied = meetsCutterGridSectionRequirement(
     lessonSectionRequirement(section),
-    lessonId,
+    lesson.example,
     currentProgram,
     sectionEvidence,
   );
