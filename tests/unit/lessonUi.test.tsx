@@ -509,6 +509,38 @@ describe('practice gating', () => {
     expect(onNextSection).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * A drill is checked against a route, so the panel has to name that route.
+   * "Compare Left 3 with three connected Left 1 blocks" told the learner what
+   * the exercise was for but never what to leave on the canvas.
+   */
+  it('names the route a drill section is checked against', () => {
+    const drill = gridLesson.sections.findIndex(
+      (section) => section.starter && section.expected,
+    );
+    expect(drill).toBeGreaterThan(-1);
+    const section = gridLesson.sections[drill];
+
+    render(
+      <CutterGridLessonPanel
+        lesson={gridLesson}
+        lessonIndex={0}
+        lessonTotal={CUTTER_GRID_LESSONS.length}
+        sectionIndex={drill}
+        quizPassed={false}
+        practicalPassed={false}
+        practicalAttempted={false}
+        sectionSatisfied={false}
+        onQuizPassed={() => {}}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onExit={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('grid-drill-goal')).toHaveTextContent(section.expected!);
+  });
+
   it('leaves reading sections freely navigable', () => {
     const readSection = gridLesson.sections.findIndex(
       (section) => section.activity === 'read',

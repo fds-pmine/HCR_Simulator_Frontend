@@ -122,10 +122,12 @@ describe('section gates', () => {
   it('accepts a Test only for the section it was pressed on', () => {
     const tested = [10];
     const gridSection = (index: number) =>
-      meetsCutterGridSectionRequirement('test', 'Left 3', undefined, {
-        tested: tested.includes(index),
-        stepped: false,
-        overlayShown: false,
+      meetsCutterGridSectionRequirement({
+        requirement: 'test',
+        lessonId: 'cutter-grid-distance',
+        expectedRoute: 'Left 3',
+        program: undefined,
+        evidence: { tested: tested.includes(index), stepped: false, overlayShown: false },
       });
     expect(gridSection(10)).toBe(true);
     expect(gridSection(11)).toBe(false);
@@ -151,7 +153,13 @@ describe('section gates', () => {
     expect(lessonSectionRequirement(servoStepSection!)).toBe('step');
 
     const gate = (evidence: { tested: boolean; stepped: boolean; overlayShown: boolean }) =>
-      meetsCutterGridSectionRequirement('step', 'Left 3', undefined, evidence);
+      meetsCutterGridSectionRequirement({
+        requirement: 'step',
+        lessonId: 'cutter-grid-fixed-axes',
+        expectedRoute: 'Left 3',
+        program: undefined,
+        evidence,
+      });
     expect(gate({ tested: false, stepped: true, overlayShown: false })).toBe(true);
     expect(gate({ tested: true, stepped: false, overlayShown: false })).toBe(false);
     expect(meetsServoSectionRequirement('step', 5, { tested: true, stepped: false, overlayShown: false })).toBe(false);
@@ -171,7 +179,13 @@ describe('section gates', () => {
     expect(lessonSectionRequirement(overlaySection!)).toBe('overlay');
 
     const gate = (evidence: { tested: boolean; stepped: boolean; overlayShown: boolean }) =>
-      meetsCutterGridSectionRequirement('overlay', 'Left 3', undefined, evidence);
+      meetsCutterGridSectionRequirement({
+        requirement: 'overlay',
+        lessonId: 'cutter-grid-distance',
+        expectedRoute: 'Left 3',
+        program: undefined,
+        evidence,
+      });
     expect(gate({ tested: false, stepped: false, overlayShown: true })).toBe(true);
     expect(gate({ tested: true, stepped: true, overlayShown: false })).toBe(false);
   });
@@ -182,7 +196,13 @@ describe('section gates', () => {
     expect(lessonSectionRequirement({ activity: 'challenge' })).toBe('test');
     expect(lessonSectionRequirement({ activity: 'build' })).toBe('program');
     expect(
-      meetsCutterGridSectionRequirement('none', 'Left 3', undefined, NOTHING_DONE),
+      meetsCutterGridSectionRequirement({
+        requirement: 'none',
+        lessonId: 'cutter-grid-distance',
+        expectedRoute: 'Left 3',
+        program: undefined,
+        evidence: NOTHING_DONE,
+      }),
     ).toBe(true);
   });
 
@@ -193,7 +213,13 @@ describe('section gates', () => {
    */
   it('holds a build section until the workspace holds the printed route', () => {
     const build = (example: string, nodes: CutterGridNodeV1[]) =>
-      meetsCutterGridSectionRequirement('program', example, program(nodes), NOTHING_DONE);
+      meetsCutterGridSectionRequirement({
+        requirement: 'program',
+        lessonId: 'cutter-grid-distance',
+        expectedRoute: example,
+        program: program(nodes),
+        evidence: NOTHING_DONE,
+      });
 
     expect(build('Left 3', [move('left', 3)])).toBe(true);
     expect(build('Left 3', [move('left', 2)])).toBe(false);

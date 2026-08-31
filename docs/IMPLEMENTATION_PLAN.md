@@ -334,6 +334,12 @@ inherit them silently:
       certified grid.
 - [x] A build section is checked against the route it printed, not against the
       lesson's practical. The two sections ask for different programs.
+- [x] The variation and debugging challenges seed the route they talk about and
+      check the edit. "Swap Right for Left" and "debug a route whose Forward and
+      Backward blocks were exchanged" were printed over an empty canvas, so
+      there was nothing to swap or repair and pressing Test was the only move
+      left. Each drill is pinned to a starter that can be placed, an answer the
+      gate accepts, and a starter that does not already satisfy it.
 - [x] Every Grid lesson example is a route, because three sections template it
       as "read / trace / build this program". Four lessons carried prose there,
       which those sections rendered unbuildable — and left English inside every

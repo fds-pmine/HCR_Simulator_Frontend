@@ -98,6 +98,20 @@ export function CutterGridLessonPanel({
         <ActivityIcon size={13} /> {t(ACTIVITY_KEYS[section.activity])}
       </span>
 
+      {/*
+        A drill starts from a route already on the canvas and is checked against
+        the route it wants back, so it has to say which one that is. "Compare
+        Left 3 with three connected Left 1 blocks" describes the point of the
+        exercise but never states what to leave in the workspace, which left the
+        section impossible to finish on purpose rather than by guessing.
+      */}
+      {section.starter && section.expected ? (
+        <p className="lesson-drill-goal" data-testid="grid-drill-goal">
+          <strong>{t('buildThis')}</strong>
+          <code>{section.expected}</code>
+        </p>
+      ) : null}
+
       {quizSection ? (
         <LessonMultipleChoice
           key={displayLesson.id}

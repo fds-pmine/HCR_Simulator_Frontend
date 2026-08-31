@@ -110,6 +110,12 @@ export interface WorkbenchTutorial {
    * Lesson assessments use it when the learner enters a closed-book quiz.
    */
   clearWorkspaceKey?: string;
+  /**
+   * A serialized program to put on the canvas when `clearWorkspaceKey` changes,
+   * instead of leaving it empty. Sections that ask the learner to change or
+   * repair a route need that route to be there.
+   */
+  starterWorkspace?: Record<string, unknown>;
   /** Active Blockly language, used by tutorials that teach mode switching. */
   onProgrammingModeChange?: (mode: ProgrammingMode) => void;
 }
@@ -231,12 +237,18 @@ export function SimulationWorkbench({
   }, [snapshot.currentBlockId]);
 
   const clearWorkspaceKey = tutorial?.clearWorkspaceKey;
+  const starterWorkspace = tutorial?.starterWorkspace;
   useEffect(() => {
     if (clearWorkspaceKey === undefined) return;
     editorRef.current?.clear();
+    if (starterWorkspace) editorRef.current?.load(starterWorkspace);
     editorRef.current?.highlightBlock();
     planner.cancel();
     engine.reset();
+    // `starterWorkspace` is deliberately not a dependency: the key is what
+    // says "this is a new exercise". Reacting to the object as well would
+    // reseed the canvas under a learner who had started editing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearWorkspaceKey, engine, planner]);
 
   // Report the workspace to the tutorial on every edit. Subscribing here rather

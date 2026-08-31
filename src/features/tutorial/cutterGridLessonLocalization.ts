@@ -45,9 +45,9 @@ const ZH_TW_GRID_SEEDS: Readonly<Record<string, LocalizedGridSeed>> = {
       '較長的 Move 不會跳過起點與終點之間的接觸。',
     ],
     activities: [
-      '比較 Left 3 與三個相連的 Left 1。',
+      '把 Left 3 改寫成三個相連的 Left 1，再比較兩者。',
       '把距離從 3 改成 4，執行前先預測新的終點。',
-      '修正超出 1–12 範圍的距離欄位。',
+      '修正一條移動太遠的路徑：它應該在左方三格結束。',
       '只用兩個 Move 積木塊到達座標（−3, 2, 0）。',
     ],
   },
@@ -64,7 +64,7 @@ const ZH_TW_GRID_SEEDS: Readonly<Record<string, LocalizedGridSeed>> = {
     activities: [
       '預測 Repeat 3 × [Up 1] 的終點。',
       '加入反向移動，讓每一輪都回到原本的路點。',
-      '修正內容為空、因此無法編譯的 Repeat。',
+      '修正一個 Repeat：它的內容爬升兩次，而不是回到起點。',
       '建立一個四邊迴圈並重複兩次，最後仍停在相同座標。',
     ],
   },
@@ -98,7 +98,7 @@ const ZH_TW_GRID_SEEDS: Readonly<Record<string, LocalizedGridSeed>> = {
     activities: [
       '根據疊加層圖例，找出一個可到達和一個被封鎖的座標。',
       '先判斷再多走一格會靠近還是遠離安全區域。',
-      '執行一條刻意經過封鎖節點的路徑，查看系統標示的來源積木塊。',
+      '執行這條被封鎖的路徑，查看系統標示的積木塊，再把它縮短到最後一個可到達的格子。',
       '建立一條至少三個 Move 的路徑，並且只到達機械臂可以認證的座標。',
     ],
   },
@@ -132,7 +132,7 @@ const ZH_TW_GRID_SEEDS: Readonly<Record<string, LocalizedGridSeed>> = {
     activities: [
       '比較有無 Wait 時的終點，並先作出預測。',
       '在同一路點比較 250 ms 與 1000 ms 的暫停。',
-      '修正超出允許範圍的 Wait 時間。',
+      '修正一條路徑：Wait 排在第一個 Move 之前，應該放在兩個 Move 之間。',
       '在三段 Move 之間加入兩個不同的 Wait，然後檢查事件順序。',
     ],
   },

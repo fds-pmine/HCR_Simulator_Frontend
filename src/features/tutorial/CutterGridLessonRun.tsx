@@ -12,6 +12,7 @@ import { useSimulationSnapshot } from '../simulation/useSimulationSnapshot';
 import { CUTTER_GRID_LESSONS } from './cutterGridLessons';
 import { CutterGridLessonPanel } from './CutterGridLessonPanel';
 import { cutterGridProgramFromCompilation } from './cutterGridTutorial';
+import { starterWorkspaceFor } from './starterWorkspace';
 import {
   lessonSectionRequirement,
   meetsCutterGridSectionRequirement,
@@ -295,12 +296,19 @@ function CutterGridLessonStage({
   // Sections that ask for a program or a Test hold Next until the learner has
   // actually done it, so a lesson cannot be clicked through unpractised.
   const section = lesson.sections[sectionIndex];
-  const sectionSatisfied = meetsCutterGridSectionRequirement(
-    lessonSectionRequirement(section),
-    lesson.example,
-    currentProgram,
-    sectionEvidence,
-  );
+  const sectionSatisfied = meetsCutterGridSectionRequirement({
+    requirement: lessonSectionRequirement(section),
+    lessonId,
+    expectedRoute: section.expected ?? lesson.example,
+    program: currentProgram,
+    evidence: sectionEvidence,
+  });
+  // A drill hands the learner a route to change or repair, so it seeds the
+  // canvas on arrival. The key is what marks a new exercise; the quiz and the
+  // closing checkpoint keep clearing it instead.
+  const starter = section.starter
+    ? starterWorkspaceFor(section.starter)
+    : undefined;
 
   useEffect(() => {
     if (solved) onSolved(lessonId);
@@ -323,9 +331,12 @@ function CutterGridLessonStage({
         // practicals ask for little more than "a program that moves on two
         // axes", so the leftovers passed them: finish one lesson and the rest
         // fell over on a single Test press.
-        clearWorkspaceKey: sectionIndex >= lesson.sections.length - 2
-          ? `${lessonId}:quiz`
-          : `${lessonId}:start`,
+        clearWorkspaceKey: starter
+          ? `${lessonId}:drill-${sectionIndex}`
+          : sectionIndex >= lesson.sections.length - 2
+            ? `${lessonId}:quiz`
+            : `${lessonId}:start`,
+        ...(starter ? { starterWorkspace: starter } : {}),
         panel: (
           <CutterGridLessonPanel
             lesson={lesson}

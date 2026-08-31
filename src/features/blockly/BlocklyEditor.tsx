@@ -27,6 +27,8 @@ export interface BlocklyEditorHandle {
   highlightBlock: (blockId?: string) => void;
   locateError: (error: { blockId?: string }) => void;
   clear: () => void;
+  /** Replace the workspace with a serialized program. */
+  load: (state: Record<string, unknown>) => void;
   getWorkspace: () => Blockly.WorkspaceSvg | undefined;
 }
 
@@ -183,6 +185,10 @@ export const BlocklyEditor = forwardRef<
       },
       clear() {
         workspaceRef.current?.clear();
+      },
+      load(state: Record<string, unknown>) {
+        const workspace = workspaceRef.current;
+        if (workspace) loadWorkspaceState(workspace, state);
       },
       getWorkspace() {
         return workspaceRef.current;

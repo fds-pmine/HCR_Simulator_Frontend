@@ -25,11 +25,36 @@ export interface CutterGridLessonSection {
    * a completed Test.
    */
   requirement?: LessonSectionRequirement;
+  /** A route put on the canvas when the section opens, for it to work on. */
+  starter?: string;
+  /** The route the workspace must hold for this section to be satisfied. */
+  expected?: string;
+}
+
+/**
+ * A workspace exercise: the route the learner is given, and the route they are
+ * asked to turn it into.
+ *
+ * A challenge that says "swap Right for Left" or "debug a route whose Forward
+ * and Backward blocks were exchanged" has no work in it on an empty canvas —
+ * there is nothing to swap or repair — so those sections gave the learner
+ * nothing to do but press Test. `expected` is omitted where the section asks
+ * for a prediction rather than an edit; the route is still placed so there is
+ * something concrete to predict about.
+ */
+export interface CutterGridDrill {
+  starter?: string;
+  expected?: string;
+  requirement?: LessonSectionRequirement;
+  /** The starter deliberately ends on a coordinate the arm cannot reach. */
+  unreachableStarter?: true;
 }
 
 interface CutterGridLessonSeed extends Omit<CutterGridLesson, 'sections' | 'assessments'> {
   concepts: readonly [string, string, string, string];
   activities: readonly [string, string, string, string];
+  /** The two workspace exercises: activities[0] and activities[2]. */
+  drills: { variation: CutterGridDrill; debug: CutterGridDrill };
 }
 
 const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
@@ -51,6 +76,10 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Debug a route whose Forward and Backward blocks were exchanged.',
       'Build a three-axis route that ends one cell from the origin on every axis.',
     ],
+    drills: {
+      variation: { starter: 'Right 1 → Up 1 → Forward 1', expected: 'Left 1 → Up 1 → Forward 1' },
+      debug: { starter: 'Right 1 → Up 1 → Backward 1', expected: 'Right 1 → Up 1 → Forward 1' },
+    },
   },
   {
     id: 'cutter-grid-distance',
@@ -65,11 +94,15 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'A common mistake is assuming a longer Move skips contact between its start and endpoint.',
     ],
     activities: [
-      'Compare Left 3 with three connected Left 1 blocks.',
+      'Rebuild Left 3 as three connected Left 1 blocks, then compare the two.',
       'Change a distance from 3 to 4 and predict the new endpoint before running.',
-      'Debug a distance field that is outside the 1–12 contract.',
+      'Repair a route that moves too far: it should end three cells to the left.',
       'Reach coordinate (−3, 2, 0) using only two visible Move blocks.',
     ],
+    drills: {
+      variation: { starter: 'Left 3', expected: 'Left 1 → Left 1 → Left 1' },
+      debug: { starter: 'Left 6', expected: 'Left 3' },
+    },
   },
   {
     id: 'cutter-grid-repeat',
@@ -86,9 +119,16 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     activities: [
       'Predict the endpoint of Repeat 3 × [Up 1].',
       'Add the inverse move so every iteration returns to its starting waypoint.',
-      'Debug a Repeat whose empty body cannot compile.',
+      'Repair a Repeat whose body climbs twice instead of returning to its start.',
       'Build a four-edge loop and repeat it twice without changing the final coordinate.',
     ],
+    drills: {
+      variation: { starter: 'Repeat 3 × [Up 1]' },
+      debug: {
+        starter: 'Repeat 3 × [Up 1 → Up 1]',
+        expected: 'Repeat 3 × [Up 1 → Down 1]',
+      },
+    },
   },
   {
     id: 'cutter-grid-overcut',
@@ -108,6 +148,10 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Debug an unwanted cut by locating the first segment that crosses it.',
       'Build a two-axis L-shaped route, then swap its two moves and compare which voxels each order removes.',
     ],
+    drills: {
+      variation: { starter: 'Left 2 → Up 2' },
+      debug: { starter: 'Up 2 → Left 2', expected: 'Left 2 → Up 2' },
+    },
   },
   {
     id: 'cutter-grid-blocked',
@@ -124,9 +168,15 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     activities: [
       'Use the overlay legend to identify one reachable and one blocked coordinate.',
       'Predict whether adding another cell continues toward or away from the safe region.',
-      'Run an intentionally blocked route and read the highlighted source block.',
+      'Run the blocked route, read the highlighted block, then shorten it to the last reachable cell.',
       'Build a route of at least three moves that only reaches coordinates the arm can certify.',
     ],
+    drills: {
+      variation: { requirement: 'overlay' },
+      // Right 4 ends on (4, 0, 0), which has no certified safe pose: the route
+      // fails to plan, which is the thing this lesson is about.
+      debug: { starter: 'Right 4', expected: 'Right 3', unreachableStarter: true },
+    },
   },
   {
     id: 'cutter-grid-opposites',
@@ -146,6 +196,16 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Debug an inverse route whose blocks are in the original order.',
       'Build a three-axis outbound route and its exact return path.',
     ],
+    drills: {
+      variation: {
+        starter: 'Left 2 → Up 1',
+        expected: 'Left 2 → Up 1 → Down 1 → Right 2',
+      },
+      debug: {
+        starter: 'Left 2 → Up 1 → Left 2 → Up 1',
+        expected: 'Left 2 → Up 1 → Down 1 → Right 2',
+      },
+    },
   },
   {
     id: 'cutter-grid-wait',
@@ -162,9 +222,16 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     activities: [
       'Predict the endpoint with and without the Wait block.',
       'Compare a 250 ms and 1000 ms pause while watching the same waypoint.',
-      'Debug a Wait duration outside its allowed range.',
+      'Repair a route whose Wait runs before the first move instead of between the two moves.',
       'Place two different waits in a three-move route and inspect the event order.',
     ],
+    drills: {
+      variation: { starter: 'Up 2 → Wait 500 ms → Forward 2' },
+      debug: {
+        starter: 'Wait 500 ms → Up 2 → Forward 2',
+        expected: 'Up 2 → Wait 500 ms → Forward 2',
+      },
+    },
   },
   {
     id: 'cutter-grid-route-order',
@@ -184,6 +251,10 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Debug the first segment responsible for a difference between the results.',
       'Build a three-block route that changes two axes, then reverse its order and compare both Test results.',
     ],
+    drills: {
+      variation: { starter: 'Left 3 → Up 2' },
+      debug: { starter: 'Up 2 → Left 3', expected: 'Left 3 → Up 2' },
+    },
   },
   {
     id: 'cutter-grid-compress',
@@ -203,6 +274,13 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Debug a compression that accidentally changes direction order.',
       'Rewrite a seven-block route with the fewest safe visible blocks.',
     ],
+    drills: {
+      variation: {
+        starter: 'Forward 1 → Forward 1 → Forward 1 → Forward 1',
+        expected: 'Forward 4',
+      },
+      debug: { starter: 'Forward 2 → Up 3', expected: 'Up 3 → Forward 2' },
+    },
   },
   {
     id: 'cutter-grid-certified-cut',
@@ -222,10 +300,36 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Debug one changed distance by comparing it with the certified sequence.',
       'Press Test, confirm 100 Completion, then replay the same plan with Run or Step.',
     ],
+    drills: {
+      variation: {
+        starter: 'Left 3 → Up 6 → Up 2 → Forward 1 → Up 1 → Forward 1 → Up 1 → Forward 6 → Forward 1',
+      },
+      debug: {
+        starter: 'Left 3 → Up 5 → Up 2 → Forward 1 → Up 1 → Forward 1 → Up 1 → Forward 6 → Forward 1',
+        expected: 'Left 3 → Up 6 → Up 2 → Forward 1 → Up 1 → Forward 1 → Up 1 → Forward 6 → Forward 1',
+      },
+    },
   },
 ];
 
 const SECTION_COUNT = 20;
+
+/**
+ * A drill's section fields. Without an `expected` route the section asks for a
+ * prediction, so it keeps the Test requirement its activity implies and the
+ * starter is there to predict about.
+ */
+function drill(exercise: CutterGridDrill): Partial<CutterGridLessonSection> {
+  return {
+    ...(exercise.starter ? { starter: exercise.starter } : {}),
+    ...(exercise.expected ? { expected: exercise.expected } : {}),
+    ...(exercise.requirement
+      ? { requirement: exercise.requirement }
+      : exercise.expected
+        ? { requirement: 'program' as const }
+        : {}),
+  };
+}
 
 function buildSections(seed: CutterGridLessonSeed): CutterGridLessonSection[] {
   const entries: Array<Omit<CutterGridLessonSection, 'id'>> = [
@@ -238,14 +342,16 @@ function buildSections(seed: CutterGridLessonSeed): CutterGridLessonSection[] {
     { title: 'Read the example', body: seed.example, activity: 'read' },
     { title: 'Trace it on paper', body: `Start at (0, 0, 0) and trace: ${seed.example}`, activity: 'predict' },
     { title: 'Predict before running', body: 'Write down the endpoint and the segments you expect the cutter to sweep.', activity: 'predict' },
-    { title: 'Build the example', body: `Create this program in Blockly: ${seed.example}`, activity: 'build' },
+    { title: 'Build the example', body: `Create this program in Blockly: ${seed.example}`, activity: 'build', expected: seed.example },
     { title: 'Inspect the overlay', body: 'Turn on Grid and planned path. Match each programmed waypoint to the world-axis overlay.', activity: 'observe', requirement: 'overlay' },
     { title: 'Use Step', body: 'Reset, then press Step once. Confirm which visible action completed and where the current coordinate moved.', activity: 'observe', requirement: 'step' },
     { title: 'Use Test', body: 'Press Test and compare the score, expected cuts, and final coordinate with your prediction.', activity: 'observe' },
-    { title: 'First variation', body: seed.activities[0], activity: 'challenge' },
+    { title: 'First variation', body: seed.activities[0], activity: 'challenge', ...drill(seed.drills.variation) },
     { title: 'Second variation', body: seed.activities[1], activity: 'challenge' },
-    { title: 'Debugging drill', body: seed.activities[2], activity: 'challenge' },
-    { title: 'Independent challenge', body: seed.activities[3], activity: 'challenge' },
+    { title: 'Debugging drill', body: seed.activities[2], activity: 'challenge', ...drill(seed.drills.debug) },
+    // The closing challenge is the lesson's practical prompt, so it is checked
+    // by the practical rather than by a route printed for the learner.
+    { title: 'Independent challenge', body: seed.activities[3], activity: 'challenge', requirement: 'practical' },
     { title: 'Explain it back', body: `Explain in one sentence why this is true: ${seed.concepts[1]}`, activity: 'recap' },
     { title: 'Transfer the idea', body: 'Name one place this rule changes how you would design a longer haircut route.', activity: 'recap' },
     // Deliberately without the example: the checkpoint asks for recall, and

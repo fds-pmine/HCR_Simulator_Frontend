@@ -44,7 +44,8 @@ export function buildConceptQuestion(
  * counter satisfied every later observe and challenge section at once, so the
  * first Test of a lesson marked the whole remaining run done.
  */
-export type LessonSectionRequirement = 'none' | 'program' | 'test' | 'step' | 'overlay';
+export type LessonSectionRequirement =
+  | 'none' | 'program' | 'test' | 'step' | 'overlay' | 'practical';
 
 /** What a learner has actually done while the current section was open. */
 export interface LessonSectionEvidence {
@@ -81,22 +82,27 @@ export function lessonSectionRequirement(
   }
 }
 
-export function meetsCutterGridSectionRequirement(
-  requirement: LessonSectionRequirement,
-  /** The route the build section asks the learner to reproduce. */
-  example: string,
-  program: CutterGridProgramV1 | undefined,
-  evidence: LessonSectionEvidence,
-): boolean {
+export function meetsCutterGridSectionRequirement(input: {
+  requirement: LessonSectionRequirement;
+  lessonId: string;
+  /** The route this section asks the learner to end up with. */
+  expectedRoute: string;
+  program: CutterGridProgramV1 | undefined;
+  evidence: LessonSectionEvidence;
+}): boolean {
+  const { requirement, lessonId, expectedRoute, program, evidence } = input;
   if (requirement === 'none') return true;
   if (requirement === 'test') return evidence.tested;
   // A Test runs the whole program at once, which is the thing a Step section
   // is teaching the learner not to do, so it does not stand in for a Step.
   if (requirement === 'step') return evidence.stepped;
   if (requirement === 'overlay') return evidence.overlayShown;
-  // "Create this program in Blockly: Left 3" asks for that program, not for
-  // the lesson's practical — those are different sections with different work.
-  return matchesCutterGridExample(example, program);
+  // The closing challenge is the lesson's practical, checked the same way.
+  if (requirement === 'practical') return matchesCutterGridConcept(lessonId, program);
+  // "Create this program in Blockly: Left 3" asks for that program, and a
+  // drill that says "swap Right for Left" asks for the swapped route — each
+  // section is checked against the route it actually asks for.
+  return matchesCutterGridExample(expectedRoute, program);
 }
 
 /** Whether the workspace holds exactly the route the section printed. */
