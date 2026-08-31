@@ -11,16 +11,26 @@
  * Two rules account for almost every "it's broken" report, and neither is
  * discoverable by poking at the editor:
  *
- * 1. **Angles are absolute.** `Repeat 5 × [Set Base Yaw to −55°]` moves the arm
- *    once and then drives a joint to where it already is, four times. It looks
- *    exactly like a broken Repeat block, and it costs efficiency for nothing.
- * 2. **The head stops the arm.** A sweep through the head halts at the last safe
+ * 1. **Angles are absolute.** `Repeat 5 × [Set X · Base Yaw to 120°]` moves the
+ *    arm once and then drives a joint to where it already is, four times. It
+ *    looks exactly like a broken Repeat block, and it costs efficiency for
+ *    nothing.
+ * 2. **The head stops the arm.** A move through the head halts at the last safe
  *    pose and scores whatever it had managed. Better to meet that deliberately,
  *    in a step that expects it, than to hit it by accident and read it as a bug.
  *
- * The angles below are tuned to the shipped challenge's geometry — `baseYaw`
- * travels ±60° with a head-safe band of roughly ±35–60° — which is why the
- * tutorial pins itself to that challenge rather than whatever the catalog serves.
+ * # The angles are servo degrees
+ *
+ * Every angle here is what the servo is commanded to, exactly as the block
+ * fields and the joint limits express it: every joint homes at 90°, and
+ * `baseYaw` travels 30–150° on the shipped challenge. Sweeping it to 120°
+ * removes four voxels and 145° removes all eleven, which is what makes the
+ * repeat step visible.
+ *
+ * From Home, *no* `baseYaw` value reaches the head — the joint's whole travel is
+ * clear of it — so the collision step commands the elbow instead. That is what
+ * the values below are measured against, and why the tutorial pins itself to
+ * the shipped challenge rather than whatever the catalog serves.
  */
 import type { Program, ProgramNode } from '../blockly/programTypes';
 import type { SimulationSnapshot } from '../simulation/SimulationEngine';
@@ -54,6 +64,21 @@ export interface Lesson {
 /** The joint the tutorial drives. Its travel is what the safe angles assume. */
 export const TUTORIAL_JOINT = 'baseYaw';
 
+/** The first angle taught: a short sweep off Home that removes four voxels. */
+export const TUTORIAL_ANGLE_DEG = 120;
+
+/** The second angle in the repeat, far enough past the first to cut more. */
+export const TUTORIAL_SWEEP_ANGLE_DEG = 145;
+
+/**
+ * The joint and angle the collision step commands.
+ *
+ * The elbow, not `baseYaw`: with the base swept off Home the elbow can be
+ * driven down into the head, whereas `baseYaw` alone never can.
+ */
+export const TUTORIAL_HEAD_JOINT = 'elbow';
+export const TUTORIAL_HEAD_ANGLE_DEG = 60;
+
 export const LESSONS: readonly Lesson[] = [
   {
     id: 'welcome',
@@ -76,10 +101,16 @@ export const LESSONS: readonly Lesson[] = [
     id: 'absolute',
     title: 'Angles are absolute, not relative',
     body:
-      'Set the block to Base Yaw and −55°. That means "drive this joint to −55°", ' +
-      'not "turn it 55° further". Every command in this language works that way.',
-    hint: 'Pick Base Yaw in the dropdown, then click the number and type -55.',
-    done: (context) => targetsOf(context.program, TUTORIAL_JOINT).includes(-55),
+      `Set the block to X · Base Yaw and ${TUTORIAL_ANGLE_DEG}°. That means ` +
+      `"drive this joint to ${TUTORIAL_ANGLE_DEG}°", not "turn it ` +
+      `${TUTORIAL_ANGLE_DEG}° further". Every command in this language works ` +
+      'that way, and every angle is a servo degree: the same number the real ' +
+      'arm is commanded to, with Home at 90°.',
+    hint:
+      'Pick X · Base Yaw in the dropdown, then click the number and type ' +
+      `${TUTORIAL_ANGLE_DEG}.`,
+    done: (context) =>
+      targetsOf(context.program, TUTORIAL_JOINT).includes(TUTORIAL_ANGLE_DEG),
   },
   {
     id: 'test',
@@ -94,9 +125,11 @@ export const LESSONS: readonly Lesson[] = [
     id: 'head',
     title: 'The head stops the arm',
     body:
-      'Now change the angle to 0° and press Test. The arm will not reach it: it ' +
-      'stops at the last safe pose and tells you which block was to blame. This ' +
-      'is meant to happen — change it back to −55° when you have seen it.',
+      'Base Yaw on its own always clears the head. Add a second block below the ' +
+      `first — Z · Elbow to ${TUTORIAL_HEAD_ANGLE_DEG}° — and press Test. The ` +
+      'elbow will not get there: the arm stops at the last safe pose and tells ' +
+      'you which block was to blame. This is meant to happen — delete the Elbow ' +
+      'block when you have seen it.',
     hint: 'Look for the red banner naming the joint and where it stopped.',
     done: (context) =>
       context.snapshot.status === 'error' &&
@@ -106,9 +139,9 @@ export const LESSONS: readonly Lesson[] = [
     id: 'repeat-noop',
     title: 'Repeat, and why it looks broken',
     body:
-      'From Control, drag a Repeat block in and put your Set block inside it. ' +
-      'Set it back to −55° and press Test. Nothing changes — the score is ' +
-      'identical. The first iteration drives the joint to −55°; the rest drive it ' +
+      'From Control, drag a Repeat block in and put your Base Yaw block inside ' +
+      'it. Press Test. Nothing changes — the score is identical. The first ' +
+      `iteration drives the joint to ${TUTORIAL_ANGLE_DEG}°; the rest drive it ` +
       'to where it already is.',
     hint: 'Drop the Set block into the "Do" slot inside the Repeat block.',
     done: (context) => hasRepeat(context.program),
@@ -118,9 +151,12 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Make the repeat actually sweep',
     body:
       'Add a second Set block inside the Repeat, below the first, and give it a ' +
-      'different angle — −38° works. Now each iteration moves the tool back and ' +
-      'forth across the hair. Press Test and watch the score climb.',
-    hint: 'Two blocks inside Do: Base Yaw −55°, then Base Yaw −38°.',
+      `different angle — ${TUTORIAL_SWEEP_ANGLE_DEG}° works. Now each iteration ` +
+      'moves the tool back and forth across the hair instead of parking it. ' +
+      'Press Test and watch the score climb.',
+    hint:
+      `Two blocks inside Do: X · Base Yaw ${TUTORIAL_ANGLE_DEG}°, then ` +
+      `X · Base Yaw ${TUTORIAL_SWEEP_ANGLE_DEG}°.`,
     done: (context) => repeatSweeps(context.program, TUTORIAL_JOINT),
   },
   {

@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { LESSONS, TUTORIAL_JOINT, type TutorialContext } from '../../src/features/tutorial/lessons';
-import type { Program, ProgramNode } from '../../src/features/blockly/programTypes';
+import {
+  LESSONS,
+  TUTORIAL_HEAD_ANGLE_DEG,
+  TUTORIAL_HEAD_JOINT,
+  TUTORIAL_ANGLE_DEG,
+  TUTORIAL_JOINT,
+  TUTORIAL_SWEEP_ANGLE_DEG,
+  type TutorialContext,
+} from '../../src/features/tutorial/lessons';
+import type {
+  CompiledProgram,
+  Program,
+  ProgramNode,
+  RobotCommand,
+} from '../../src/features/blockly/programTypes';
+import { SimulationEngine } from '../../src/features/simulation/SimulationEngine';
 import type { SimulationSnapshot } from '../../src/features/simulation/SimulationEngine';
+import { defaultChallengeDefinition } from '../../src/data/challenges/defaultChallenge';
+import { normalizeChallenge } from '../../src/services/normalizeChallenge';
+import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
 
 const snapshot = (over: Partial<SimulationSnapshot> = {}): SimulationSnapshot => ({
   status: 'idle',
@@ -58,15 +75,17 @@ describe('tutorial lessons', () => {
   it('notices the first block, and then the specific angle', () => {
     expect(lesson('first-block').done?.(context())).toBe(false);
     expect(
-      lesson('first-block').done?.(context({ program: program([setJoint(10)]) })),
+      lesson('first-block').done?.(context({ program: program([setJoint(90)]) })),
     ).toBe(true);
 
     // The angle step is stricter than the placement step.
     expect(
-      lesson('absolute').done?.(context({ program: program([setJoint(10)]) })),
+      lesson('absolute').done?.(context({ program: program([setJoint(90)]) })),
     ).toBe(false);
     expect(
-      lesson('absolute').done?.(context({ program: program([setJoint(-55)]) })),
+      lesson('absolute').done?.(
+        context({ program: program([setJoint(TUTORIAL_ANGLE_DEG)]) }),
+      ),
     ).toBe(true);
   });
 
@@ -89,14 +108,19 @@ describe('tutorial lessons', () => {
 
   it('distinguishes a repeat that sweeps from one that cannot', () => {
     const noop = program([
-      { type: 'repeat', count: 5, sourceBlockId: 'r', body: [setJoint(-55)] },
+      {
+        type: 'repeat',
+        count: 5,
+        sourceBlockId: 'r',
+        body: [setJoint(TUTORIAL_ANGLE_DEG)],
+      },
     ]);
     const sweeps = program([
       {
         type: 'repeat',
         count: 3,
         sourceBlockId: 'r',
-        body: [setJoint(-55), setJoint(-38)],
+        body: [setJoint(TUTORIAL_ANGLE_DEG), setJoint(TUTORIAL_SWEEP_ANGLE_DEG)],
       },
     ]);
 
@@ -113,7 +137,12 @@ describe('tutorial lessons', () => {
 
   it('looks inside repeat bodies when checking for a command', () => {
     const nested = program([
-      { type: 'repeat', count: 2, sourceBlockId: 'r', body: [setJoint(-55)] },
+      {
+        type: 'repeat',
+        count: 2,
+        sourceBlockId: 'r',
+        body: [setJoint(TUTORIAL_ANGLE_DEG)],
+      },
     ]);
     expect(lesson('absolute').done?.(context({ program: nested }))).toBe(true);
   });
@@ -132,6 +161,104 @@ describe('tutorial lessons', () => {
               finalScore: 50,
               programCost: 1,
             },
+          }),
+        }),
+      ),
+    ).toBe(true);
+  });
+});
+
+/**
+ * Run a straight-line servo program against the challenge the tutorial pins
+ * itself to, and report what the engine did with it.
+ *
+ * The tutorial's text names specific angles, and those angles are only true of
+ * this challenge's joint limits and head position. Asserting them against the
+ * real engine is what stops the copy drifting the way it did when the joint
+ * convention moved from signed geometric degrees to servo degrees.
+ */
+function play(steps: readonly { jointId: string; angleDeg: number }[]) {
+  const challenge = normalizeChallenge(defaultChallengeDefinition);
+  const engine = new SimulationEngine(challenge, new LocalScoreProvider());
+  const commands: RobotCommand[] = steps.map((entry, index) => ({
+    type: 'set-joint-angle',
+    jointId: entry.jointId,
+    angleDeg: entry.angleDeg,
+    sourceBlockId: `a${index}`,
+  }));
+  const compiled: CompiledProgram = {
+    program: { nodes: commands, sourceBlockCount: commands.length },
+    runtimeCommands: commands,
+    executedCommandCount: commands.length,
+  };
+  engine.run(compiled);
+  for (let tick = 0; tick < 80_000; tick += 1) {
+    if (engine.getSnapshot().status !== 'running') break;
+    engine.tick(16);
+  }
+  const state = engine.getSnapshot();
+  return {
+    status: state.status,
+    errorMessage: state.errorMessage ?? '',
+    removed: challenge.initialHair.voxels.size - state.hairVoxels.size,
+  };
+}
+
+const jointLimits = (jointId: string) => {
+  const joint = defaultChallengeDefinition.robotConfig.joints.find(
+    (candidate) => candidate.id === jointId,
+  );
+  if (!joint) throw new Error(`no joint "${jointId}"`);
+  return joint;
+};
+
+describe('the angles the tutorial teaches', () => {
+  it('are inside the shipped challenge\'s joint limits', () => {
+    // The block field clamps to the joint's range, so an angle outside it is an
+    // instruction the learner physically cannot follow: the step never turns
+    // green and the tutorial dead-ends.
+    const base = jointLimits(TUTORIAL_JOINT);
+    for (const angle of [TUTORIAL_ANGLE_DEG, TUTORIAL_SWEEP_ANGLE_DEG]) {
+      expect(angle, `${TUTORIAL_JOINT} ${angle}°`).toBeGreaterThanOrEqual(base.minAngleDeg);
+      expect(angle, `${TUTORIAL_JOINT} ${angle}°`).toBeLessThanOrEqual(base.maxAngleDeg);
+    }
+    const head = jointLimits(TUTORIAL_HEAD_JOINT);
+    expect(TUTORIAL_HEAD_ANGLE_DEG).toBeGreaterThanOrEqual(head.minAngleDeg);
+    expect(TUTORIAL_HEAD_ANGLE_DEG).toBeLessThanOrEqual(head.maxAngleDeg);
+  });
+
+  it('cuts more at the sweep angle than at the first one', () => {
+    // "Watch the score climb" has to be true: the second angle in the repeat
+    // must widen the swept band, or the step teaches the opposite of its point.
+    const first = play([{ jointId: TUTORIAL_JOINT, angleDeg: TUTORIAL_ANGLE_DEG }]);
+    const swept = play([
+      { jointId: TUTORIAL_JOINT, angleDeg: TUTORIAL_ANGLE_DEG },
+      { jointId: TUTORIAL_JOINT, angleDeg: TUTORIAL_SWEEP_ANGLE_DEG },
+    ]);
+    expect(first.status).toBe('completed');
+    expect(swept.status).toBe('completed');
+    expect(first.removed).toBeGreaterThan(0);
+    expect(swept.removed).toBeGreaterThan(first.removed);
+  });
+
+  it('really does stop on the head at the collision step', () => {
+    // And only there: the step before it must complete, or the learner meets
+    // the collision one step early and reads it as a bug.
+    expect(play([{ jointId: TUTORIAL_JOINT, angleDeg: TUTORIAL_ANGLE_DEG }]).status)
+      .toBe('completed');
+    const collided = play([
+      { jointId: TUTORIAL_JOINT, angleDeg: TUTORIAL_ANGLE_DEG },
+      { jointId: TUTORIAL_HEAD_JOINT, angleDeg: TUTORIAL_HEAD_ANGLE_DEG },
+    ]);
+    expect(collided.status).toBe('error');
+    expect(collided.errorMessage.toLowerCase()).toContain('head');
+    // The step's own predicate accepts what the engine actually produced.
+    expect(
+      lesson('head').done?.(
+        context({
+          snapshot: snapshot({
+            status: 'error',
+            errorMessage: collided.errorMessage,
           }),
         }),
       ),
