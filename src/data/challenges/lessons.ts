@@ -4,6 +4,7 @@ import { servoJointLabel } from '../../features/robot/servoMapping';
 import {
   buildConceptQuestion,
   type LessonAssessments,
+  type LessonSectionRequirement,
 } from '../../features/tutorial/lessonAssessments';
 
 /**
@@ -62,6 +63,8 @@ export interface ServoLessonSection {
   title: string;
   body: string;
   activity: 'read' | 'predict' | 'build' | 'observe' | 'challenge' | 'recap';
+  /** The control this section teaches, when the activity would name another. */
+  requirement?: LessonSectionRequirement;
 }
 
 interface LessonSeed extends Omit<Lesson, 'sections' | 'assessments'> {
@@ -275,7 +278,7 @@ function buildServoSections(seed: LessonSeed): ServoLessonSection[] {
     { title: 'Identify the active joints', body: `This lesson can be solved by reasoning about: ${jointNames}. Explain the role of each before adding blocks.`, activity: 'predict' },
     { title: 'Predict the motion', body: seed.activities[0], activity: 'predict' },
     { title: 'Build a first attempt', body: 'Create the smallest program you think can reach the target. Keep all commands in the intended execution order.', activity: 'build' },
-    { title: 'Use Step', body: seed.activities[1], activity: 'observe' },
+    { title: 'Use Step', body: seed.activities[1], activity: 'observe', requirement: 'step' },
     { title: 'Use Test', body: 'Press Test and compare completion, the target outline, and any collision message with your prediction.', activity: 'observe' },
     { title: 'Change one variable', body: 'Reset and change only one joint angle or one command position so the score difference has a clear cause.', activity: 'challenge' },
     { title: 'Read the evidence', body: 'Use joint telemetry, executed block highlighting, and the event log to explain what the program actually did.', activity: 'observe' },

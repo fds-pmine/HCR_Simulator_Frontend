@@ -127,7 +127,16 @@ test('opens a dedicated Cutter Grid lesson without exposing Servo mode', async (
     if (section === 19) {
       await answerQuiz(page, CUTTER_GRID_LESSONS[0].assessments.multipleChoice);
     }
-    await page.getByTestId('next-grid-section').click();
+    const next = page.getByTestId('next-grid-section');
+    // Every observe and challenge section asks for work of its own. The Test
+    // pressed above satisfies the section it was pressed on and no other:
+    // a lesson-wide "has tested once" flag marked all seven of them done at
+    // the first press. "Use Step" asks for the button it names.
+    if (!(await next.isEnabled())) {
+      await pressTheControlThisSectionTeaches(page);
+      await expect(next).toBeEnabled({ timeout: 60_000 });
+    }
+    await next.click();
   }
   await expect(page.getByText('Lesson 1 / 10 · Section 20')).toBeVisible();
   await expect(page.getByTestId('previous-grid-section')).toBeVisible();
@@ -324,7 +333,14 @@ test('keeps a Servo Angles lesson in twenty sections before its scored gate', as
     if (section === 19) {
       await answerQuiz(page, LESSONS[0].assessments.multipleChoice);
     }
-    await page.getByTestId('next-angle-section').click();
+    const next = page.getByTestId('next-angle-section');
+    // As on the Grid side, each observe and challenge section wants its own
+    // Test — or its own Step — rather than inheriting the first one.
+    if (!(await next.isEnabled())) {
+      await pressTheControlThisSectionTeaches(page);
+      await expect(next).toBeEnabled({ timeout: 60_000 });
+    }
+    await next.click();
   }
 
   await expect(page.getByText('Lesson 1 / 8 · Section 20')).toBeVisible();
@@ -337,6 +353,21 @@ test('keeps a Servo Angles lesson in twenty sections before its scored gate', as
   });
   await expect(page.getByTestId('next-lesson')).toHaveText('Next lesson');
 });
+
+/**
+ * Satisfy the open section by pressing the control it teaches.
+ *
+ * "Use Step" says "press Step once" and is gated on Step; every other gated
+ * section is gated on a completed Test.
+ */
+async function pressTheControlThisSectionTeaches(
+  page: import('@playwright/test').Page,
+): Promise<void> {
+  const stepSection = await page
+    .getByRole('heading', { name: 'Use Step' })
+    .isVisible();
+  await page.getByTestId(stepSection ? 'step-button' : 'test-button').click();
+}
 
 /** Pass a lesson's multiple choice the way a learner does. */
 async function answerQuiz(

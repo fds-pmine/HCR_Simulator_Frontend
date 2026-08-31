@@ -317,6 +317,19 @@ inherit them silently:
       workspace program that shows the lesson's concept, `observe` and
       `challenge` require a completed Test. Reading and predicting sections
       never block, and the quiz and closing practical keep their own gates.
+- [x] The Test evidence is per section, not per lesson. A lesson-wide test
+      counter let the first Test satisfy every later `observe` and `challenge`
+      section at once, so one press marked seven sections done.
+- [x] A section may name the control it teaches instead of inheriting one from
+      its activity. "Use Step" is gated on Step: it told the learner to press
+      Step and then only accepted Test.
+- [x] Every Grid lesson example is a route, because three sections template it
+      as "read / trace / build this program". Four lessons carried prose there,
+      which those sections rendered unbuildable — and left English inside every
+      translated lesson, since routes are deliberately not localized.
+- [x] Both Chinese variants are checked for script purity. Each is converted
+      from the other character by character, and characters missing from a
+      conversion table were displayed in the wrong script.
 - [x] The lesson checkpoint no longer prints the program it asks the learner to
       rebuild from memory. The requirement stays visible as the practical
       prompt beneath it.

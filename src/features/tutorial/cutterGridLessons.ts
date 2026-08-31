@@ -1,6 +1,7 @@
 import {
   buildConceptQuestion,
   type LessonAssessments,
+  type LessonSectionRequirement,
 } from './lessonAssessments';
 
 export interface CutterGridLesson {
@@ -18,6 +19,12 @@ export interface CutterGridLessonSection {
   title: string;
   body: string;
   activity: 'read' | 'predict' | 'build' | 'observe' | 'challenge' | 'recap';
+  /**
+   * The control this section teaches, when the activity alone would name the
+   * wrong one. "Use Step" asks for Step; every other observe section asks for
+   * a completed Test.
+   */
+  requirement?: LessonSectionRequirement;
 }
 
 interface CutterGridLessonSeed extends Omit<CutterGridLesson, 'sections' | 'assessments'> {
@@ -88,7 +95,7 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     name: 'Grid 4 · Watch the Swept Path',
     description: 'The cutter is always active and can remove more than one voxel.',
     goal: 'Choose a path that removes only target hair. The planner never routes around hair.',
-    example: 'Compare Test results for two different block orders.',
+    example: 'Left 2 → Up 2',
     concepts: [
       'The cutter stays active for positioning between every pair of programmed endpoints.',
       'Hair removal follows the actual swept tool volume, not just the visible endpoint coordinates.',
@@ -107,7 +114,7 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     name: 'Grid 5 · Blocked Nodes',
     description: 'Some grid coordinates are outside the arm’s certified joint space.',
     goal: 'Use the overlay to avoid blocked nodes; an unreachable move fails before execution.',
-    example: 'Turn on Grid and inspect the orange blocked coordinates.',
+    example: 'Right 1 → Up 2',
     concepts: [
       'A grid coordinate can be inside the display bounds yet have no certified safe IK candidate.',
       'Orange nodes mean no safe IK was found; cyan nodes have known candidates but still need path planning.',
@@ -164,7 +171,7 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     name: 'Grid 8 · Route Order',
     description: 'Reach the same endpoint through different swept paths.',
     goal: 'Reorder axis moves and compare cuts: equal endpoints do not imply equal hair removal.',
-    example: 'Left 3 → Up 7 is a different cut from Up 7 → Left 3.',
+    example: 'Left 3 → Up 2',
     concepts: [
       'Axis-aligned moves can commute algebraically while their physical swept paths do not.',
       'Program order fixes every intermediate waypoint even when the final coordinate is unchanged.',
@@ -172,7 +179,7 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
       'Comparing only the final coordinate hides intermediate cuts and safety failures.',
     ],
     activities: [
-      'Calculate the shared endpoint of the two example routes.',
+      'Calculate the shared endpoint of Left 3 → Up 2 and Up 2 → Left 3.',
       'Test both orders and compare expected cuts and score.',
       'Debug the first segment responsible for a difference between the results.',
       'Find two three-block routes with the same endpoint and compare their swept paths.',
@@ -183,7 +190,7 @@ const CUTTER_GRID_LESSON_SEEDS: readonly CutterGridLessonSeed[] = [
     name: 'Grid 9 · Compact Programs',
     description: 'Express a straight run with one distance field.',
     goal: 'Replace adjacent moves in the same direction with one block, and know where that stops being free: the endpoints match, the motion between them does not.',
-    example: 'Up 1 → Up 1 → Up 1 becomes Up 3.',
+    example: 'Up 3',
     concepts: [
       'Adjacent moves in the same direction can be merged when their total distance is at most 12.',
       'Compression reduces source blocks and preserves logical distance, command cost, and every endpoint.',
@@ -233,7 +240,7 @@ function buildSections(seed: CutterGridLessonSeed): CutterGridLessonSection[] {
     { title: 'Predict before running', body: 'Write down the endpoint and the segments you expect the cutter to sweep.', activity: 'predict' },
     { title: 'Build the example', body: `Create this program in Blockly: ${seed.example}`, activity: 'build' },
     { title: 'Inspect the overlay', body: 'Turn on Grid and planned path. Match each programmed waypoint to the world-axis overlay.', activity: 'observe' },
-    { title: 'Use Step', body: 'Reset, then press Step once. Confirm which visible action completed and where the current coordinate moved.', activity: 'observe' },
+    { title: 'Use Step', body: 'Reset, then press Step once. Confirm which visible action completed and where the current coordinate moved.', activity: 'observe', requirement: 'step' },
     { title: 'Use Test', body: 'Press Test and compare the score, expected cuts, and final coordinate with your prediction.', activity: 'observe' },
     { title: 'First variation', body: seed.activities[0], activity: 'challenge' },
     { title: 'Second variation', body: seed.activities[1], activity: 'challenge' },

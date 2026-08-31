@@ -16,12 +16,21 @@ import {
   lessonSectionRequirement,
   meetsCutterGridSectionRequirement,
   passesCutterGridPractical,
+  type LessonSectionEvidence,
 } from './lessonAssessments';
 import {
   loadStoredLessonState,
   saveStoredLessonState,
 } from './lessonProgress';
 import { useLocalization } from '../preferences/localization';
+
+/** Records a section index once; the same section can be practised repeatedly. */
+function withSection(
+  sections: readonly number[],
+  index: number,
+): readonly number[] {
+  return sections.includes(index) ? sections : [...sections, index];
+}
 
 /** Structural equality, so an unchanged workspace never re-renders the run. */
 function sameCutterGridProgram(
@@ -62,11 +71,22 @@ export function CutterGridLessonRun({
     lessonId: string;
     program: ReturnType<typeof cutterGridProgramFromCompilation>;
   }>({ lessonId, program: undefined });
+  // `testedSections` and `steppedSections` are the per-section evidence the
+  // observe and challenge gates read; `count` stays lesson-wide because the
+  // practical only asks that the real Test path has run at all.
   const [testProgress, setTestProgress] = useState<{
     lessonId: string;
     count: number;
+    testedSections: readonly number[];
+    steppedSections: readonly number[];
     testedProgram: ReturnType<typeof cutterGridProgramFromCompilation>;
-  }>({ lessonId, count: 0, testedProgram: undefined });
+  }>({
+    lessonId,
+    count: 0,
+    testedSections: [],
+    steppedSections: [],
+    testedProgram: undefined,
+  });
   const [quizProgress, setQuizProgress] = useState({
     lessonId,
     passed: savedProgress.quizPassed,
@@ -135,19 +155,46 @@ export function CutterGridLessonRun({
       program={testProgress.lessonId === lessonId ? testProgress.testedProgram : undefined}
       currentProgram={programProgress.lessonId === lessonId ? programProgress.program : undefined}
       successfulTestCount={testProgress.lessonId === lessonId ? testProgress.count : 0}
+      sectionEvidence={{
+        tested: testProgress.lessonId === lessonId
+          && testProgress.testedSections.includes(sectionIndex),
+        stepped: testProgress.lessonId === lessonId
+          && testProgress.steppedSections.includes(sectionIndex),
+      }}
       quizPassed={quizPassed}
       onQuizPassed={() => {
         setQuizProgress({ lessonId, passed: true });
         saveStoredLessonState(lessonId, { sectionIndex, quizPassed: true });
       }}
       onProgramChange={onProgramChange}
-      onTested={() => setTestProgress((current) => ({
-        lessonId,
-        count: current.lessonId === lessonId ? current.count + 1 : 1,
-        testedProgram: programProgress.lessonId === lessonId
-          ? programProgress.program
-          : undefined,
-      }))}
+      onTested={() => setTestProgress((current) => {
+        const sameLesson = current.lessonId === lessonId;
+        const tested = sameLesson ? current.testedSections : [];
+        return {
+          lessonId,
+          count: sameLesson ? current.count + 1 : 1,
+          testedSections: withSection(tested, sectionIndex),
+          steppedSections: sameLesson ? current.steppedSections : [],
+          testedProgram: programProgress.lessonId === lessonId
+            ? programProgress.program
+            : undefined,
+        };
+      })}
+      onStepped={() => setTestProgress((current) => {
+        const sameLesson = current.lessonId === lessonId;
+        return sameLesson
+          ? {
+            ...current,
+            steppedSections: withSection(current.steppedSections, sectionIndex),
+          }
+          : {
+            lessonId,
+            count: 0,
+            testedSections: [],
+            steppedSections: [sectionIndex],
+            testedProgram: undefined,
+          };
+      })}
       onSolved={onSolved}
       onPreviousSection={() =>
         updateSection(Math.max(0, sectionIndex - 1))
@@ -171,10 +218,12 @@ function CutterGridLessonStage({
   program,
   currentProgram,
   successfulTestCount,
+  sectionEvidence,
   quizPassed,
   onQuizPassed,
   onProgramChange,
   onTested,
+  onStepped,
   onSolved,
   onPreviousSection,
   onNextSection,
@@ -190,10 +239,13 @@ function CutterGridLessonStage({
   program: ReturnType<typeof cutterGridProgramFromCompilation>;
   currentProgram: ReturnType<typeof cutterGridProgramFromCompilation>;
   successfulTestCount: number;
+  /** What the learner has done while this very section was open. */
+  sectionEvidence: LessonSectionEvidence;
   quizPassed: boolean;
   onQuizPassed: () => void;
   onProgramChange: (compilation: EditorCompilation | undefined) => void;
   onTested: () => void;
+  onStepped: () => void;
   onSolved: (lessonId: string) => void;
   onPreviousSection: () => void;
   onNextSection: () => void;
@@ -213,10 +265,10 @@ function CutterGridLessonStage({
   // actually done it, so a lesson cannot be clicked through unpractised.
   const section = lesson.sections[sectionIndex];
   const sectionSatisfied = meetsCutterGridSectionRequirement(
-    lessonSectionRequirement(section.activity),
+    lessonSectionRequirement(section),
     lessonId,
     currentProgram,
-    successfulTestCount,
+    sectionEvidence,
   );
 
   useEffect(() => {
@@ -262,6 +314,7 @@ function CutterGridLessonStage({
         ),
         onProgramChange,
         onTested,
+        onStepped,
       }}
     />
   );

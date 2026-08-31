@@ -101,6 +101,8 @@ export interface WorkbenchTutorial {
   ) => void;
   /** Test was pressed. */
   onTested: () => void;
+  /** Step was pressed and a step was actually issued to the engine. */
+  onStepped?: () => void;
   /**
    * When defined, changing this key clears Blockly and resets the simulation.
    * Lesson assessments use it when the learner enters a closed-book quiz.
@@ -421,28 +423,32 @@ export function SimulationWorkbench({
     // way forward was Reset.
     const resuming = snapshot.status === 'paused';
 
+    // A step the engine declines — one pressed mid-motion, say — is not
+    // evidence that the learner stepped, so the tutorial hears about it only
+    // when a step actually starts.
     if (programmingMode === 'cutter-grid') {
       if (resuming) {
-        engine.stepCutterGrid();
+        if (engine.stepCutterGrid()) tutorial?.onStepped?.();
         return;
       }
       const frozen = await frozenCutterPlan();
       if (frozen) {
-        engine.stepCutterGrid(
+        const stepped = engine.stepCutterGrid(
           frozen.plan,
           frozen.compiled.program.sourceBlockCount,
         );
+        if (stepped) tutorial?.onStepped?.();
       }
       return;
     }
 
     if (resuming) {
-      engine.step();
+      if (engine.step()) tutorial?.onStepped?.();
       return;
     }
     const compiled = compile();
-    if (compiled) {
-      engine.step(compiled);
+    if (compiled && engine.step(compiled)) {
+      tutorial?.onStepped?.();
     }
   };
 

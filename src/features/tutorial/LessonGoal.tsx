@@ -48,7 +48,7 @@ export function LessonGoal({
   // The quiz and the scored checkpoint carry their own gates below.
   const sectionRequirement = quizSection || lastSection
     ? 'none'
-    : lessonSectionRequirement(section.activity);
+    : lessonSectionRequirement(section);
   const lessonNumber = displayLesson.name.match(/^\d+/)?.[0] ?? '—';
 
   return (

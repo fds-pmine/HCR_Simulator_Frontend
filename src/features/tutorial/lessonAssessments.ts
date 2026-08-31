@@ -38,13 +38,33 @@ export function buildConceptQuestion(
  * Sections that only ask someone to read or predict stay freely navigable;
  * the ones that ask for work are the lesson. Skipping those and arriving at
  * the checkpoint having built nothing is the failure mode this prevents.
+ *
+ * The evidence is per section, not per lesson: a 'test' section asks for a Test
+ * pressed while that section is open. A lesson-wide "has tested at least once"
+ * counter satisfied every later observe and challenge section at once, so the
+ * first Test of a lesson marked the whole remaining run done.
  */
-export type LessonSectionRequirement = 'none' | 'program' | 'test';
+export type LessonSectionRequirement = 'none' | 'program' | 'test' | 'step';
 
+/** What a learner has actually done while the current section was open. */
+export interface LessonSectionEvidence {
+  tested: boolean;
+  stepped: boolean;
+}
+
+/**
+ * A section may name the control it teaches. The activity is a fallback for
+ * the ones that do not: "Use Step" asks for Step, and gating it on Test told
+ * the learner to press a button that did not release the section.
+ */
 export function lessonSectionRequirement(
-  activity: 'read' | 'predict' | 'build' | 'observe' | 'challenge' | 'recap',
+  section: {
+    activity: 'read' | 'predict' | 'build' | 'observe' | 'challenge' | 'recap';
+    requirement?: LessonSectionRequirement;
+  },
 ): LessonSectionRequirement {
-  switch (activity) {
+  if (section.requirement) return section.requirement;
+  switch (section.activity) {
     // "Create this program in Blockly: …" — the workspace has to show it.
     case 'build':
       return 'program';
@@ -62,10 +82,13 @@ export function meetsCutterGridSectionRequirement(
   requirement: LessonSectionRequirement,
   lessonId: string,
   program: CutterGridProgramV1 | undefined,
-  successfulTestCount: number,
+  evidence: LessonSectionEvidence,
 ): boolean {
   if (requirement === 'none') return true;
-  if (requirement === 'test') return successfulTestCount >= 1;
+  if (requirement === 'test') return evidence.tested;
+  // A Test runs the whole program at once, which is the thing a Step section
+  // is teaching the learner not to do, so it does not stand in for a Step.
+  if (requirement === 'step') return evidence.stepped;
   return matchesCutterGridConcept(lessonId, program);
 }
 
@@ -77,10 +100,11 @@ export function meetsCutterGridSectionRequirement(
 export function meetsServoSectionRequirement(
   requirement: LessonSectionRequirement,
   executedCommandCount: number,
-  successfulTestCount: number,
+  evidence: LessonSectionEvidence,
 ): boolean {
   if (requirement === 'none') return true;
-  if (requirement === 'test') return successfulTestCount >= 1;
+  if (requirement === 'test') return evidence.tested;
+  if (requirement === 'step') return evidence.stepped;
   return executedCommandCount >= 1;
 }
 

@@ -71,7 +71,7 @@ export function CutterGridLessonPanel({
   // The quiz and the closing practical carry their own gates below.
   const sectionRequirement = quizSection || lastSection
     ? 'none'
-    : lessonSectionRequirement(section.activity);
+    : lessonSectionRequirement(section);
 
   return (
     <aside className="tutorial cutter-grid-lesson-card" aria-label={t('gridLessonBadge')}>

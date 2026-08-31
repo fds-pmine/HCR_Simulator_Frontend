@@ -147,7 +147,7 @@ const ZH_TW_GRID_SEEDS: Readonly<Record<string, LocalizedGridSeed>> = {
       '只比較最終座標，會忽略中間切割和安全失敗。',
     ],
     activities: [
-      '計算兩條範例路徑共同的終點。',
+      '計算 Left 3 → Up 2 與 Up 2 → Left 3 共同的終點。',
       '測試兩種順序，並比較預計切除數量與分數。',
       '找出造成結果不同的第一段路徑。',
       '建立兩條終點相同的三積木塊路徑，再比較它們的掃掠路徑。',
@@ -271,6 +271,19 @@ const SIMPLIFIED_CHARACTERS: Readonly<Record<string, string>> = {
   '複': '复', '徑': '径', '單': '单', '圖': '图', '運': '运', '勢': '势',
   '線': '线', '髮': '发', '礙': '碍', '處': '处', '擇': '择', '則': '则',
   '護': '护', '繼': '继', '續': '续', '產': '产', '見': '见',
+  // Found by converting every zh-TW string in this file and looking for
+  // characters that came through unchanged: the panel was rendering lines like
+  // 「憑記憶…再用測試驗證」 to zh-CN readers, simplified frame around
+  // traditional words.
+  '論': '论', '樣': '样', '斷': '断', '範': '范', '兩': '两', '計': '计',
+  '輪': '轮', '邊': '边', '選': '选', '繞': '绕', '決': '决', '雙': '双',
+  '試': '试', '釋': '释', '沒': '没', '統': '统', '寬': '宽', '據': '据',
+  '遠': '远', '對': '对', '別': '别', '響': '响', '設': '设', '適': '适',
+  '許': '许', '驗': '验', '證': '证', '們': '们', '併': '并', '裡': '里',
+  '費': '费', '卻': '却', '減': '减', '況': '况', '畫': '画', '蹤': '踪',
+  '參': '参', '規': '规', '練': '练', '戰': '战', '遷': '迁', '剛': '刚',
+  '舉': '举', '憑': '凭', '記': '记', '憶': '忆', '夠': '够', '項': '项',
+  '敘': '叙',
 };
 
 export function toSimplifiedChinese(value: string): string {

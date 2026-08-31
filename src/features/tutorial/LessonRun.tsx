@@ -96,10 +96,13 @@ function LessonStage({
     Math.min(savedProgress.sectionIndex, lesson.sections.length - 1),
   );
   const [quizPassed, setQuizPassed] = useState(savedProgress.quizPassed);
-  // What the workspace currently holds and how often Test has completed —
-  // the evidence the build and observe sections are gated on.
+  // What the workspace currently holds and which sections a Test has completed
+  // in — the evidence the build and observe sections are gated on. The tested
+  // sections are tracked individually: a single lesson-wide count let the first
+  // Test satisfy every later observe and challenge section at once.
   const [executedCommandCount, setExecutedCommandCount] = useState(0);
-  const [testCount, setTestCount] = useState(0);
+  const [testedSections, setTestedSections] = useState<readonly number[]>([]);
+  const [steppedSections, setSteppedSections] = useState<readonly number[]>([]);
 
   const completion = snapshot.scoreResult?.completionScore ?? 0;
   const practicalPassed = completion >= 99.995;
@@ -119,11 +122,26 @@ function LessonStage({
       compilation?.mode === 'servo' ? compilation.compiled.executedCommandCount : 0,
     );
   }, []);
-  const onTested = useCallback(() => setTestCount((count) => count + 1), []);
+  const onTested = useCallback(
+    () => setTestedSections((tested) =>
+      tested.includes(sectionIndex) ? tested : [...tested, sectionIndex],
+    ),
+    [sectionIndex],
+  );
+  // "Use Step" asks for Step, so Step has to be reported like Test is.
+  const onStepped = useCallback(
+    () => setSteppedSections((stepped) =>
+      stepped.includes(sectionIndex) ? stepped : [...stepped, sectionIndex],
+    ),
+    [sectionIndex],
+  );
   const sectionSatisfied = meetsServoSectionRequirement(
-    lessonSectionRequirement(lesson.sections[sectionIndex].activity),
+    lessonSectionRequirement(lesson.sections[sectionIndex]),
     executedCommandCount,
-    testCount,
+    {
+      tested: testedSections.includes(sectionIndex),
+      stepped: steppedSections.includes(sectionIndex),
+    },
   );
   const updateSection = (index: number) => {
     setSectionIndex(index);
@@ -162,6 +180,7 @@ function LessonStage({
         ),
         onProgramChange,
         onTested,
+        onStepped,
       }}
     />
   );

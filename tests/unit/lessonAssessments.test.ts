@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { passesCutterGridPractical } from '../../src/features/tutorial/lessonAssessments';
+import {
+  lessonSectionRequirement,
+  meetsCutterGridSectionRequirement,
+  meetsServoSectionRequirement,
+  passesCutterGridPractical,
+} from '../../src/features/tutorial/lessonAssessments';
 import type { CutterGridNodeV1, CutterGridProgramV1 } from '../../src/features/cutter-grid/types';
+import { CUTTER_GRID_LESSONS } from '../../src/features/tutorial/cutterGridLessons';
+import { LESSONS } from '../../src/data/challenges/lessons';
 
 function program(nodes: CutterGridNodeV1[]): CutterGridProgramV1 {
   return {
@@ -47,5 +54,70 @@ describe('Cutter Grid Blockly practical gates', () => {
     const workspace = program([move('left', 3)]);
     expect(passesCutterGridPractical('cutter-grid-certified-cut', workspace, 1, 99, 'completed')).toBe(false);
     expect(passesCutterGridPractical('cutter-grid-certified-cut', workspace, 1, 100, 'completed')).toBe(true);
+  });
+});
+
+const NOTHING_DONE = { tested: false, stepped: false } as const;
+
+describe('section gates', () => {
+  /**
+   * The observe and challenge sections of one lesson each ask for their own
+   * Test. They used to share a lesson-wide counter, so the first Test of a
+   * lesson reported all seven of them done at once.
+   */
+  it('accepts a Test only for the section it was pressed on', () => {
+    const tested = [10];
+    const gridSection = (index: number) =>
+      meetsCutterGridSectionRequirement('test', 'cutter-grid-distance', undefined, {
+        tested: tested.includes(index),
+        stepped: false,
+      });
+    expect(gridSection(10)).toBe(true);
+    expect(gridSection(11)).toBe(false);
+
+    expect(meetsServoSectionRequirement('test', 0, { tested: true, stepped: false })).toBe(true);
+    expect(meetsServoSectionRequirement('test', 5, NOTHING_DONE)).toBe(false);
+  });
+
+  /**
+   * The "Use Step" section says "Reset, then press Step once", and it used to
+   * be gated on Test — pressing the button the section names left it waiting.
+   */
+  it('asks for Step, not Test, on a section that teaches Step', () => {
+    const stepSection = CUTTER_GRID_LESSONS[0].sections.find(
+      (section) => section.title === 'Use Step',
+    );
+    const servoStepSection = LESSONS[0].sections.find(
+      (section) => section.title === 'Use Step',
+    );
+    expect(stepSection).toBeDefined();
+    expect(servoStepSection).toBeDefined();
+    expect(lessonSectionRequirement(stepSection!)).toBe('step');
+    expect(lessonSectionRequirement(servoStepSection!)).toBe('step');
+
+    const gate = (evidence: { tested: boolean; stepped: boolean }) =>
+      meetsCutterGridSectionRequirement('step', 'cutter-grid-fixed-axes', undefined, evidence);
+    expect(gate({ tested: false, stepped: true })).toBe(true);
+    expect(gate({ tested: true, stepped: false })).toBe(false);
+    expect(meetsServoSectionRequirement('step', 5, { tested: true, stepped: false })).toBe(false);
+    expect(meetsServoSectionRequirement('step', 5, { tested: false, stepped: true })).toBe(true);
+  });
+
+  it('leaves reading sections open and holds build sections on the workspace', () => {
+    expect(lessonSectionRequirement({ activity: 'read' })).toBe('none');
+    expect(lessonSectionRequirement({ activity: 'observe' })).toBe('test');
+    expect(lessonSectionRequirement({ activity: 'challenge' })).toBe('test');
+    expect(lessonSectionRequirement({ activity: 'build' })).toBe('program');
+    expect(
+      meetsCutterGridSectionRequirement('none', 'cutter-grid-distance', undefined, NOTHING_DONE),
+    ).toBe(true);
+    expect(
+      meetsCutterGridSectionRequirement(
+        'program',
+        'cutter-grid-distance',
+        program([move('left', 3)]),
+        NOTHING_DONE,
+      ),
+    ).toBe(true);
   });
 });

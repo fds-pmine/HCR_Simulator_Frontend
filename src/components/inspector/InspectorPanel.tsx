@@ -121,7 +121,17 @@ export function InspectorPanel({
           </button>
           <dl className="cutter-grid-summary">
             <div><dt>{t('axes')}</dt><dd>{`+X ${blockCopy.moveDirection.right} · +Y ${blockCopy.moveDirection.up} · −Z ${blockCopy.moveDirection.forward}`}</dd></div>
-            <div><dt>{t('current')}</dt><dd>({(snapshot.cutterGrid?.currentCoord ?? [0, 0, 0]).join(', ')})</dd></div>
+            {/*
+              The arm only reaches the grid origin during the certified entry
+              that opens a run, so before that there is no current coordinate
+              to report. Defaulting to (0, 0, 0) claimed the cutter was at the
+              origin while it was visibly parked at the challenge start pose.
+            */}
+            <div><dt>{t('current')}</dt><dd>{
+              snapshot.cutterGrid && snapshot.status !== 'positioning'
+                ? `(${snapshot.cutterGrid.currentCoord.join(', ')})`
+                : t('notInGrid')
+            }</dd></div>
             <div><dt>{t('next')}</dt><dd>{snapshot.cutterGrid?.nextCoord ? `(${snapshot.cutterGrid.nextCoord.join(', ')})` : '—'}</dd></div>
             <div><dt>{t('progress')}</dt><dd>{snapshot.cutterGrid ? `${snapshot.cutterGrid.stepIndex}/${snapshot.cutterGrid.totalSteps} · ${Math.round(snapshot.cutterGrid.stepProgress * 100)}%` : t('notPlanned')}</dd></div>
             <div><dt>{t('pathState')}</dt><dd>{snapshot.cutterGrid?.diagnostics ? t('connectedProgram') : t('staticIkOnly')}</dd></div>

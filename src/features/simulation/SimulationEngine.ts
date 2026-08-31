@@ -264,10 +264,11 @@ export class SimulationEngine {
     this.publish();
   }
 
+  /** @returns whether a step was actually started. */
   stepCutterGrid(
     plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4,
     sourceBlockCount = 0,
-  ): void {
+  ): boolean {
     const resumable =
       this.status === 'paused' && this.executionMode === 'cutter-grid';
     if (!resumable) {
@@ -277,7 +278,7 @@ export class SimulationEngine {
         !RESTARTABLE_STATUSES.includes(this.status) &&
         this.status !== 'planning'
       ) {
-        return;
+        return false;
       }
       if (!plan) throw new Error('A Cutter Grid trajectory is required for the first step.');
       this.prepareCutterGridPlan(plan, sourceBlockCount);
@@ -285,19 +286,20 @@ export class SimulationEngine {
         this.beginCutterGridCompactPositioning(plan, 'step');
         this.addLog('system', 'Positioning cutter for the selected compact PTP branch.');
         this.publish();
-        return;
+        return true;
       }
       if (plan.version !== 1) {
         this.beginCutterGridPositioning(plan, 'step');
         this.addLog('system', 'Positioning cutter for the selected Cutter Grid branch.');
         this.publish();
-        return;
+        return true;
       }
     }
     this.stepTargetCommandCount = this.cutterExecutor.getStepIndex() + 1;
     this.status = 'running';
     this.addLog('system', 'Started single-step execution of one Cutter Grid action.');
     this.publish();
+    return true;
   }
 
   pause(): void {
@@ -319,13 +321,14 @@ export class SimulationEngine {
     this.publish();
   }
 
-  step(compiled?: CompiledProgram): void {
+  /** @returns whether a step was actually started. */
+  step(compiled?: CompiledProgram): boolean {
     if (this.status !== 'paused') {
       // Anything restartable begins a new run, exactly as `run` does. Only
       // `running`, `loading` and `positioning` fall through to a no-op, because
       // stepping into a run already in motion is meaningless.
       if (!RESTARTABLE_STATUSES.includes(this.status)) {
-        return;
+        return false;
       }
       if (!compiled) {
         throw new Error('A compiled program is required for the first step.');
@@ -338,6 +341,7 @@ export class SimulationEngine {
     this.status = 'running';
     this.addLog('system', 'Started single-step execution of one command.');
     this.publish();
+    return true;
   }
 
   stop(): void {
