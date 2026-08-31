@@ -239,7 +239,7 @@ function buildSections(seed: CutterGridLessonSeed): CutterGridLessonSection[] {
     { title: 'Trace it on paper', body: `Start at (0, 0, 0) and trace: ${seed.example}`, activity: 'predict' },
     { title: 'Predict before running', body: 'Write down the endpoint and the segments you expect the cutter to sweep.', activity: 'predict' },
     { title: 'Build the example', body: `Create this program in Blockly: ${seed.example}`, activity: 'build' },
-    { title: 'Inspect the overlay', body: 'Turn on Grid and planned path. Match each programmed waypoint to the world-axis overlay.', activity: 'observe' },
+    { title: 'Inspect the overlay', body: 'Turn on Grid and planned path. Match each programmed waypoint to the world-axis overlay.', activity: 'observe', requirement: 'overlay' },
     { title: 'Use Step', body: 'Reset, then press Step once. Confirm which visible action completed and where the current coordinate moved.', activity: 'observe', requirement: 'step' },
     { title: 'Use Test', body: 'Press Test and compare the score, expected cuts, and final coordinate with your prediction.', activity: 'observe' },
     { title: 'First variation', body: seed.activities[0], activity: 'challenge' },

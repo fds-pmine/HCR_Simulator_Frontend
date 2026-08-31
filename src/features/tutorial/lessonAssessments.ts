@@ -44,18 +44,21 @@ export function buildConceptQuestion(
  * counter satisfied every later observe and challenge section at once, so the
  * first Test of a lesson marked the whole remaining run done.
  */
-export type LessonSectionRequirement = 'none' | 'program' | 'test' | 'step';
+export type LessonSectionRequirement = 'none' | 'program' | 'test' | 'step' | 'overlay';
 
 /** What a learner has actually done while the current section was open. */
 export interface LessonSectionEvidence {
   tested: boolean;
   stepped: boolean;
+  /** The Grid and planned-path overlay is showing. */
+  overlayShown: boolean;
 }
 
 /**
  * A section may name the control it teaches. The activity is a fallback for
- * the ones that do not: "Use Step" asks for Step, and gating it on Test told
- * the learner to press a button that did not release the section.
+ * the ones that do not: "Use Step" asks for Step and "Inspect the overlay"
+ * asks for the overlay, and gating either on Test told the learner to press a
+ * button that did not release the section.
  */
 export function lessonSectionRequirement(
   section: {
@@ -89,6 +92,7 @@ export function meetsCutterGridSectionRequirement(
   // A Test runs the whole program at once, which is the thing a Step section
   // is teaching the learner not to do, so it does not stand in for a Step.
   if (requirement === 'step') return evidence.stepped;
+  if (requirement === 'overlay') return evidence.overlayShown;
   return matchesCutterGridConcept(lessonId, program);
 }
 
@@ -105,6 +109,7 @@ export function meetsServoSectionRequirement(
   if (requirement === 'none') return true;
   if (requirement === 'test') return evidence.tested;
   if (requirement === 'step') return evidence.stepped;
+  if (requirement === 'overlay') return evidence.overlayShown;
   return executedCommandCount >= 1;
 }
 

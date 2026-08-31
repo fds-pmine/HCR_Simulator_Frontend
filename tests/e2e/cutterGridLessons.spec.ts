@@ -363,6 +363,8 @@ test('keeps a Servo Angles lesson in twenty sections before its scored gate', as
 async function pressTheControlThisSectionTeaches(
   page: import('@playwright/test').Page,
 ): Promise<void> {
+  // "Inspect the overlay" is satisfied by the overlay, which is on by default,
+  // so a section still waiting here is one that asks for Step or Test.
   const stepSection = await page
     .getByRole('heading', { name: 'Use Step' })
     .isVisible();

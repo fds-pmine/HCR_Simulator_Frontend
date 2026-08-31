@@ -321,8 +321,10 @@ inherit them silently:
       counter let the first Test satisfy every later `observe` and `challenge`
       section at once, so one press marked seven sections done.
 - [x] A section may name the control it teaches instead of inheriting one from
-      its activity. "Use Step" is gated on Step: it told the learner to press
-      Step and then only accepted Test.
+      its activity. "Use Step" is gated on Step and "Inspect the overlay" on the
+      Grid overlay: each told the learner to use a control that then did not
+      release the section, leaving Test as the only way forward. "Inspect
+      telemetry" asks only for reading, and no longer demands a run at all.
 - [x] Every Grid lesson example is a route, because three sections template it
       as "read / trace / build this program". Four lessons carried prose there,
       which those sections rendered unbuildable — and left English inside every

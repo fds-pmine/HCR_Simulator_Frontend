@@ -57,7 +57,7 @@ describe('Cutter Grid Blockly practical gates', () => {
   });
 });
 
-const NOTHING_DONE = { tested: false, stepped: false } as const;
+const NOTHING_DONE = { tested: false, stepped: false, overlayShown: false } as const;
 
 describe('section gates', () => {
   /**
@@ -71,11 +71,12 @@ describe('section gates', () => {
       meetsCutterGridSectionRequirement('test', 'cutter-grid-distance', undefined, {
         tested: tested.includes(index),
         stepped: false,
+        overlayShown: false,
       });
     expect(gridSection(10)).toBe(true);
     expect(gridSection(11)).toBe(false);
 
-    expect(meetsServoSectionRequirement('test', 0, { tested: true, stepped: false })).toBe(true);
+    expect(meetsServoSectionRequirement('test', 0, { tested: true, stepped: false, overlayShown: false })).toBe(true);
     expect(meetsServoSectionRequirement('test', 5, NOTHING_DONE)).toBe(false);
   });
 
@@ -95,12 +96,30 @@ describe('section gates', () => {
     expect(lessonSectionRequirement(stepSection!)).toBe('step');
     expect(lessonSectionRequirement(servoStepSection!)).toBe('step');
 
-    const gate = (evidence: { tested: boolean; stepped: boolean }) =>
+    const gate = (evidence: { tested: boolean; stepped: boolean; overlayShown: boolean }) =>
       meetsCutterGridSectionRequirement('step', 'cutter-grid-fixed-axes', undefined, evidence);
-    expect(gate({ tested: false, stepped: true })).toBe(true);
-    expect(gate({ tested: true, stepped: false })).toBe(false);
-    expect(meetsServoSectionRequirement('step', 5, { tested: true, stepped: false })).toBe(false);
-    expect(meetsServoSectionRequirement('step', 5, { tested: false, stepped: true })).toBe(true);
+    expect(gate({ tested: false, stepped: true, overlayShown: false })).toBe(true);
+    expect(gate({ tested: true, stepped: false, overlayShown: false })).toBe(false);
+    expect(meetsServoSectionRequirement('step', 5, { tested: true, stepped: false, overlayShown: false })).toBe(false);
+    expect(meetsServoSectionRequirement('step', 5, { tested: false, stepped: true, overlayShown: false })).toBe(true);
+  });
+
+  /**
+   * "Inspect the overlay" says to turn on Grid and planned path. It used to be
+   * gated on Test, so toggling the overlay the section names did nothing and
+   * only a Test released it.
+   */
+  it('asks for the overlay on the section that teaches the overlay', () => {
+    const overlaySection = CUTTER_GRID_LESSONS[0].sections.find(
+      (section) => section.title === 'Inspect the overlay',
+    );
+    expect(overlaySection).toBeDefined();
+    expect(lessonSectionRequirement(overlaySection!)).toBe('overlay');
+
+    const gate = (evidence: { tested: boolean; stepped: boolean; overlayShown: boolean }) =>
+      meetsCutterGridSectionRequirement('overlay', 'cutter-grid-distance', undefined, evidence);
+    expect(gate({ tested: false, stepped: false, overlayShown: true })).toBe(true);
+    expect(gate({ tested: true, stepped: true, overlayShown: false })).toBe(false);
   });
 
   it('leaves reading sections open and holds build sections on the workspace', () => {

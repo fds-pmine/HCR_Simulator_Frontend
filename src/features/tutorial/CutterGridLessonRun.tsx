@@ -87,6 +87,14 @@ export function CutterGridLessonRun({
     steppedSections: [],
     testedProgram: undefined,
   });
+  // Sections that ask the learner to read the overlay are satisfied by the
+  // overlay being shown; a section already read stays satisfied if it is then
+  // hidden again.
+  const [overlayProgress, setOverlayProgress] = useState<{
+    lessonId: string;
+    visible: boolean;
+    shownSections: readonly number[];
+  }>({ lessonId, visible: false, shownSections: [] });
   const [quizProgress, setQuizProgress] = useState({
     lessonId,
     passed: savedProgress.quizPassed,
@@ -98,6 +106,20 @@ export function CutterGridLessonRun({
   // Workbench re-subscribes its Blockly listener whenever this identity moves,
   // and re-subscribing publishes immediately — a fresh arrow plus a fresh state
   // object turned that into an unbounded render loop.
+  // Keyed on the section as well as the lesson: the Workbench republishes the
+  // overlay state whenever this identity moves, so arriving at a section with
+  // the overlay already up records it, and reading it is not undone by hiding
+  // the overlay again afterwards.
+  const onGridOverlayChange = useCallback((visible: boolean) => {
+    setOverlayProgress((current) => {
+      const sameLesson = current.lessonId === lessonId;
+      const shownSections = sameLesson ? current.shownSections : [];
+      const next = visible ? withSection(shownSections, sectionIndex) : shownSections;
+      return sameLesson && current.visible === visible && next === current.shownSections
+        ? current
+        : { lessonId, visible, shownSections: next };
+    });
+  }, [lessonId, sectionIndex]);
   const onProgramChange = useCallback((compilation: EditorCompilation | undefined) => {
     const program = cutterGridProgramFromCompilation(compilation);
     setProgramProgress((current) =>
@@ -106,6 +128,9 @@ export function CutterGridLessonRun({
         : { lessonId, program },
     );
   }, [lessonId]);
+
+  const overlayVisible = overlayProgress.lessonId === lessonId
+    && overlayProgress.visible;
 
   useEffect(() => {
     let active = true;
@@ -160,6 +185,9 @@ export function CutterGridLessonRun({
           && testProgress.testedSections.includes(sectionIndex),
         stepped: testProgress.lessonId === lessonId
           && testProgress.steppedSections.includes(sectionIndex),
+        overlayShown: overlayVisible
+          || (overlayProgress.lessonId === lessonId
+            && overlayProgress.shownSections.includes(sectionIndex)),
       }}
       quizPassed={quizPassed}
       onQuizPassed={() => {
@@ -167,6 +195,7 @@ export function CutterGridLessonRun({
         saveStoredLessonState(lessonId, { sectionIndex, quizPassed: true });
       }}
       onProgramChange={onProgramChange}
+      onGridOverlayChange={onGridOverlayChange}
       onTested={() => setTestProgress((current) => {
         const sameLesson = current.lessonId === lessonId;
         const tested = sameLesson ? current.testedSections : [];
@@ -222,6 +251,7 @@ function CutterGridLessonStage({
   quizPassed,
   onQuizPassed,
   onProgramChange,
+  onGridOverlayChange,
   onTested,
   onStepped,
   onSolved,
@@ -244,6 +274,7 @@ function CutterGridLessonStage({
   quizPassed: boolean;
   onQuizPassed: () => void;
   onProgramChange: (compilation: EditorCompilation | undefined) => void;
+  onGridOverlayChange: (visible: boolean) => void;
   onTested: () => void;
   onStepped: () => void;
   onSolved: (lessonId: string) => void;
@@ -313,6 +344,7 @@ function CutterGridLessonStage({
           />
         ),
         onProgramChange,
+        onGridOverlayChange,
         onTested,
         onStepped,
       }}

@@ -141,6 +141,8 @@ function LessonStage({
     {
       tested: testedSections.includes(sectionIndex),
       stepped: steppedSections.includes(sectionIndex),
+      // Servo lessons have no Grid overlay; no section asks for one.
+      overlayShown: false,
     },
   );
   const updateSection = (index: number) => {

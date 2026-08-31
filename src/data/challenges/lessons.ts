@@ -274,7 +274,7 @@ function buildServoSections(seed: LessonSeed): ServoLessonSection[] {
     { title: 'Safety and scoring', body: seed.concepts[2], activity: 'read' },
     { title: 'Common mistake', body: seed.concepts[3], activity: 'predict' },
     { title: 'Read the start pose', body: formatPose(seed.startPose), activity: 'read' },
-    { title: 'Inspect telemetry', body: 'Find every starting angle in the Inspector and identify which values already match the intended setup.', activity: 'observe' },
+    { title: 'Inspect telemetry', body: 'Find every starting angle in the Inspector and identify which values already match the intended setup.', activity: 'observe', requirement: 'none' },
     { title: 'Identify the active joints', body: `This lesson can be solved by reasoning about: ${jointNames}. Explain the role of each before adding blocks.`, activity: 'predict' },
     { title: 'Predict the motion', body: seed.activities[0], activity: 'predict' },
     { title: 'Build a first attempt', body: 'Create the smallest program you think can reach the target. Keep all commands in the intended execution order.', activity: 'build' },

@@ -103,6 +103,8 @@ export interface WorkbenchTutorial {
   onTested: () => void;
   /** Step was pressed and a step was actually issued to the engine. */
   onStepped?: () => void;
+  /** The Grid and planned-path overlay was shown or hidden. */
+  onGridOverlayChange?: (visible: boolean) => void;
   /**
    * When defined, changing this key clears Blockly and resets the simulation.
    * Lesson assessments use it when the learner enters a closed-book quiz.
@@ -241,6 +243,12 @@ export function SimulationWorkbench({
   // than inside the editor keeps the editor unaware that a tutorial exists.
   const report = tutorial?.onProgramChange;
   const reportProgrammingMode = tutorial?.onProgrammingModeChange;
+  // Sections that ask the learner to read the overlay are satisfied by the
+  // overlay, so its state is reported the same way the workspace is.
+  const reportGridOverlay = tutorial?.onGridOverlayChange;
+  useEffect(() => {
+    reportGridOverlay?.(showCutterGrid);
+  }, [reportGridOverlay, showCutterGrid]);
   useEffect(() => {
     reportProgrammingMode?.(programmingMode);
   }, [programmingMode, reportProgrammingMode]);
