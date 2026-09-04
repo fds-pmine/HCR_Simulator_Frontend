@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { ArrowLeft, Check, GraduationCap, LockKeyhole } from 'lucide-react';
 import { LESSONS } from '../../data/challenges/lessons';
 import { CUTTER_GRID_LESSONS } from './cutterGridLessons';
+import { loadLessonProgress } from './lessonProgress';
 import { useLocalization } from '../preferences/localization';
 import { localizeCutterGridLessons } from './cutterGridLessonLocalization';
 import { localizeServoLessons } from './servoLessonLocalization';
@@ -25,6 +27,17 @@ export function LessonPicker({
     locale,
   );
   const servoLessons = localizeServoLessons(LESSONS, locale);
+  // Where each unfinished lesson was left. A tick says a lesson is finished;
+  // without this, a lesson twelve sections in looked identical to one never
+  // opened.
+  const started = useMemo(() => loadLessonProgress().lessons, []);
+  const meta = (lessonId: string, unlocked: boolean, done: boolean, sections: number) => {
+    if (!unlocked) return t('lockedLesson');
+    const at = started[lessonId]?.sectionIndex ?? 0;
+    return !done && at > 0
+      ? `${t('section')} ${at + 1} / ${sections}`
+      : t('requiredAssessments');
+  };
   return (
     <main className="menu-screen">
       <div className="menu-screen__aura" aria-hidden="true" />
@@ -81,7 +94,7 @@ export function LessonPicker({
                 <small>{lesson.description}</small>
               </span>
               <span className="lesson-row__meta">
-                {unlocked ? t('requiredAssessments') : t('lockedLesson')}
+                {meta(lesson.id, unlocked, done, lesson.sections.length)}
               </span>
             </button>
           </li>
@@ -119,7 +132,7 @@ export function LessonPicker({
                   <small>{lesson.description}</small>
                 </span>
                 <span className="lesson-row__meta">
-                  {unlocked ? t('requiredAssessments') : t('lockedLesson')}
+                  {meta(lesson.id, unlocked, done, lesson.sections.length)}
                 </span>
               </button>
             </li>

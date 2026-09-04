@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { LESSONS } from '../../src/data/challenges/lessons';
 import { CUTTER_GRID_LESSONS } from '../../src/features/tutorial/cutterGridLessons';
+import { starterWorkspaceFor } from '../../src/features/tutorial/starterWorkspace';
 
 /** The certified route the Grid tutorial teaches, as the Profile defines it. */
 const CERTIFIED_ROUTE = gridProgram([
@@ -143,9 +144,13 @@ test('opens a dedicated Cutter Grid lesson without exposing Servo mode', async (
     // Every observe and challenge section asks for work of its own. The Test
     // pressed above satisfies the section it was pressed on and no other:
     // a lesson-wide "has tested once" flag marked all seven of them done at
-    // the first press. "Use Step" asks for the button it names.
+    // the first press. "Use Step" asks for the button it names, and a drill
+    // asks for the route it wants back rather than for any button at all.
     if (!(await next.isEnabled())) {
-      await pressTheControlThisSectionTeaches(page);
+      await doTheWorkThisSectionAsks(
+        page,
+        CUTTER_GRID_LESSONS[0].sections[section - 1],
+      );
       await expect(next).toBeEnabled({ timeout: 60_000 });
     }
     await next.click();
@@ -381,6 +386,27 @@ async function pressTheControlThisSectionTeaches(
     .getByRole('heading', { name: 'Use Step' })
     .isVisible();
   await page.getByTestId(stepSection ? 'step-button' : 'test-button').click();
+}
+
+/**
+ * Do whatever this Grid section is holding Next for.
+ *
+ * A drill is checked against the route it asks the learner to end up with, so
+ * no button satisfies it — the workspace has to hold that route.
+ */
+async function doTheWorkThisSectionAsks(
+  page: import('@playwright/test').Page,
+  section: (typeof CUTTER_GRID_LESSONS)[number]['sections'][number],
+): Promise<void> {
+  if (section.expected) {
+    const wanted = starterWorkspaceFor(section.expected);
+    if (!wanted) throw new Error(`Unparseable route: ${section.expected}`);
+    await seedWorkspace(page, wanted);
+    return;
+  }
+  await page.getByTestId(
+    section.requirement === 'step' ? 'step-button' : 'test-button',
+  ).click();
 }
 
 /** Pass a lesson's multiple choice the way a learner does. */

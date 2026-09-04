@@ -95,6 +95,12 @@ function LessonStage({
   const [sectionIndex, setSectionIndex] = useState(() =>
     Math.min(savedProgress.sectionIndex, lesson.sections.length - 1),
   );
+  // The furthest section reached. Everything below it was released by its own
+  // gate, so it stays released: a learner who goes back to re-read an earlier
+  // card must not have to earn their way forward a second time.
+  const [furthestSectionIndex, setFurthestSectionIndex] = useState(() =>
+    Math.min(savedProgress.sectionIndex, lesson.sections.length - 1),
+  );
   const [quizPassed, setQuizPassed] = useState(savedProgress.quizPassed);
   // What the workspace currently holds and which sections a Test has completed
   // in — the evidence the build and observe sections are gated on. The tested
@@ -147,6 +153,7 @@ function LessonStage({
   );
   const updateSection = (index: number) => {
     setSectionIndex(index);
+    setFurthestSectionIndex((furthest) => Math.max(furthest, index));
     saveStoredLessonState(lesson.id, { sectionIndex: index, quizPassed });
   };
 
@@ -170,12 +177,14 @@ function LessonStage({
               setQuizPassed(true);
               saveStoredLessonState(lesson.id, { sectionIndex, quizPassed: true });
             }}
-            sectionSatisfied={sectionSatisfied}
+            sectionSatisfied={sectionSatisfied || sectionIndex < furthestSectionIndex}
             sectionIndex={sectionIndex}
+            furthestSectionIndex={furthestSectionIndex}
             onPreviousSection={() => updateSection(Math.max(0, sectionIndex - 1))}
             onNextSection={() =>
               updateSection(Math.min(lesson.sections.length - 1, sectionIndex + 1))
             }
+            onSelectSection={updateSection}
             {...(onNext ? { onNext } : {})}
             onExit={onExit}
           />

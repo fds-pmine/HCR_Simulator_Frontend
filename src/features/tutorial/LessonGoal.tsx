@@ -10,6 +10,8 @@ import { useLocalization } from '../preferences/localization';
 import { lessonSectionRequirement } from './lessonAssessments';
 import { localizeServoLesson } from './servoLessonLocalization';
 import { LessonMultipleChoice } from './LessonMultipleChoice';
+import { LessonRequirement } from './LessonRequirement';
+import { LessonSectionProgress } from './LessonSectionProgress';
 
 interface LessonGoalProps {
   lesson: Lesson;
@@ -20,8 +22,11 @@ interface LessonGoalProps {
   /** Whether this section's own build-or-test requirement is met. */
   sectionSatisfied: boolean;
   sectionIndex: number;
+  /** The furthest section reached, so finished ones stay open to review. */
+  furthestSectionIndex: number;
   onPreviousSection: () => void;
   onNextSection: () => void;
+  onSelectSection: (index: number) => void;
   onNext?: () => void;
   onExit: () => void;
 }
@@ -35,8 +40,10 @@ export function LessonGoal({
   onQuizPassed,
   sectionSatisfied,
   sectionIndex,
+  furthestSectionIndex,
   onPreviousSection,
   onNextSection,
+  onSelectSection,
   onNext,
   onExit,
 }: LessonGoalProps) {
@@ -61,18 +68,20 @@ export function LessonGoal({
           <GraduationCap size={14} /> {t('servoLessonBadge')}
         </span>
         <span className="tutorial__progress">
-          {t('lesson')} {lessonNumber} / 8 · {t('section')} {sectionIndex + 1}
+          {t('lesson')} {lessonNumber} / 8 · {t('section')} {sectionIndex + 1} /{' '}
+          {displayLesson.sections.length}
         </span>
         <button type="button" onClick={onExit} aria-label={t('backToLessons')}>
           <LogOut size={15} />
         </button>
       </header>
 
-      <div className="tutorial__steps" aria-label={t('progress')}>
-        {displayLesson.sections.map((entry, index) => (
-          <i key={entry.id} className={index <= sectionIndex ? 'is-reached' : ''} />
-        ))}
-      </div>
+      <LessonSectionProgress
+        sectionCount={displayLesson.sections.length}
+        sectionIndex={sectionIndex}
+        furthestIndex={furthestSectionIndex}
+        {...(quizSection ? {} : { onSelectSection })}
+      />
 
       <p className="cutter-grid-lesson-card__lesson-name">{displayLesson.name}</p>
       <h2>{lastSection && solved ? t('solved') : section.title}</h2>
@@ -82,19 +91,28 @@ export function LessonGoal({
       </span>
 
       {/*
+        What the lesson is actually asking for, on every section that is not
+        closed-book. A section such as "Press Test and compare completion with
+        your prediction" never says which program to press Test on, and the one
+        card that does state it — the outcome — is eleven Next presses back.
+      */}
+      {quizSection || lastSection ? null : (
+        <p className="lesson-goal-recap" data-testid="lesson-goal-recap">
+          <strong>{t('thisLesson')}</strong>
+          <span>{displayLesson.goal}</span>
+        </p>
+      )}
+
+      {/*
         Build and observe sections report whether the work is there, and Next
         stays closed until it is: clicking past the practice and arriving at
         the scored checkpoint having built nothing is not a lesson.
       */}
-      {sectionRequirement === 'none' ? null : (
-        <span
-          className={`tutorial__state ${sectionSatisfied ? 'is-done' : ''}`}
-          data-testid="angle-section-requirement"
-        >
-          {sectionSatisfied ? <Check size={14} /> : <i className="tutorial__dot" />}
-          {sectionSatisfied ? t('done') : t('waitingForYou')}
-        </span>
-      )}
+      <LessonRequirement
+        requirement={sectionRequirement}
+        satisfied={sectionSatisfied}
+        testId="angle-section-requirement"
+      />
 
       {quizSection ? (
         <LessonMultipleChoice

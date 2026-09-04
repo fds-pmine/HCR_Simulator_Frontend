@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LESSONS } from '../../src/data/challenges/lessons';
 import { LessonPicker } from '../../src/features/tutorial/LessonPicker';
@@ -200,6 +200,8 @@ describe('Cutter Grid lesson sections', () => {
           lessonIndex={0}
           lessonTotal={CUTTER_GRID_LESSONS.length}
           sectionIndex={0}
+          furthestSectionIndex={0}
+          onSelectSection={() => {}}
           onPreviousSection={() => {}}
           onNextSection={() => {}}
           onNextLesson={() => {}}
@@ -229,6 +231,8 @@ describe('Cutter Grid lesson sections', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={0}
+        furthestSectionIndex={0}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={onNextSection}
         onNextLesson={() => {}}
@@ -256,6 +260,8 @@ describe('Cutter Grid lesson sections', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={7}
+        furthestSectionIndex={7}
+        onSelectSection={() => {}}
         onPreviousSection={onPreviousSection}
         onNextSection={() => {}}
         onNextLesson={() => {}}
@@ -279,6 +285,8 @@ describe('Cutter Grid lesson sections', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onNextLesson={onNextLesson}
@@ -305,6 +313,8 @@ describe('Cutter Grid lesson sections', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={lesson.sections.length - 2}
+        furthestSectionIndex={lesson.sections.length - 2}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onNextLesson={() => {}}
@@ -336,6 +346,8 @@ describe('Cutter Grid lesson sections', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={lesson.sections.length - 2}
+        furthestSectionIndex={lesson.sections.length - 2}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onNextLesson={() => {}}
@@ -357,6 +369,8 @@ describe('Cutter Grid lesson sections', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onNextLesson={() => {}}
@@ -378,6 +392,8 @@ describe('Cutter Grid lesson sections', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onNextLesson={() => {}}
@@ -400,6 +416,8 @@ describe('Cutter Grid lesson sections', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onNextLesson={() => {}}
@@ -471,6 +489,8 @@ describe('practice gating', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={buildSection}
+        furthestSectionIndex={buildSection}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={onNextSection}
         onExit={() => {}}
@@ -482,8 +502,10 @@ describe('practice gating', () => {
       />,
     );
 
+    // The state names the control that releases the section, not just that
+    // something is outstanding.
     expect(screen.getByTestId('grid-section-requirement')).toHaveTextContent(
-      'Waiting for you',
+      'Build the program',
     );
     expect(screen.getByTestId('next-grid-section')).toBeDisabled();
 
@@ -493,6 +515,8 @@ describe('practice gating', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={buildSection}
+        furthestSectionIndex={buildSection}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={onNextSection}
         onExit={() => {}}
@@ -514,7 +538,9 @@ describe('practice gating', () => {
    * "Compare Left 3 with three connected Left 1 blocks" told the learner what
    * the exercise was for but never what to leave on the canvas.
    */
-  it('names the route a drill section is checked against', () => {
+  it('offers the route a drill is checked against once the learner is stuck', () => {
+    vi.useFakeTimers();
+    try {
     const drill = gridLesson.sections.findIndex(
       (section) => section.starter && section.expected,
     );
@@ -527,6 +553,8 @@ describe('practice gating', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={drill}
+        furthestSectionIndex={drill}
+        onSelectSection={() => {}}
         quizPassed={false}
         practicalPassed={false}
         practicalAttempted={false}
@@ -538,7 +566,17 @@ describe('practice gating', () => {
       />,
     );
 
-    expect(screen.getByTestId('grid-drill-goal')).toHaveTextContent(section.expected!);
+    // The route is the answer, so it is offered only after two minutes of not
+    // having solved the section.
+    expect(screen.queryByTestId('grid-drill-goal')).not.toBeInTheDocument();
+    expect(screen.getByTestId('grid-drill-hint')).toBeInTheDocument();
+
+    act(() => { vi.advanceTimersByTime(120_000); });
+
+      expect(screen.getByTestId('grid-drill-goal')).toHaveTextContent(section.expected!);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('leaves reading sections freely navigable', () => {
@@ -551,6 +589,8 @@ describe('practice gating', () => {
         lessonIndex={0}
         lessonTotal={CUTTER_GRID_LESSONS.length}
         sectionIndex={readSection}
+        furthestSectionIndex={readSection}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onExit={() => {}}
@@ -612,6 +652,8 @@ describe('lesson progression', () => {
         onQuizPassed={() => {}}
         sectionSatisfied={true}
         sectionIndex={lesson.sections.length - 2}
+        furthestSectionIndex={lesson.sections.length - 2}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onExit={() => {}}
@@ -634,6 +676,8 @@ describe('lesson progression', () => {
         onQuizPassed={() => {}}
         sectionSatisfied={true}
         sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onNext={onNext}
@@ -656,6 +700,8 @@ describe('lesson progression', () => {
         onQuizPassed={() => {}}
         sectionSatisfied={true}
         sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onExit={onExit}
@@ -677,6 +723,8 @@ describe('lesson progression', () => {
         onQuizPassed={() => {}}
         sectionSatisfied={true}
         sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onExit={() => {}}
@@ -696,6 +744,8 @@ describe('lesson progression', () => {
         onQuizPassed={() => {}}
         sectionSatisfied={true}
         sectionIndex={0}
+        furthestSectionIndex={0}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={onNextSection}
         onNext={() => {}}
@@ -716,6 +766,8 @@ describe('lesson progression', () => {
         onQuizPassed={() => {}}
         sectionSatisfied={true}
         sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
         onPreviousSection={() => {}}
         onNextSection={() => {}}
         onNext={() => {}}
@@ -725,5 +777,131 @@ describe('lesson progression', () => {
     expect(screen.getByText(/Section 20/)).toBeInTheDocument();
     expect(screen.getByText('99.0 / 100')).toBeInTheDocument();
     expect(screen.queryByTestId('next-lesson')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The three things a class run found missing from a lesson card: it never
+ * restated what the lesson was asking for, it never named the control that
+ * releases a section, and there was no way back to a section already passed
+ * except one Previous press at a time.
+ */
+describe('reviewing a lesson while working through it', () => {
+  const grid = CUTTER_GRID_LESSONS[0];
+  const servo = LESSONS[2];
+  const useTest = grid.sections.findIndex((section) => section.title === 'Use Test');
+
+  function renderGrid(sectionIndex: number, furthest: number, onSelectSection = () => {}) {
+    return render(
+      <CutterGridLessonPanel
+        lesson={grid}
+        lessonIndex={0}
+        lessonTotal={CUTTER_GRID_LESSONS.length}
+        sectionIndex={sectionIndex}
+        furthestSectionIndex={furthest}
+        onSelectSection={onSelectSection}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onNextLesson={() => {}}
+        onExit={() => {}}
+        quizPassed={false}
+        practicalPassed={false}
+        practicalAttempted={false}
+        sectionSatisfied={false}
+        onQuizPassed={() => {}}
+      />,
+    );
+  }
+
+  it('restates what the lesson asks for on a work section', () => {
+    renderGrid(useTest, useTest);
+    const recap = screen.getByTestId('lesson-goal-recap');
+    expect(recap).toHaveTextContent(grid.goal);
+    expect(recap).toHaveTextContent(grid.example);
+  });
+
+  it('withholds it on the closed-book quiz and the final checkpoint', () => {
+    const { unmount } = renderGrid(grid.sections.length - 2, grid.sections.length - 2);
+    expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
+    unmount();
+
+    renderGrid(grid.sections.length - 1, grid.sections.length - 1);
+    expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
+  });
+
+  it('names Test as the control, and says what Run does instead', () => {
+    renderGrid(useTest, useTest);
+    expect(screen.getByTestId('grid-section-requirement')).toHaveTextContent(
+      'Press Test',
+    );
+    expect(screen.getByTestId('run-vs-test')).toHaveTextContent(
+      /Run plays the same program as an animation/,
+    );
+  });
+
+  it('drops the Run note once the section is satisfied', () => {
+    render(
+      <CutterGridLessonPanel
+        lesson={grid}
+        lessonIndex={0}
+        lessonTotal={CUTTER_GRID_LESSONS.length}
+        sectionIndex={useTest}
+        furthestSectionIndex={useTest}
+        onSelectSection={() => {}}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onNextLesson={() => {}}
+        onExit={() => {}}
+        quizPassed={false}
+        practicalPassed={false}
+        practicalAttempted={false}
+        sectionSatisfied
+        onQuizPassed={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('grid-section-requirement')).toHaveTextContent('Done');
+    expect(screen.queryByTestId('run-vs-test')).not.toBeInTheDocument();
+  });
+
+  it('jumps back to a finished section from the progress strip', () => {
+    const onSelectSection = vi.fn();
+    renderGrid(15, 15, onSelectSection);
+
+    // Finished sections are reachable; the current one and everything ahead of
+    // it are not, so the strip cannot be used to skip a gate.
+    fireEvent.click(screen.getByTestId('lesson-section-3'));
+    expect(onSelectSection).toHaveBeenCalledWith(2);
+    expect(screen.queryByTestId('lesson-section-16')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('lesson-section-17')).not.toBeInTheDocument();
+  });
+
+  it('counts the sections already finished', () => {
+    renderGrid(15, 15);
+    expect(screen.getByText('15 / 20')).toBeInTheDocument();
+  });
+
+  it('offers the same review on a Servo lesson card', () => {
+    const onSelectSection = vi.fn();
+    render(
+      <LessonGoal
+        lesson={servo}
+        solved={false}
+        quizPassed={false}
+        onQuizPassed={() => {}}
+        sectionSatisfied={false}
+        sectionIndex={12}
+        furthestSectionIndex={12}
+        onSelectSection={onSelectSection}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onExit={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('lesson-goal-recap')).toHaveTextContent(servo.goal);
+    expect(screen.getByTestId('angle-section-requirement')).toHaveTextContent(
+      'Press Test',
+    );
+    fireEvent.click(screen.getByTestId('lesson-section-1'));
+    expect(onSelectSection).toHaveBeenCalledWith(0);
   });
 });

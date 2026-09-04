@@ -64,7 +64,12 @@ export function TutorialPanel({
 
       <div className="tutorial__steps" aria-hidden="true">
         {Array.from({ length: total }, (_, step) => (
-          <i key={step} className={step <= index ? 'is-reached' : ''} />
+          <i
+            key={step}
+            className={`tutorial__step ${
+              step < index ? 'is-done' : step === index ? 'is-current' : ''
+            }`}
+          />
         ))}
       </div>
 

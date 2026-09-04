@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, LoaderCircle } from 'lucide-react';
 import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import { SimulationWorkbench } from '../../components/layout/SimulationWorkbench';
@@ -63,9 +63,15 @@ export function CutterGridLessonRun({
   const [sectionProgress, setSectionProgress] = useState({
     lessonId,
     index: savedSectionIndex,
+    // The furthest section reached. Everything below it was released by its own
+    // gate, so it stays released: going back to re-read an earlier card must
+    // not make the learner earn their way forward a second time.
+    furthest: savedSectionIndex,
   });
-  const sectionIndex = sectionProgress.lessonId === lessonId
-    ? sectionProgress.index
+  const sameSectionLesson = sectionProgress.lessonId === lessonId;
+  const sectionIndex = sameSectionLesson ? sectionProgress.index : savedSectionIndex;
+  const furthestSectionIndex = sameSectionLesson
+    ? sectionProgress.furthest
     : savedSectionIndex;
   const [challenge, setChallenge] = useState<Challenge>();
   const [programProgress, setProgramProgress] = useState<{
@@ -150,7 +156,11 @@ export function CutterGridLessonRun({
     [challenge],
   );
   const updateSection = (index: number) => {
-    setSectionProgress({ lessonId, index });
+    setSectionProgress({
+      lessonId,
+      index,
+      furthest: Math.max(furthestSectionIndex, index),
+    });
     saveStoredLessonState(lessonId, { sectionIndex: index, quizPassed });
   };
   if (!lesson) {
@@ -172,10 +182,12 @@ export function CutterGridLessonRun({
   }
   return (
     <CutterGridLessonStage
+      key={lessonId}
       lesson={lesson}
       lessonIndex={lessonIndex}
       lessonId={lessonId}
       sectionIndex={sectionIndex}
+      furthestSectionIndex={furthestSectionIndex}
       challenge={challenge}
       engine={engine}
       program={testProgress.lessonId === lessonId ? testProgress.testedProgram : undefined}
@@ -232,6 +244,7 @@ export function CutterGridLessonRun({
       onNextSection={() =>
         updateSection(Math.min(lesson.sections.length - 1, sectionIndex + 1))
       }
+      onSelectSection={updateSection}
       {...(onNext ? { onNext } : {})}
       onExit={onExit}
     />
@@ -243,6 +256,7 @@ function CutterGridLessonStage({
   lessonIndex,
   lessonId,
   sectionIndex,
+  furthestSectionIndex,
   challenge,
   engine,
   program,
@@ -258,6 +272,7 @@ function CutterGridLessonStage({
   onSolved,
   onPreviousSection,
   onNextSection,
+  onSelectSection,
   onNext,
   onExit,
 }: {
@@ -265,6 +280,8 @@ function CutterGridLessonStage({
   lessonIndex: number;
   lessonId: string;
   sectionIndex: number;
+  /** The furthest section reached, so finished ones stay open to review. */
+  furthestSectionIndex: number;
   challenge: Challenge;
   engine: SimulationEngine;
   program: ReturnType<typeof cutterGridProgramFromCompilation>;
@@ -281,6 +298,7 @@ function CutterGridLessonStage({
   onSolved: (lessonId: string) => void;
   onPreviousSection: () => void;
   onNextSection: () => void;
+  onSelectSection: (index: number) => void;
   onNext?: () => void;
   onExit: () => void;
 }) {
@@ -304,11 +322,30 @@ function CutterGridLessonStage({
     evidence: sectionEvidence,
   });
   // A drill hands the learner a route to change or repair, so it seeds the
-  // canvas on arrival. The key is what marks a new exercise; the quiz and the
-  // closing checkpoint keep clearing it instead.
+  // canvas the first time that drill is opened.
   const starter = section.starter
     ? starterWorkspaceFor(section.starter)
     : undefined;
+
+  // Clearing is keyed, so the workspace and the engine reset exactly when a new
+  // exercise starts: when the lesson opens, when a drill seeds its route, and
+  // when the closed-book quiz begins.
+  const exerciseKey = starter
+    ? `${lessonId}:drill-${sectionIndex}`
+    : sectionIndex >= lesson.sections.length - 2
+      ? `${lessonId}:quiz`
+      : `${lessonId}:start`;
+  // Each key is issued once. Deriving it from the current section alone meant
+  // stepping back one card to check what the lesson said cleared the canvas,
+  // and stepping forward again re-seeded the drill's broken starter — so going
+  // back to look at anything cost the learner the work they had done.
+  const [clearWorkspaceKey, setClearWorkspaceKey] = useState(exerciseKey);
+  const issuedKeys = useRef(new Set([exerciseKey]));
+  useEffect(() => {
+    if (issuedKeys.current.has(exerciseKey)) return;
+    issuedKeys.current.add(exerciseKey);
+    setClearWorkspaceKey(exerciseKey);
+  }, [exerciseKey]);
 
   useEffect(() => {
     if (solved) onSolved(lessonId);
@@ -323,19 +360,12 @@ function CutterGridLessonStage({
       availableProgrammingModes={['cutter-grid']}
       initialProgrammingMode="cutter-grid"
       tutorial={{
-        // Clearing is keyed, so the workspace and the engine reset exactly
-        // twice: when a lesson opens, and when its quiz starts.
-        //
         // Only the quiz used to clear, which meant the next lesson opened on
         // the finished program and completed run of the one before it. Several
         // practicals ask for little more than "a program that moves on two
         // axes", so the leftovers passed them: finish one lesson and the rest
         // fell over on a single Test press.
-        clearWorkspaceKey: starter
-          ? `${lessonId}:drill-${sectionIndex}`
-          : sectionIndex >= lesson.sections.length - 2
-            ? `${lessonId}:quiz`
-            : `${lessonId}:start`,
+        clearWorkspaceKey,
         ...(starter ? { starterWorkspace: starter } : {}),
         panel: (
           <CutterGridLessonPanel
@@ -343,13 +373,15 @@ function CutterGridLessonStage({
             lessonIndex={lessonIndex}
             lessonTotal={CUTTER_GRID_LESSONS.length}
             sectionIndex={sectionIndex}
+            furthestSectionIndex={furthestSectionIndex}
             quizPassed={quizPassed}
             practicalPassed={solved}
             practicalAttempted={successfulTestCount > 0}
-            sectionSatisfied={sectionSatisfied}
+            sectionSatisfied={sectionSatisfied || sectionIndex < furthestSectionIndex}
             onQuizPassed={onQuizPassed}
             onPreviousSection={onPreviousSection}
             onNextSection={onNextSection}
+            onSelectSection={onSelectSection}
             {...(onNext ? { onNextLesson: onNext } : {})}
             onExit={onExit}
           />

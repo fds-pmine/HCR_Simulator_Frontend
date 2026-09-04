@@ -401,6 +401,12 @@ export function SimulationWorkbench({
   };
 
   const handleTest = async () => {
+    // A step leaves the engine paused, which `run` refuses. Lessons put "Use
+    // Step" immediately before "Use Test", so the learner met a dead Test
+    // button and no hint that Reset was what unblocked it. Test resets the
+    // paused run itself: it evaluates the whole program from the start
+    // regardless, so there was never anything in the paused state to keep.
+    if (snapshot.status === 'paused') handleReset();
     if (programmingMode === 'cutter-grid') {
       setTesting(true);
       try {

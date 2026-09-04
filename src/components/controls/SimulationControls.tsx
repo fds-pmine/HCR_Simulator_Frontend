@@ -48,6 +48,11 @@ export function SimulationControls({
   const running = status === 'running';
   const paused = status === 'paused';
   const canRun = ['idle', 'completed', 'stopped', 'error'].includes(status);
+  // Step leaves the run paused, and a paused run refuses a fresh `run`. That
+  // greyed Test out one press after the lesson told the learner to use Step,
+  // with nothing on screen naming Reset as the way back. Test now accepts a
+  // paused run and resets it itself.
+  const canTest = canRun || paused;
 
   return (
     <div className="control-dock" aria-label={t('simulationControls')}>
@@ -61,9 +66,9 @@ export function SimulationControls({
         className="control-button control-button--accent"
         type="button"
         onClick={onTest}
-        disabled={!canRun || testing}
+        disabled={!canTest || testing}
         data-testid="test-button"
-        title={t('evaluateInstantly')}
+        title={`${t('evaluateInstantly')} — ${t('runVsTest')}`}
       >
         {testing ? <LoaderCircle className="spin" size={16} /> : <Zap size={16} />}
         {t('test')}
@@ -74,6 +79,7 @@ export function SimulationControls({
         onClick={onRun}
         disabled={!canRun}
         data-testid="run-button"
+        title={t('runVsTest')}
       >
         <Play size={16} fill="currentColor" />
         {t('run')}

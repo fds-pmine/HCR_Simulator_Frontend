@@ -2811,19 +2811,52 @@ input:focus-visible {
 
 .tutorial__steps {
   display: flex;
+  align-items: center;
   gap: 4px;
 }
 
-.tutorial__steps i {
+.tutorial__step {
   height: 3px;
   flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
   border-radius: 99px;
   background: rgba(255, 255, 255, 0.09);
-  transition: background 200ms ease;
+  transition: background 200ms ease, height 120ms ease;
 }
 
-.tutorial__steps i.is-reached {
+/* A finished section is a link back to it, so it has to look pressable. */
+button.tutorial__step {
+  height: 7px;
+  margin: -2px 0;
+  cursor: pointer;
+}
+
+button.tutorial__step:hover {
+  background: var(--green);
+}
+
+.tutorial__step.is-done {
+  background: rgba(82, 215, 166, 0.75);
+}
+
+.tutorial__step.is-current {
+  height: 5px;
   background: var(--gold);
+}
+
+.tutorial__steps-count {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  color: var(--green);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-micro);
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .tutorial h2 {
@@ -3008,6 +3041,44 @@ input:focus-visible {
   background: rgba(0, 0, 0, 0.18);
 }
 
+/*
+  What the lesson is asking for, kept on screen through the sections that ask
+  for work. It is a recap of copy the learner has already seen, so it is set
+  quieter than the section body it sits under.
+*/
+.lesson-goal-recap {
+  display: grid;
+  gap: 3px;
+  margin-top: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-left: 2px solid var(--gold);
+  border-radius: 8px;
+  background: rgba(255, 206, 92, 0.05);
+  color: var(--muted-strong) !important;
+  font-size: var(--font-xs) !important;
+  line-height: 1.5;
+}
+
+.lesson-goal-recap strong {
+  color: var(--gold);
+  font-size: var(--font-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lesson-goal-recap code {
+  color: var(--accent);
+  word-break: break-word;
+}
+
+/* Which of Test and Run finishes the section, where the button is pressed. */
+.lesson-run-vs-test {
+  color: var(--muted);
+  font-size: var(--font-micro);
+  line-height: 1.5;
+}
+
 .lesson-drill-goal {
   display: grid;
   gap: 4px;
@@ -3029,6 +3100,12 @@ input:focus-visible {
   color: var(--accent);
   font-size: var(--font-sm);
   word-break: break-word;
+}
+
+.lesson-drill-hint {
+  margin-top: 10px;
+  color: var(--text-muted, #8fa3ad);
+  font-size: var(--font-xs);
 }
 
 .lesson-quiz {

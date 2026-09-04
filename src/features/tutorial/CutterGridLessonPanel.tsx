@@ -1,8 +1,8 @@
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
   Boxes,
-  Check,
   Eye,
   Hammer,
   LogOut,
@@ -17,6 +17,18 @@ import { useLocalization } from '../preferences/localization';
 import { localizeCutterGridLesson } from './cutterGridLessonLocalization';
 import { lessonSectionRequirement } from './lessonAssessments';
 import { LessonMultipleChoice } from './LessonMultipleChoice';
+import { LessonRequirement } from './LessonRequirement';
+import { LessonSectionProgress } from './LessonSectionProgress';
+
+/**
+ * How long a learner works on a drill before its answer is offered.
+ *
+ * The route the section is checked against is the answer to the exercise, so
+ * printing it up front removes the work. Withholding it entirely leaves anyone
+ * who is genuinely stuck with no way forward, so it arrives after two minutes
+ * of not having solved it.
+ */
+const HINT_DELAY_MS = 120_000;
 
 const ACTIVITY_KEYS = {
   read: 'read', predict: 'predict', build: 'build', observe: 'observe',
@@ -37,8 +49,10 @@ export function CutterGridLessonPanel({
   lessonIndex,
   lessonTotal,
   sectionIndex,
+  furthestSectionIndex,
   onPreviousSection,
   onNextSection,
+  onSelectSection,
   onNextLesson,
   onExit,
   quizPassed,
@@ -51,8 +65,11 @@ export function CutterGridLessonPanel({
   lessonIndex: number;
   lessonTotal: number;
   sectionIndex: number;
+  /** The furthest section reached, so finished ones stay open to review. */
+  furthestSectionIndex: number;
   onPreviousSection: () => void;
   onNextSection: () => void;
+  onSelectSection: (index: number) => void;
   onNextLesson?: () => void;
   onExit: () => void;
   quizPassed: boolean;
@@ -63,6 +80,7 @@ export function CutterGridLessonPanel({
   onQuizPassed: () => void;
 }) {
   const { locale, t } = useLocalization();
+  const [hintedSections, setHintedSections] = useState<readonly number[]>([]);
   const displayLesson = localizeCutterGridLesson(lesson, locale);
   const section = displayLesson.sections[sectionIndex];
   const lastSection = sectionIndex === displayLesson.sections.length - 1;
@@ -73,23 +91,40 @@ export function CutterGridLessonPanel({
     ? 'none'
     : lessonSectionRequirement(section);
 
+  // The panel outlives a section change, so a section whose hint has already
+  // been earned keeps it if the learner steps away and comes back.
+  const drillGoal = section.starter && section.expected ? section.expected : undefined;
+  const hinted = hintedSections.includes(sectionIndex);
+  useEffect(() => {
+    if (!drillGoal || sectionSatisfied || hinted) return;
+    const timer = setTimeout(
+      () => setHintedSections((sections) =>
+        sections.includes(sectionIndex) ? sections : [...sections, sectionIndex],
+      ),
+      HINT_DELAY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [drillGoal, hinted, sectionIndex, sectionSatisfied]);
+
   return (
     <aside className="tutorial cutter-grid-lesson-card" aria-label={t('gridLessonBadge')}>
       <header className="tutorial__head">
         <span className="tutorial__badge"><Boxes size={14} /> {t('gridLessonBadge')}</span>
         <span className="tutorial__progress">
-          {t('lesson')} {lessonIndex + 1} / {lessonTotal} · {t('section')} {sectionIndex + 1}
+          {t('lesson')} {lessonIndex + 1} / {lessonTotal} · {t('section')}{' '}
+          {sectionIndex + 1} / {displayLesson.sections.length}
         </span>
         <button type="button" onClick={onExit} aria-label={t('backToLessons')}>
           <LogOut size={15} />
         </button>
       </header>
 
-      <div className="tutorial__steps" aria-label={t('progress')}>
-        {displayLesson.sections.map((entry, index) => (
-          <i key={entry.id} className={index <= sectionIndex ? 'is-reached' : ''} />
-        ))}
-      </div>
+      <LessonSectionProgress
+        sectionCount={displayLesson.sections.length}
+        sectionIndex={sectionIndex}
+        furthestIndex={furthestSectionIndex}
+        {...(quizSection ? {} : { onSelectSection })}
+      />
 
       <p className="cutter-grid-lesson-card__lesson-name">{displayLesson.name}</p>
       <h2>{section.title}</h2>
@@ -99,17 +134,37 @@ export function CutterGridLessonPanel({
       </span>
 
       {/*
+        The route the lesson is built around, restated on every section that is
+        not closed-book. "Press Test and compare the score with your
+        prediction" does not say what to press Test on, and the section that
+        printed the example is several Next presses behind.
+      */}
+      {quizSection || lastSection ? null : (
+        <p className="lesson-goal-recap" data-testid="lesson-goal-recap">
+          <strong>{t('thisLesson')}</strong>
+          <span>{displayLesson.goal}</span>
+          <code>{displayLesson.example}</code>
+        </p>
+      )}
+
+      {/*
         A drill starts from a route already on the canvas and is checked against
         the route it wants back, so it has to say which one that is. "Compare
         Left 3 with three connected Left 1 blocks" describes the point of the
         exercise but never states what to leave in the workspace, which left the
         section impossible to finish on purpose rather than by guessing.
       */}
-      {section.starter && section.expected ? (
-        <p className="lesson-drill-goal" data-testid="grid-drill-goal">
-          <strong>{t('buildThis')}</strong>
-          <code>{section.expected}</code>
-        </p>
+      {drillGoal ? (
+        hinted ? (
+          <p className="lesson-drill-goal" data-testid="grid-drill-goal">
+            <strong>{t('buildThis')}</strong>
+            <code>{drillGoal}</code>
+          </p>
+        ) : (
+          <p className="lesson-drill-hint" data-testid="grid-drill-hint">
+            {t('hintPending')}
+          </p>
+        )
       ) : null}
 
       {quizSection ? (
@@ -126,15 +181,11 @@ export function CutterGridLessonPanel({
         there, and Next stays closed until it is. Reading and predicting
         sections carry no requirement and never block.
       */}
-      {sectionRequirement === 'none' ? null : (
-        <span
-          className={`tutorial__state ${sectionSatisfied ? 'is-done' : ''}`}
-          data-testid="grid-section-requirement"
-        >
-          {sectionSatisfied ? <Check size={14} /> : <i className="tutorial__dot" />}
-          {sectionSatisfied ? t('done') : t('waitingForYou')}
-        </span>
-      )}
+      <LessonRequirement
+        requirement={sectionRequirement}
+        satisfied={sectionSatisfied}
+        testId="grid-section-requirement"
+      />
 
       {lastSection ? (
         <div className="lesson-practical" data-testid="lesson-blockly-practical">

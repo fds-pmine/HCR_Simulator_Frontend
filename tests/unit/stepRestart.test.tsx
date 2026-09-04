@@ -167,3 +167,53 @@ describe('the Step button', () => {
     );
   });
 })
+
+describe('the Test button after a step', () => {
+  /**
+   * A step leaves the engine paused, and lessons put "Use Step" one card
+   * before "Use Test". Test only enabled on the restartable statuses, so the
+   * learner was told to press a button that had just gone grey, with nothing
+   * on screen naming Reset as the way back.
+   */
+  it.each([
+    ['idle', false],
+    ['completed', false],
+    ['stopped', false],
+    ['error', false],
+    ['paused', false],
+    ['running', true],
+    ['positioning', true],
+    ['loading', true],
+  ] as const)('is %s → disabled=%s', (status, disabled) => {
+    const { getByTestId } = render(
+      <SimulationControls
+        status={status}
+        onRun={() => {}}
+        onPause={() => {}}
+        onResume={() => {}}
+        onStep={() => {}}
+        onStop={() => {}}
+        onReset={() => {}}
+        onTest={() => {}}
+        testing={false}
+      />,
+    );
+
+    expect(getByTestId('test-button').hasAttribute('disabled')).toBe(disabled);
+  });
+
+  /** The engine half: a paused run is reset, then evaluated from the top. */
+  it('evaluates the whole program from the start once reset', () => {
+    const engine = engineFor();
+    engine.step(program());
+    drain(engine);
+    expect(engine.getSnapshot().status).toBe('paused');
+
+    engine.reset();
+    engine.run(program());
+    drain(engine);
+
+    expect(engine.getSnapshot().status).toBe('completed');
+    expect(engine.getSnapshot().metrics.executedCommandCount).toBe(2);
+  });
+});
