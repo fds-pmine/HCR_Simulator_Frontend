@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { unusedMatchProvider, unusedSessionProvider } from '../test/stubServices';
+import {
+  recordingUsageProvider,
+  unusedMatchProvider,
+  unusedSessionProvider,
+} from '../test/stubServices';
 import type { AppServices } from './servicesContext';
 import { AppProviders } from './providers';
 import { WorkbenchBootstrap } from './WorkbenchBootstrap';
@@ -110,7 +114,8 @@ describe('App', () => {
         },
       },
       matchProvider: unusedMatchProvider(),
-    sessionProvider: unusedSessionProvider(),
+      sessionProvider: unusedSessionProvider(),
+      usageProvider: recordingUsageProvider(),
     };
 
     render(

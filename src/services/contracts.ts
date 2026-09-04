@@ -163,3 +163,64 @@ export interface SessionProvider {
   /** Close the session and collect its history. */
   finalize(sessionId: string): Promise<SessionResult>;
 }
+
+/** What a lesson section asks of the learner. */
+export type LessonActivity =
+  | 'read'
+  | 'predict'
+  | 'build'
+  | 'observe'
+  | 'challenge'
+  | 'recap';
+
+/** What happened in a lesson. */
+export type LessonOutcome =
+  /** It was opened. `section` is where it resumed, which need not be 0. */
+  | 'opened'
+  /** A section's own gate was met and the learner moved past it. */
+  | 'section-passed'
+  /** The closed-book quiz was answered correctly. */
+  | 'quiz-passed'
+  /** Quiz and practical both passed. */
+  | 'completed'
+  /** The learner left before finishing; `section` is where they stopped. */
+  | 'abandoned';
+
+/** One thing a learner did in a lesson. */
+export interface LessonEvent {
+  lessonId: string;
+  /** Zero-based section index within that lesson. */
+  section: number;
+  /** What that section asks for. Omitted on whole-lesson outcomes. */
+  activity?: LessonActivity;
+  outcome: LessonOutcome;
+  /** Successful Test runs in this lesson so far. */
+  tests?: number;
+  /** Which editor the lesson teaches. Omitted means `servo`. */
+  mode?: ProgrammingMode;
+}
+
+/**
+ * Where lesson usage goes, when a deployment collects any.
+ *
+ * The lessons are the one part of the app that never talks to a server: they run
+ * and score in the browser, Cutter Grid included. That is deliberate, and it left
+ * the course completely invisible in the usage log — a lesson never submits, so a
+ * log fed only by submissions saw none of the thing most people actually use.
+ *
+ * What this reports is therefore **client-asserted**, and the reasoning about what
+ * that is worth lives on the server side of the wire
+ * (`hcr-backend/docs/01-CONTRACT.md` §usage). Two rules hold on this side:
+ *
+ * 1. **It never blocks a lesson.** Reporting is fire-and-forget and a failure is
+ *    swallowed. A learner mid-section must not wait on, or be interrupted by, a
+ *    telemetry request.
+ * 2. **It is off unless the learner opted in.** The offline implementation
+ *    reports nothing at all, and the HTTP one sends nothing when research
+ *    consent was declined — lesson progress is research data, not the operational
+ *    minimum the privacy screen calls necessary.
+ */
+export interface UsageProvider {
+  /** Report one lesson interaction. Never throws, never awaited by callers. */
+  recordLessonEvent(event: LessonEvent): void;
+}

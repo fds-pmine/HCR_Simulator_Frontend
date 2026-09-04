@@ -23,6 +23,7 @@ import {
   loadStoredLessonState,
   saveStoredLessonState,
 } from './lessonProgress';
+import { useLessonTelemetry } from './lessonTelemetry';
 import { useLocalization } from '../preferences/localization';
 
 /** Records a section index once; the same section can be practised repeatedly. */
@@ -74,6 +75,11 @@ export function CutterGridLessonRun({
     ? sectionProgress.furthest
     : savedSectionIndex;
   const [challenge, setChallenge] = useState<Challenge>();
+  // The stage is what works out that the lesson is solved, but the telemetry
+  // that reports leaving lives up here — and leaving a finished lesson is not
+  // the same event as giving up on one. Keyed by lesson, like every other piece
+  // of progress here, so opening the next one starts unsolved.
+  const [solvedLessonId, setSolvedLessonId] = useState<string>();
   const [programProgress, setProgramProgress] = useState<{
     lessonId: string;
     program: ReturnType<typeof cutterGridProgramFromCompilation>;
@@ -155,7 +161,43 @@ export function CutterGridLessonRun({
         : undefined,
     [challenge],
   );
+  const successfulTestCount = testProgress.lessonId === lessonId
+    ? testProgress.count
+    : 0;
+  const reportLesson = useLessonTelemetry(lessonId, 'cutter-grid', {
+    section: sectionIndex,
+    tests: successfulTestCount,
+    completed: solvedLessonId === lessonId,
+  });
+  // Where the learner is, for the one caller that must not be rebuilt when they
+  // move: the stage reports solving from an effect keyed on this handler, so a
+  // fresh arrow each render would call back on every render.
+  const positionRef = useRef({ section: sectionIndex, tests: successfulTestCount });
+  useEffect(() => {
+    positionRef.current = { section: sectionIndex, tests: successfulTestCount };
+  }, [sectionIndex, successfulTestCount]);
+  const handleSolved = useCallback(
+    (solved: string) => {
+      setSolvedLessonId(solved);
+      reportLesson({ outcome: 'completed', ...positionRef.current });
+      onSolved(solved);
+    },
+    [onSolved, reportLesson],
+  );
+
   const updateSection = (index: number) => {
+    // Moving the frontier is the only move that means a gate was met: Next is
+    // held closed until the section's own requirement is satisfied, while going
+    // back to re-read something already passed is free and reports nothing.
+    if (lesson && index > furthestSectionIndex) {
+      const passed = lesson.sections[sectionIndex];
+      reportLesson({
+        outcome: 'section-passed',
+        section: sectionIndex,
+        tests: successfulTestCount,
+        ...(passed ? { activity: passed.activity } : {}),
+      });
+    }
     setSectionProgress({
       lessonId,
       index,
@@ -192,7 +234,7 @@ export function CutterGridLessonRun({
       engine={engine}
       program={testProgress.lessonId === lessonId ? testProgress.testedProgram : undefined}
       currentProgram={programProgress.lessonId === lessonId ? programProgress.program : undefined}
-      successfulTestCount={testProgress.lessonId === lessonId ? testProgress.count : 0}
+      successfulTestCount={successfulTestCount}
       sectionEvidence={{
         tested: testProgress.lessonId === lessonId
           && testProgress.testedSections.includes(sectionIndex),
@@ -206,6 +248,11 @@ export function CutterGridLessonRun({
       onQuizPassed={() => {
         setQuizProgress({ lessonId, passed: true });
         saveStoredLessonState(lessonId, { sectionIndex, quizPassed: true });
+        reportLesson({
+          outcome: 'quiz-passed',
+          section: sectionIndex,
+          tests: successfulTestCount,
+        });
       }}
       onProgramChange={onProgramChange}
       onGridOverlayChange={onGridOverlayChange}
@@ -237,7 +284,7 @@ export function CutterGridLessonRun({
             testedProgram: undefined,
           };
       })}
-      onSolved={onSolved}
+      onSolved={handleSolved}
       onPreviousSection={() =>
         updateSection(Math.max(0, sectionIndex - 1))
       }

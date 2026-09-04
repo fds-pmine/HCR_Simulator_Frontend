@@ -4,6 +4,7 @@ import { AppProviders } from '../../src/app/providers';
 import type { AppServices } from '../../src/app/servicesContext';
 import { PracticeRun } from '../../src/features/practice/PracticeRun';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
+import { LocalUsageProvider } from '../../src/services/local/LocalUsageProvider';
 import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
 import type { SessionProvider } from '../../src/services/contracts';
 import { unusedMatchProvider } from '../../src/test/stubServices';
@@ -43,6 +44,7 @@ describe('Practice CAT bootstrap', () => {
       scoreProvider: new LocalScoreProvider(),
       matchProvider: unusedMatchProvider(),
       sessionProvider,
+      usageProvider: new LocalUsageProvider(),
     };
 
     render(

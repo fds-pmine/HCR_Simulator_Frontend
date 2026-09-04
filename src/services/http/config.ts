@@ -3,6 +3,7 @@ import { HttpChallengeProvider } from './HttpChallengeProvider';
 import { HttpMatchProvider } from './HttpMatchProvider';
 import { HttpScoreProvider } from './HttpScoreProvider';
 import { HttpSessionProvider } from './HttpSessionProvider';
+import { HttpUsageProvider } from './HttpUsageProvider';
 import type { AppServices } from '../../app/servicesContext';
 
 /**
@@ -36,5 +37,6 @@ export function createHttpServices(config: BackendConfig): AppServices {
     scoreProvider: new HttpScoreProvider(client),
     matchProvider: new HttpMatchProvider(client),
     sessionProvider: new HttpSessionProvider(client),
+    usageProvider: new HttpUsageProvider(client),
   };
 }

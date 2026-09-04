@@ -3,6 +3,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Boxes,
+  ChevronDown,
+  ChevronRight,
   Eye,
   Hammer,
   LogOut,
@@ -81,6 +83,9 @@ export function CutterGridLessonPanel({
 }) {
   const { locale, t } = useLocalization();
   const [hintedSections, setHintedSections] = useState<readonly number[]>([]);
+  // Collapsed state belongs to the learner, not to the section: it survives
+  // Next and Previous, the same way a folded panel stays folded.
+  const [collapsed, setCollapsed] = useState(false);
   const displayLesson = localizeCutterGridLesson(lesson, locale);
   const section = displayLesson.sections[sectionIndex];
   const lastSection = sectionIndex === displayLesson.sections.length - 1;
@@ -107,8 +112,22 @@ export function CutterGridLessonPanel({
   }, [drillGoal, hinted, sectionIndex, sectionSatisfied]);
 
   return (
-    <aside className="tutorial cutter-grid-lesson-card" aria-label={t('gridLessonBadge')}>
+    <aside
+      className={`tutorial cutter-grid-lesson-card${
+        collapsed ? ' cutter-grid-lesson-card--collapsed' : ''
+      }`}
+      aria-label={t('gridLessonBadge')}
+    >
       <header className="tutorial__head">
+        <button
+          type="button"
+          onClick={() => setCollapsed((folded) => !folded)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? t('expandLesson') : t('collapseLesson')}
+          data-testid="toggle-grid-lesson"
+        >
+          {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+        </button>
         <span className="tutorial__badge"><Boxes size={14} /> {t('gridLessonBadge')}</span>
         <span className="tutorial__progress">
           {t('lesson')} {lessonIndex + 1} / {lessonTotal} · {t('section')}{' '}
@@ -119,114 +138,104 @@ export function CutterGridLessonPanel({
         </button>
       </header>
 
-      <LessonSectionProgress
-        sectionCount={displayLesson.sections.length}
-        sectionIndex={sectionIndex}
-        furthestIndex={furthestSectionIndex}
-        {...(quizSection ? {} : { onSelectSection })}
-      />
+      {collapsed ? null : (
+        <>
+          <LessonSectionProgress
+            sectionCount={displayLesson.sections.length}
+            sectionIndex={sectionIndex}
+            furthestIndex={furthestSectionIndex}
+            {...(quizSection ? {} : { onSelectSection })}
+          />
 
-      <p className="cutter-grid-lesson-card__lesson-name">{displayLesson.name}</p>
-      <h2>{section.title}</h2>
-      <p>{section.body}</p>
-      <span className={`lesson-section-kind is-${section.activity}`}>
-        <ActivityIcon size={13} /> {t(ACTIVITY_KEYS[section.activity])}
-      </span>
-
-      {/*
-        The route the lesson is built around, restated on every section that is
-        not closed-book. "Press Test and compare the score with your
-        prediction" does not say what to press Test on, and the section that
-        printed the example is several Next presses behind.
-      */}
-      {quizSection || lastSection ? null : (
-        <p className="lesson-goal-recap" data-testid="lesson-goal-recap">
-          <strong>{t('thisLesson')}</strong>
-          <span>{displayLesson.goal}</span>
-          <code>{displayLesson.example}</code>
-        </p>
-      )}
-
-      {/*
-        A drill starts from a route already on the canvas and is checked against
-        the route it wants back, so it has to say which one that is. "Compare
-        Left 3 with three connected Left 1 blocks" describes the point of the
-        exercise but never states what to leave in the workspace, which left the
-        section impossible to finish on purpose rather than by guessing.
-      */}
-      {drillGoal ? (
-        hinted ? (
-          <p className="lesson-drill-goal" data-testid="grid-drill-goal">
-            <strong>{t('buildThis')}</strong>
-            <code>{drillGoal}</code>
-          </p>
-        ) : (
-          <p className="lesson-drill-hint" data-testid="grid-drill-hint">
-            {t('hintPending')}
-          </p>
-        )
-      ) : null}
-
-      {quizSection ? (
-        <LessonMultipleChoice
-          key={displayLesson.id}
-          quiz={displayLesson.assessments.multipleChoice}
-          passed={quizPassed}
-          onPassed={onQuizPassed}
-        />
-      ) : null}
-
-      {/*
-        A section that asks for work reports whether the work is actually
-        there, and Next stays closed until it is. Reading and predicting
-        sections carry no requirement and never block.
-      */}
-      <LessonRequirement
-        requirement={sectionRequirement}
-        satisfied={sectionSatisfied}
-        testId="grid-section-requirement"
-      />
-
-      {lastSection ? (
-        <div className="lesson-practical" data-testid="lesson-blockly-practical">
-          <strong>{t('practicalRequired')}</strong>
-          <p>{displayLesson.assessments.practicalPrompt}</p>
-          <span className={`tutorial__state ${practicalPassed ? 'is-done' : ''}`}>
-            {practicalPassed
-              ? t('practicalPassed')
-              : practicalAttempted
-                ? t('practicalNotPassed')
-                : t('pressTest')}
+          <p className="cutter-grid-lesson-card__lesson-name">{displayLesson.name}</p>
+          <h2>{section.title}</h2>
+          <p>{section.body}</p>
+          <span className={`lesson-section-kind is-${section.activity}`}>
+            <ActivityIcon size={13} /> {t(ACTIVITY_KEYS[section.activity])}
           </span>
-        </div>
-      ) : null}
 
-      <div className="tutorial__foot">
-        {sectionIndex > 0 && !quizSection ? (
-          <button
-            className="ghost-button lesson-section-back"
-            type="button"
-            onClick={onPreviousSection}
-            data-testid="previous-grid-section"
-          >
-            <ArrowLeft size={14} /> {t('previous')}
-          </button>
-        ) : <span />}
-        {lastSection && !practicalPassed ? null : (
-          <button
-            className="big-button big-button--primary tutorial__next"
-            type="button"
-            disabled={(quizSection && !quizPassed) || !sectionSatisfied}
-            onClick={lastSection ? (onNextLesson ?? onExit) : onNextSection}
-            data-testid={lastSection ? 'next-grid-lesson' : 'next-grid-section'}
-          >
-            {lastSection
-              ? onNextLesson ? t('nextLesson') : t('backToLessons')
-              : t('nextSection')}
-            <ArrowRight size={15} />
-          </button>
-        )}
-      </div>
+          {/*
+            A drill starts from a route already on the canvas and is checked against
+            the route it wants back, so it has to say which one that is. "Compare
+            Left 3 with three connected Left 1 blocks" describes the point of the
+            exercise but never states what to leave in the workspace, which left the
+            section impossible to finish on purpose rather than by guessing.
+          */}
+          {drillGoal ? (
+            hinted ? (
+              <p className="lesson-drill-goal" data-testid="grid-drill-goal">
+                <strong>{t('buildThis')}</strong>
+                <code>{drillGoal}</code>
+              </p>
+            ) : (
+              <p className="lesson-drill-hint" data-testid="grid-drill-hint">
+                {t('hintPending')}
+              </p>
+            )
+          ) : null}
+
+          {quizSection ? (
+            <LessonMultipleChoice
+              key={displayLesson.id}
+              quiz={displayLesson.assessments.multipleChoice}
+              passed={quizPassed}
+              onPassed={onQuizPassed}
+            />
+          ) : null}
+
+          {/*
+            A section that asks for work reports whether the work is actually
+            there, and Next stays closed until it is. Reading and predicting
+            sections carry no requirement and never block.
+          */}
+          <LessonRequirement
+            requirement={sectionRequirement}
+            satisfied={sectionSatisfied}
+            testId="grid-section-requirement"
+          />
+
+          {lastSection ? (
+            <div className="lesson-practical" data-testid="lesson-blockly-practical">
+              <strong>{t('practicalRequired')}</strong>
+              <p>{displayLesson.assessments.practicalPrompt}</p>
+              <span className={`tutorial__state ${practicalPassed ? 'is-done' : ''}`}>
+                {practicalPassed
+                  ? t('practicalPassed')
+                  : practicalAttempted
+                    ? t('practicalNotPassed')
+                    : t('pressTest')}
+              </span>
+            </div>
+          ) : null}
+
+          <div className="tutorial__foot">
+            {sectionIndex > 0 && !quizSection ? (
+              <button
+                className="ghost-button lesson-section-back"
+                type="button"
+                onClick={onPreviousSection}
+                data-testid="previous-grid-section"
+              >
+                <ArrowLeft size={14} /> {t('previous')}
+              </button>
+            ) : <span />}
+            {lastSection && !practicalPassed ? null : (
+              <button
+                className="big-button big-button--primary tutorial__next"
+                type="button"
+                disabled={(quizSection && !quizPassed) || !sectionSatisfied}
+                onClick={lastSection ? (onNextLesson ?? onExit) : onNextSection}
+                data-testid={lastSection ? 'next-grid-lesson' : 'next-grid-section'}
+              >
+                {lastSection
+                  ? onNextLesson ? t('nextLesson') : t('backToLessons')
+                  : t('nextSection')}
+                <ArrowRight size={15} />
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </aside>
   );
 }

@@ -1,4 +1,9 @@
-import type { MatchProvider, SessionProvider } from '../services/contracts';
+import type {
+  LessonEvent,
+  MatchProvider,
+  SessionProvider,
+  UsageProvider,
+} from '../services/contracts';
 
 /**
  * A match provider that fails every call.
@@ -24,6 +29,25 @@ export function unusedMatchProvider(
     getResults: refuse,
     submit: refuse,
     syncClock: refuse,
+  };
+}
+
+/**
+ * A usage provider that records into an array.
+ *
+ * Not a throwing stub like the two above: reporting is fire-and-forget from
+ * everywhere, so a screen touching it is normal rather than a mistake, and what
+ * a test wants to know is *what* it reported.
+ */
+export function recordingUsageProvider(): UsageProvider & {
+  readonly events: LessonEvent[];
+} {
+  const events: LessonEvent[] = [];
+  return {
+    events,
+    recordLessonEvent: (event) => {
+      events.push(event);
+    },
   };
 }
 

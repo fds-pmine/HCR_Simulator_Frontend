@@ -20,7 +20,11 @@
   --violet: #9d7bf5;
   --gold: #ffce5c;
   --topbar-height: 58px;
-  --control-height: 62px;
+  /* The inspector column, which the control dock now sits on top of. */
+  --inspector-width: 328px;
+  --dock-top: 15px;
+  /* The dock's own height: two rows of controls in that column's width. */
+  --control-height: 88px;
   --font-micro: 0.7rem;
   --font-xs: 0.75rem;
   --font-sm: 0.8125rem;
@@ -320,7 +324,8 @@ input:focus-visible {
   position: absolute;
   z-index: 8;
   top: 12px;
-  bottom: calc(var(--control-height) + 38px);
+  /* Above the collapsed log drawer, which still sits bottom-left. */
+  bottom: 56px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -341,7 +346,14 @@ input:focus-visible {
 
 .side-panel--right {
   right: 12px;
-  width: 328px;
+  /* The control dock stands above the inspector, in the same column. */
+  top: calc(var(--dock-top) + var(--control-height) + 12px);
+  width: var(--inspector-width);
+}
+
+/* Versus adds Submit, which starts a third row of controls in that column. */
+.stage:has(.control-button--submit) .side-panel--right {
+  top: calc(var(--dock-top) + var(--control-height) + 52px);
 }
 
 .side-panel--left.is-closed {
@@ -826,13 +838,20 @@ input:focus-visible {
   text-align: center;
 }
 
+/*
+  Sits at the top of the inspector column, directly above that panel, as two
+  rows of three. Out of the centre of the stage entirely: the lesson card and
+  the round HUD now start at the top edge instead of below a centred dock, and
+  the 3D scene keeps its middle.
+*/
 .control-dock {
   position: absolute;
   z-index: 12;
-  bottom: 15px;
-  left: 50%;
-  display: flex;
-  height: 48px;
+  top: var(--dock-top);
+  right: 12px;
+  display: grid;
+  width: var(--inspector-width);
+  grid-template-columns: repeat(3, 1fr);
   align-items: center;
   gap: 4px;
   padding: 5px;
@@ -841,7 +860,18 @@ input:focus-visible {
   background: rgba(8, 18, 26, 0.94);
   box-shadow: 0 15px 44px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(16px);
-  transform: translateX(-50%);
+}
+
+/* Grid cells are the grouping now, so the flex-row separators go. */
+.control-dock__divider {
+  display: none;
+}
+
+.control-dock .control-button {
+  min-width: 0;
+  justify-content: center;
+  padding: 0 6px;
+  white-space: nowrap;
 }
 
 .control-button {
@@ -881,13 +911,6 @@ input:focus-visible {
 .control-button:disabled {
   opacity: 0.32;
   cursor: not-allowed;
-}
-
-.control-dock__divider {
-  width: 1px;
-  height: 22px;
-  margin: 0 2px;
-  background: var(--panel-border);
 }
 
 .log-drawer {
@@ -1047,7 +1070,11 @@ input:focus-visible {
   left: 50%;
   display: grid;
   grid-template-columns: auto minmax(160px, 1fr) auto;
-  max-width: min(620px, calc(100vw - 32px));
+  /*
+    Centred, and narrow enough that neither end reaches the dock standing in
+    the inspector column — an error must never cover the run controls.
+  */
+  max-width: min(620px, calc(100vw - var(--inspector-width) * 2 - 60px));
   align-items: center;
   gap: 10px;
   padding: 9px 10px 9px 12px;
@@ -1081,12 +1108,8 @@ input:focus-visible {
   position: absolute;
   z-index: 5;
   right: 354px;
-  /*
-    Clear of the control dock, which is centred and grew when Test and Submit
-    joined it — at 1512px the dock's right edge now reaches under this readout
-    and clipped "CAMERA" to "MERA".
-  */
-  bottom: 74px;
+  /* The control dock left the bottom of the stage, so this can sit low. */
+  bottom: 20px;
   display: grid;
   justify-items: end;
   pointer-events: none;
@@ -1111,8 +1134,8 @@ input:focus-visible {
     width: 390px;
   }
 
-  .side-panel--right {
-    width: 302px;
+  :root {
+    --inspector-width: 302px;
   }
 
   .stage-readout {
@@ -1149,9 +1172,16 @@ input:focus-visible {
 }
 
 @media (max-height: 720px) {
+  :root {
+    --dock-top: 10px;
+  }
+
   .side-panel {
+    bottom: 52px;
+  }
+
+  .side-panel--left {
     top: 8px;
-    bottom: 76px;
   }
 
   .panel-header {
@@ -1170,7 +1200,6 @@ input:focus-visible {
     display: none;
   }
 
-  .control-dock,
   .log-drawer {
     bottom: 10px;
   }
@@ -1695,6 +1724,19 @@ input:focus-visible {
 .cutter-grid-lesson-card h2,
 .cutter-grid-lesson-card p {
   margin: 0;
+}
+
+/*
+  Collapsed, the card is its own title bar: which lesson, which section, and the
+  control that opens it again. What a section asks a learner to watch is the
+  stage behind the card, and at 1280x720 the expanded card covers a fair part
+  of it, so the card gets out of the way without losing the learner's place.
+*/
+.tutorial.cutter-grid-lesson-card--collapsed {
+  width: auto;
+  max-height: none;
+  padding: 8px 10px 8px 8px;
+  overflow: visible;
 }
 
 .cutter-grid-lesson-card__lesson-name {
@@ -3344,4 +3386,27 @@ button.tutorial__step:hover {
 .arm-dock__status svg {
   flex-shrink: 0;
   margin-top: 1px;
+}
+
+/* ==========================================================================
+   Narrow desktops — the stage's centred cards and the dock in the inspector
+   column stop fitting side by side somewhere under 1160px, so the cards drop
+   below the dock instead of standing beside it. Placed last: these override
+   the top values set on `.tutorial` and `.hud` above.
+   ========================================================================== */
+
+@media (max-width: 1160px) {
+  .tutorial,
+  .hud {
+    top: calc(var(--dock-top) + var(--control-height) + 12px);
+  }
+
+  .tutorial {
+    max-height: calc(100dvh - 211px);
+  }
+
+  .stage:has(.error-banner) .hud,
+  .stage:has(.error-banner) .tutorial {
+    top: calc(var(--dock-top) + var(--control-height) + 66px);
+  }
 }

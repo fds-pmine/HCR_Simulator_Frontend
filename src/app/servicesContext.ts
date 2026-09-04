@@ -4,6 +4,7 @@ import type {
   MatchProvider,
   ScoreProvider,
   SessionProvider,
+  UsageProvider,
 } from '../services/contracts';
 
 export interface AppServices {
@@ -11,6 +12,8 @@ export interface AppServices {
   scoreProvider: ScoreProvider;
   matchProvider: MatchProvider;
   sessionProvider: SessionProvider;
+  /** Lesson usage, when the deployment collects any. Offline: a no-op. */
+  usageProvider: UsageProvider;
 }
 
 export const ServicesContext = createContext<AppServices | null>(null);

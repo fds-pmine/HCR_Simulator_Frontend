@@ -5,6 +5,7 @@ import type { AppServices } from '../../src/app/servicesContext';
 import { MatchSetup } from '../../src/features/match/MatchSetup';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import { LocalMatchProvider } from '../../src/services/local/LocalMatchProvider';
+import { LocalUsageProvider } from '../../src/services/local/LocalUsageProvider';
 import { LocalSessionProvider } from '../../src/services/local/LocalSessionProvider';
 import { LocalScoreProvider } from '../../src/services/local/LocalScoreProvider';
 import type { ChallengeSummary } from '../../src/types/domain';
@@ -21,6 +22,7 @@ function servicesWith(summaries: ChallengeSummary[]): AppServices {
     scoreProvider: new LocalScoreProvider(),
     matchProvider: new LocalMatchProvider(challengeProvider),
     sessionProvider: new LocalSessionProvider(),
+    usageProvider: new LocalUsageProvider(),
   };
 }
 

@@ -813,20 +813,27 @@ describe('reviewing a lesson while working through it', () => {
     );
   }
 
-  it('restates what the lesson asks for on a work section', () => {
+  it('leaves the standing goal recap off the Grid card', () => {
     renderGrid(useTest, useTest);
-    const recap = screen.getByTestId('lesson-goal-recap');
-    expect(recap).toHaveTextContent(grid.goal);
-    expect(recap).toHaveTextContent(grid.example);
+    expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
   });
 
-  it('withholds it on the closed-book quiz and the final checkpoint', () => {
-    const { unmount } = renderGrid(grid.sections.length - 2, grid.sections.length - 2);
-    expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
-    unmount();
+  it('folds the card down to its header and back', () => {
+    renderGrid(useTest, useTest);
+    const toggle = screen.getByTestId('toggle-grid-lesson');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('grid-section-requirement')).toBeInTheDocument();
 
-    renderGrid(grid.sections.length - 1, grid.sections.length - 1);
-    expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    // The header stays: the lesson badge and the way back out.
+    expect(screen.getByText('CUTTER GRID LESSON')).toBeInTheDocument();
+    expect(screen.getByLabelText('Back to lessons')).toBeInTheDocument();
+    expect(screen.queryByTestId('grid-section-requirement')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('next-grid-section')).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('grid-section-requirement')).toBeInTheDocument();
   });
 
   it('names Test as the control, and says what Run does instead', () => {

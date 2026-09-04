@@ -2,6 +2,7 @@ import { LocalChallengeProvider } from '../services/local/LocalChallengeProvider
 import { LocalMatchProvider } from '../services/local/LocalMatchProvider';
 import { LocalSessionProvider } from '../services/local/LocalSessionProvider';
 import { LocalScoreProvider } from '../services/local/LocalScoreProvider';
+import { LocalUsageProvider } from '../services/local/LocalUsageProvider';
 import { createHttpServices, readBackendConfig } from '../services/http/config';
 import type { AppServices } from './servicesContext';
 
@@ -15,6 +16,8 @@ function localServices(): AppServices {
     // No CAT engine in the browser: the lessons in order, which is the same
     // shape without claiming to be a measurement.
     sessionProvider: new LocalSessionProvider(),
+    // Nowhere to report to, and no promise to break by reporting anyway.
+    usageProvider: new LocalUsageProvider(),
   };
 }
 
