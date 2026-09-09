@@ -17,6 +17,14 @@ export interface SubmitAction {
   disabled: boolean;
   busy: boolean;
   title?: string;
+  /**
+   * The round's last thirty seconds.
+   *
+   * A player deep in a program does not watch the clock, and the one control
+   * they have to reach before it runs out is this one. It changes rather than
+   * a badge appearing somewhere else on the screen.
+   */
+  urgent?: boolean;
 }
 
 interface SimulationControlsProps {
@@ -143,7 +151,9 @@ export function SimulationControls({
         <>
           <span className="control-dock__divider" />
           <button
-            className="control-button control-button--submit"
+            className={`control-button control-button--submit ${
+              submit.urgent ? 'is-urgent' : ''
+            }`}
             type="button"
             onClick={submit.onSubmit}
             disabled={submit.disabled || submit.busy}
@@ -155,7 +165,7 @@ export function SimulationControls({
             ) : (
               <Send size={16} />
             )}
-            {t('submit')}
+            {submit.urgent && !submit.disabled ? t('submitNow') : t('submit')}
           </button>
         </>
       ) : null}

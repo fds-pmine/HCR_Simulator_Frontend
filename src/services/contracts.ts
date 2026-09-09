@@ -93,6 +93,23 @@ export interface MatchProvider {
   getMatchChallenge(matchId: string): Promise<MatchChallenge>;
   /** Refused until the round closes: early standings are a known bar to aim at. */
   getResults(matchId: string): Promise<MatchResults>;
+  /**
+   * Reopen a finished round on a new challenge, keeping the room and its roster.
+   *
+   * The alternative is a new room, and a new room is a new six-character code
+   * that every player retypes — a minute of dead air per round, which is why a
+   * session runs three rounds instead of eight. Refused unless the round has
+   * actually finished.
+   */
+  rematch(matchId: string): Promise<MatchState>;
+  /**
+   * Replace the room's crew assignment. Lobby only.
+   *
+   * A whole-map replace rather than a per-player edit: a room is teamed in one
+   * gesture, and two half-applied assignments racing each other would leave a
+   * roster nobody chose. A player absent from the map is un-crewed.
+   */
+  setCrews(matchId: string, crews: Readonly<Record<string, string>>): Promise<MatchState>;
   /** Enter a program. The acknowledgement carries no score, by design. */
   submit(
     matchId: string,

@@ -3,8 +3,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Boxes,
-  ChevronDown,
-  ChevronRight,
   Eye,
   Hammer,
   LogOut,
@@ -16,6 +14,8 @@ import type {
   CutterGridLessonSection,
 } from './cutterGridLessons';
 import { useLocalization } from '../preferences/localization';
+import { CardCollapseToggle } from './CardCollapse';
+import { useCardCollapse } from './useCardCollapse';
 import { localizeCutterGridLesson } from './cutterGridLessonLocalization';
 import { lessonSectionRequirement } from './lessonAssessments';
 import { LessonMultipleChoice } from './LessonMultipleChoice';
@@ -83,9 +83,7 @@ export function CutterGridLessonPanel({
 }) {
   const { locale, t } = useLocalization();
   const [hintedSections, setHintedSections] = useState<readonly number[]>([]);
-  // Collapsed state belongs to the learner, not to the section: it survives
-  // Next and Previous, the same way a folded panel stays folded.
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggleCollapsed } = useCardCollapse();
   const displayLesson = localizeCutterGridLesson(lesson, locale);
   const section = displayLesson.sections[sectionIndex];
   const lastSection = sectionIndex === displayLesson.sections.length - 1;
@@ -113,21 +111,15 @@ export function CutterGridLessonPanel({
 
   return (
     <aside
-      className={`tutorial cutter-grid-lesson-card${
-        collapsed ? ' cutter-grid-lesson-card--collapsed' : ''
-      }`}
+      className={`tutorial cutter-grid-lesson-card${collapsed ? ' is-collapsed' : ''}`}
       aria-label={t('gridLessonBadge')}
     >
       <header className="tutorial__head">
-        <button
-          type="button"
-          onClick={() => setCollapsed((folded) => !folded)}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? t('expandLesson') : t('collapseLesson')}
-          data-testid="toggle-grid-lesson"
-        >
-          {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-        </button>
+        <CardCollapseToggle
+          collapsed={collapsed}
+          onToggle={toggleCollapsed}
+          testId="toggle-grid-lesson"
+        />
         <span className="tutorial__badge"><Boxes size={14} /> {t('gridLessonBadge')}</span>
         <span className="tutorial__progress">
           {t('lesson')} {lessonIndex + 1} / {lessonTotal} · {t('section')}{' '}

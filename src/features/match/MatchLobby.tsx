@@ -19,12 +19,20 @@ import { isPracticeBot } from '../../services/local/LocalMatchProvider';
 import { initialsOf, type PlayerIdentity } from './identity';
 import { formatPlayerLocalTime, formatUtcOffset } from './playerTime';
 import { useLocalization } from '../preferences/localization';
+import type { RoundFormat } from '../../types/match';
+import type { CrewMap } from './crews';
+import { roundLengthUnits } from './roundRules';
 
 interface MatchLobbyProps {
   state: MatchState;
   identity: PlayerIdentity;
   kind: MatchProvider['kind'];
   busy: boolean;
+  /** Player id to crew, for the optional team scoring on the scoreboard. */
+  crews: CrewMap;
+  onAssignCrew: (playerId: string) => void;
+  /** What game this round is, declared when the room was opened. */
+  format: RoundFormat;
   onStart: () => void;
   onLeave: () => void;
 }
@@ -34,12 +42,15 @@ export function MatchLobby({
   identity,
   kind,
   busy,
+  crews,
+  onAssignCrew,
+  format,
   onStart,
   onLeave,
 }: MatchLobbyProps) {
   const { t } = useLocalization();
   const [copied, setCopied] = useState(false);
-  const minutes = Math.round(state.config.durationMs / 60_000);
+  const length = roundLengthUnits(state.config.durationMs);
 
   const copyCode = async () => {
     try {
@@ -107,10 +118,39 @@ export function MatchLobby({
                     {localTime}
                   </span>
                 ) : null}
+                {/*
+                  Crews are set by tapping, cycling A to D and back to none —
+                  the whole room has to be split in the time it takes to say so
+                  out loud, and a dropdown per player does not fit in that.
+                */}
+                {format === 'crews' ? (
+                  <button
+                    type="button"
+                    className={`roster__crew ${crews[player.playerId] ? 'is-set' : ''}`}
+                    onClick={() => onAssignCrew(player.playerId)}
+                    title={t('assignCrew')}
+                    data-testid={`crew-${player.playerId}`}
+                  >
+                    {crews[player.playerId] ?? '+'}
+                  </button>
+                ) : null}
               </li>
               );
             })}
           </ul>
+
+          {/*
+            The co-op bar, set before the round so it cannot be chosen to
+            flatter the result. Zero is off, which is how every round starts.
+          */}
+          {/*
+            Crews are dealt from the room code so every client agrees without
+            anything being transmitted; tapping overrides that for everybody,
+            which is a real write to the room and not this browser's opinion.
+          */}
+          {format === 'crews' ? (
+            <p className="lobby__scope">{t('crewsDrawn')}</p>
+          ) : null}
         </section>
 
         <section className="menu-card">
@@ -119,7 +159,12 @@ export function MatchLobby({
             <li>
               <Timer size={15} />
               <div>
-                <strong>{minutes} {t('serverClockRule')}</strong>
+                <strong>
+                  {length.value}{' '}
+                  {length.unit === 'seconds'
+                    ? t('secondsClockRule')
+                    : t('serverClockRule')}
+                </strong>
                 <span>{t('serverClockBody')}</span>
               </div>
             </li>

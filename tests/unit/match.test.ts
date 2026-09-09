@@ -162,6 +162,69 @@ describe('LocalMatchProvider', () => {
     expect(mine?.submissionId).toBe('a');
   });
 
+  it('reopens a finished round in the same room, with the roster intact', async () => {
+    vi.useFakeTimers();
+    const match = provider();
+    const created = await match.createMatch(matchConfig({ durationMs: 60_000 }));
+    await match.joinMatch(created.matchId);
+    await match.startMatch(created.matchId);
+    await match.submit(created.matchId, {
+      submissionId: 'a',
+      challengeId: 'c',
+      challengeVersion: 1,
+      program: PROGRAM,
+      clientScore: score(70),
+    });
+    vi.advanceTimersByTime(61_000);
+    await match.getResults(created.matchId);
+
+    const reopened = await match.rematch(created.matchId);
+
+    // The whole point: the code survives, so nobody retypes it.
+    expect(reopened.matchId).toBe(created.matchId);
+    expect(reopened.phase).toBe('lobby');
+    expect(reopened.closesAt).toBeUndefined();
+    expect(reopened.players.some((player) => player.playerId === 'you')).toBe(true);
+    expect(reopened.players.every((player) => !player.submitted)).toBe(true);
+
+    // Last round's standings are gone with it.
+    await expect(match.getResults(created.matchId)).rejects.toThrow(/closes/);
+  });
+
+  it('draws different opponents for the reopened round', async () => {
+    // Replaying the identical bots would make round two a memory test.
+    vi.useFakeTimers();
+    const match = provider();
+    const created = await match.createMatch(matchConfig({ durationMs: 60_000 }));
+    await match.joinMatch(created.matchId);
+    await match.startMatch(created.matchId);
+    vi.advanceTimersByTime(61_000);
+    const first = await match.getResults(created.matchId);
+
+    await match.rematch(created.matchId);
+    await match.startMatch(created.matchId);
+    vi.advanceTimersByTime(61_000);
+    const second = await match.getResults(created.matchId);
+
+    const bots = (rows: typeof first.rows) =>
+      rows.filter((row) => isPracticeBot(row.playerId)).map((row) => row.playerId);
+    expect(bots(first.rows)).not.toEqual(bots(second.rows));
+  });
+
+  it('refuses to reopen a round that has not finished', async () => {
+    const match = provider();
+    const created = await match.createMatch(matchConfig({ durationMs: 60_000 }));
+    await match.joinMatch(created.matchId);
+
+    // A lobby is already open.
+    await expect(match.rematch(created.matchId)).rejects.toThrow(/finished/);
+
+    // Reopening a running round would erase submissions from under the players
+    // who made them.
+    await match.startMatch(created.matchId);
+    await expect(match.rematch(created.matchId)).rejects.toThrow(/finished/);
+  });
+
   it('refuses a submission that arrives after the deadline', async () => {
     vi.useFakeTimers();
     const match = provider();

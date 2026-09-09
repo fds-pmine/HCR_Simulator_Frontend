@@ -637,6 +637,33 @@ describe('practice gating', () => {
 
     expect(screen.getByTestId('tutorial-next')).toBeEnabled();
   });
+
+  it('folds a tutorial step down to its header and back', () => {
+    render(
+      <TutorialPanel
+        lesson={CUTTER_GRID_TUTORIAL_STEPS[0]}
+        index={0}
+        total={CUTTER_GRID_TUTORIAL_STEPS.length}
+        satisfied={false}
+        onNext={() => {}}
+        onExit={() => {}}
+        badge="CUTTER GRID"
+      />,
+    );
+    const toggle = screen.getByTestId('toggle-tutorial-card');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('tutorial-next')).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    // The header keeps the learner's place: which tutorial, and how far in.
+    expect(screen.getByText('CUTTER GRID')).toBeInTheDocument();
+    expect(screen.getByText(`1 / ${CUTTER_GRID_TUTORIAL_STEPS.length}`)).toBeInTheDocument();
+    expect(screen.queryByTestId('tutorial-next')).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('tutorial-next')).toBeInTheDocument();
+  });
 });
 
 describe('lesson progression', () => {
@@ -910,5 +937,32 @@ describe('reviewing a lesson while working through it', () => {
     );
     fireEvent.click(screen.getByTestId('lesson-section-1'));
     expect(onSelectSection).toHaveBeenCalledWith(0);
+  });
+
+  it('folds the Servo card down to its header and back', () => {
+    render(
+      <LessonGoal
+        lesson={servo}
+        solved={false}
+        quizPassed={false}
+        onQuizPassed={() => {}}
+        sectionSatisfied={false}
+        sectionIndex={12}
+        furthestSectionIndex={12}
+        onSelectSection={() => {}}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onExit={() => {}}
+      />,
+    );
+    const toggle = screen.getByTestId('toggle-servo-lesson');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('SERVO ANGLES LESSON')).toBeInTheDocument();
+    expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('next-angle-section')).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('lesson-goal-recap')).toBeInTheDocument();
   });
 });

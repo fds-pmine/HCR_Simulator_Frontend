@@ -63,6 +63,7 @@ export class LocalMatchProvider implements MatchProvider {
       players: new Map(),
       entries: new Map(),
       bots: makeBots(matchId, Math.min(3, Math.max(0, config.maxPlayers - 1))),
+      rounds: 1,
     };
     for (const bot of room.bots) {
       room.players.set(bot.playerId, {
@@ -247,6 +248,76 @@ export class LocalMatchProvider implements MatchProvider {
     };
   }
 
+  /**
+   * Reopen a finished practice round, keeping the room and its roster.
+   *
+   * The offline room lives in this tab and its code was never shareable, so
+   * there is nothing here to save a class from retyping. It exists so the
+   * button behaves identically in both modes: the interface is the same
+   * interface, and a control that worked online and did nothing offline would
+   * be a worse lie than the practice label already has to tell.
+   *
+   * Fresh bots each time, for the same reason the server picks a new
+   * challenge — replaying the identical opponents would make round two a
+   * memory test.
+   */
+  async rematch(matchId: string): Promise<MatchState> {
+    const room = this.room(matchId);
+    this.settle(room, Date.now());
+    if (room.phase !== 'results') {
+      throw new Error('Only a finished round can be reopened.');
+    }
+
+    room.phase = 'lobby';
+    delete room.opensAt;
+    delete room.closesAt;
+    room.entries.clear();
+    for (const player of room.players.values()) {
+      player.submitted = false;
+    }
+
+    for (const bot of room.bots) {
+      room.players.delete(bot.playerId);
+    }
+    room.bots = makeBots(
+      `${matchId}:${room.rounds}`,
+      Math.min(3, Math.max(0, room.config.maxPlayers - 1)),
+    );
+    room.rounds += 1;
+    for (const bot of room.bots) {
+      room.players.set(bot.playerId, {
+        playerId: bot.playerId,
+        displayName: bot.displayName,
+        utcOffsetMinutes: bot.utcOffsetMinutes,
+        connected: true,
+        submitted: false,
+      });
+    }
+
+    return this.snapshot(room);
+  }
+
+  async setCrews(
+    matchId: string,
+    crews: Readonly<Record<string, string>>,
+  ): Promise<MatchState> {
+    const room = this.room(matchId);
+    this.settle(room, Date.now());
+    if (room.phase !== 'lobby') {
+      throw new Error('Crews are set before the round starts.');
+    }
+
+    for (const player of room.players.values()) {
+      const crew = crews[player.playerId];
+      if (crew === undefined) {
+        delete player.crew;
+      } else {
+        player.crew = crew;
+      }
+    }
+    return this.snapshot(room);
+  }
+
   /** No server, so no offset. */
   async syncClock(): Promise<ClockSample> {
     return { offsetMs: 0, rttMs: 0 };
@@ -333,6 +404,8 @@ interface Room {
   players: Map<string, MatchPlayer>;
   entries: Map<string, Entry>;
   bots: Bot[];
+  /** Rounds played in this room, so a rematch draws different bots. */
+  rounds: number;
 }
 
 const ZERO_METRICS: ProgramMetrics = {

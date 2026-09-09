@@ -27,6 +27,8 @@ export function unusedMatchProvider(
     getMatch: refuse,
     getMatchChallenge: refuse,
     getResults: refuse,
+    rematch: refuse,
+    setCrews: refuse,
     submit: refuse,
     syncClock: refuse,
   };

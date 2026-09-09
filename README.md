@@ -103,6 +103,42 @@ Open two browser profiles, host a round in one, and join from the other with the
 `cargo run ... --example serve` command starts a **development** server. It has no authentication layer,
 trusts the supplied player-identity header, and uses a placeholder item-signing key from the source.
 
+### More than one machine
+
+The `serve` example is loopback only. It binds `127.0.0.1:18623` with no override and allows exactly two
+browser origins, `http://localhost:5173` and `hcr://app`, so a second laptop is refused twice over: the port
+is unreachable, and a preflight from `http://<your-ip>:5173` comes back without an
+`Access-Control-Allow-Origin` header. Neither failure names itself — the app reports "Could not reach the
+server", and `curl` from the host machine passes because it sends no `Origin`.
+
+Use the deployable binary instead, which reads its configuration from the environment:
+
+```bash
+# terminal 1: the backend, reachable from the network
+cd ../hcr-backend
+HCR_SIGNING_KEY=$(openssl rand -hex 32) \
+HCR_BIND=0.0.0.0:18623 \
+HCR_CORS_ORIGIN=http://<your-ip>:5173,http://localhost:5173 \
+cargo run -p hcr --features hotaru --bin hcr-server
+
+# terminal 2: the app, also on the network
+VITE_HCR_API_BASE_URL=http://<your-ip>:18623 npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
+```
+
+`HCR_CORS_ORIGIN` is an exact-string allowlist, so the origin students type has to appear on it verbatim —
+which is why `--strictPort` matters, and why a DHCP renewal breaks the round. Verify the preflight rather
+than the plain GET, because only the preflight exercises the part that fails:
+
+```bash
+curl -si -X OPTIONS http://<your-ip>:18623/api/v1/matches \
+  -H "Origin: http://<your-ip>:5173" -H 'Access-Control-Request-Method: POST' \
+  | grep -i access-control-allow
+```
+
+Both an `allow-origin` naming your address and an `allow-headers` listing
+`X-HCR-Player-Utc-Offset-Minutes` must come back. The frontend sends that header on every match call, so a
+server built before it was allowlisted cannot open a room at all.
+
 ## Local setup and checks
 
 Node.js 22 and npm are required. Install dependencies and start the development server:

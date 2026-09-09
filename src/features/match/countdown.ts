@@ -14,13 +14,58 @@ export const WARNING_MS = 60_000;
 /** The "closing" state the design calls for in the last ten seconds. */
 export const CRITICAL_MS = 10_000;
 
+/**
+ * A ceiling on every threshold, as a share of the round.
+ *
+ * The absolute values were written for rounds of two to five minutes. Applied
+ * unchanged to a sixty-second blitz round they are nonsense: the timer would be
+ * amber from the first second and red for the last sixth, so "running out of
+ * time" would be the round's only state and would mean nothing. A threshold
+ * that is never more than a share of the whole round keeps each state rare
+ * enough to still be a signal.
+ */
+const WARNING_SHARE = 1 / 3;
+const ENDGAME_SHARE = 1 / 4;
+const CRITICAL_SHARE = 1 / 6;
+
+function thresholdFor(absoluteMs: number, share: number, durationMs: number): number {
+  return durationMs > 0 ? Math.min(absoluteMs, durationMs * share) : absoluteMs;
+}
+
+/**
+ * The last thirty seconds, when the round stops being work and becomes a
+ * deadline.
+ *
+ * Separate from {@link CountdownUrgency} rather than another value in it: the
+ * urgency states colour one widget, and this one changes the whole screen —
+ * the stage, the submit button, and every roster chip belonging to somebody who
+ * has not got an attempt in. Ten seconds is too late for that to be useful;
+ * thirty is long enough for a person to actually press the button.
+ */
+export const ENDGAME_MS = 30_000;
+
+/** Whether the round is in its closing stretch. A closed round is not. */
+export function isEndgame(remainingMs: number, durationMs = 0): boolean {
+  return (
+    remainingMs > 0 &&
+    remainingMs <= thresholdFor(ENDGAME_MS, ENDGAME_SHARE, durationMs)
+  );
+}
+
 /** How often the countdown re-renders. Fine enough to animate the last seconds. */
 const TICK_MS = 100;
 
-export function countdownUrgency(remainingMs: number): CountdownUrgency {
+export function countdownUrgency(
+  remainingMs: number,
+  durationMs = 0,
+): CountdownUrgency {
   if (remainingMs <= 0) return 'closed';
-  if (remainingMs <= CRITICAL_MS) return 'critical';
-  if (remainingMs <= WARNING_MS) return 'warning';
+  if (remainingMs <= thresholdFor(CRITICAL_MS, CRITICAL_SHARE, durationMs)) {
+    return 'critical';
+  }
+  if (remainingMs <= thresholdFor(WARNING_MS, WARNING_SHARE, durationMs)) {
+    return 'warning';
+  }
   return 'calm';
 }
 
@@ -63,4 +108,36 @@ export function useRemainingMs(
   }, []);
 
   return closesAt === undefined ? 0 : closesAt - (now + offsetMs);
+}
+
+/**
+ * Where a relay round is: which leg is being played, and how long is left of it.
+ *
+ * Derived from the round's own clock rather than from a timer started when the
+ * component mounted, so twenty laptops prompt the swap on the same second even
+ * though they polled up to 1.2 seconds apart. Nothing observes who is actually
+ * typing — this is a prompt, and the honest word for it is a prompt.
+ */
+export interface RelayLeg {
+  /** 1-based, so the first leg is "leg 1" and not "leg 0". */
+  leg: number;
+  /** Milliseconds until the machine should change hands. */
+  swapInMs: number;
+}
+
+export function relayLeg(
+  remainingMs: number,
+  durationMs: number,
+  swapMs: number,
+): RelayLeg | undefined {
+  if (swapMs <= 0 || durationMs <= 0 || remainingMs <= 0) return undefined;
+
+  const elapsed = Math.max(0, durationMs - remainingMs);
+  const intoLeg = elapsed % swapMs;
+  return {
+    leg: Math.floor(elapsed / swapMs) + 1,
+    // The last leg is short rather than overrunning the deadline: a prompt to
+    // hand over with two seconds left would be a prompt to lose the round.
+    swapInMs: Math.min(swapMs - intoLeg, remainingMs),
+  };
 }

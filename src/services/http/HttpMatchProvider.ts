@@ -102,6 +102,25 @@ export class HttpMatchProvider implements MatchProvider {
     );
   }
 
+  async rematch(matchId: string): Promise<MatchState> {
+    return this.client.post<MatchState>(
+      `${this.base(matchId)}/rematch`,
+      {},
+      this.headers(),
+    );
+  }
+
+  async setCrews(
+    matchId: string,
+    crews: Readonly<Record<string, string>>,
+  ): Promise<MatchState> {
+    return this.client.post<MatchState>(
+      `${this.base(matchId)}/crews`,
+      { crews },
+      this.headers(),
+    );
+  }
+
   async submit(
     matchId: string,
     submission: MatchSubmission,

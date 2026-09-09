@@ -5,6 +5,8 @@ import { isPracticeBot } from '../../services/local/LocalMatchProvider';
 import {
   countdownUrgency,
   formatCountdown,
+  isEndgame,
+  relayLeg,
   remainingFraction,
   useRemainingMs,
 } from './countdown';
@@ -35,11 +37,25 @@ interface MatchHudProps {
 export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) {
   const { t } = useLocalization();
   const remainingMs = useRemainingMs(state.closesAt, offsetMs);
-  const urgency = countdownUrgency(remainingMs);
+  const urgency = countdownUrgency(remainingMs, state.config.durationMs);
   const fraction = remainingFraction(remainingMs, state.config.durationMs);
+  // Only while the round is actually running: a lobby thirty seconds from
+  // nothing, and a scoreboard, are not deadlines.
+  const endgame =
+    state.phase === 'running' && isEndgame(remainingMs, state.config.durationMs);
+  const relay =
+    state.phase === 'running' && state.config.relaySwapMs
+      ? relayLeg(remainingMs, state.config.durationMs, state.config.relaySwapMs)
+      : undefined;
 
   return (
-    <div className="hud">
+    <div className={`hud ${endgame ? 'is-endgame' : ''}`} data-endgame={endgame}>
+      {/*
+        A red edge around the whole stage, not a badge in a corner. The point of
+        the last thirty seconds is that everybody feels them at once, including
+        the person who is not looking at the clock.
+      */}
+      {endgame ? <div className="endgame-edge" aria-hidden="true" /> : null}
       <div className={`hud__timer hud__timer--${urgency}`} data-testid="match-timer">
         <span>{urgency === 'closed' ? t('closed') : t('timeLeft')}</span>
         <strong>{formatCountdown(remainingMs)}</strong>
@@ -47,6 +63,21 @@ export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) 
           <i style={{ transform: `scaleX(${fraction})` }} />
         </div>
       </div>
+
+      {/*
+        A relay prompt, not a rule: nothing here observes who is at the
+        keyboard. It is on the round's own clock so every machine in the room
+        is told to change hands on the same second.
+      */}
+      {relay ? (
+        <p
+          className={`hud__relay ${relay.swapInMs <= 5_000 ? 'is-due' : ''}`}
+          data-testid="relay-leg"
+        >
+          {t('relayLeg')} {relay.leg} · {t('relaySwapIn')}{' '}
+          {Math.ceil(relay.swapInMs / 1_000)}s
+        </p>
+      ) : null}
 
       <ul className="hud__roster" aria-label={t('players')}>
         {state.players.map((player) => {

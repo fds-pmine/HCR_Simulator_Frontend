@@ -29,8 +29,28 @@ import {
  */
 const POLL_MS = 1_200;
 
+/**
+ * How often a closed round is re-read.
+ *
+ * Slower, because only one thing can still happen to it: the host reopening it
+ * for another round. Watching for that is what lets everybody follow the host
+ * back into the lobby without retyping the room code, and a scoreboard nobody
+ * has closed yet should not poll at playing speed to find out.
+ */
+const RESULTS_POLL_MS = 3_000;
+
 export interface MatchSession {
   matchId?: string;
+  /**
+   * Whether this client opened the room.
+   *
+   * There is no host on the server — the room code is the whole permission
+   * model — so this is not authority, it is only "the machine that started
+   * this". An endless session needs exactly one client driving the loop, and
+   * the one that opened the room is the least surprising choice: it is the
+   * projector.
+   */
+  opened: boolean;
   state?: MatchState;
   /** Arrives only once the round starts; withheld during the lobby by design. */
   challenge?: MatchChallenge;
@@ -48,6 +68,10 @@ export interface MatchActions {
   join: (code: string) => Promise<void>;
   start: () => Promise<void>;
   submit: (program: Program, clientScore?: ScoreResult) => Promise<void>;
+  /** Reopen the finished round on a new challenge, keeping the room. */
+  rematch: () => Promise<void>;
+  /** Replace the room's crew assignment. Lobby only. */
+  setCrews: (crews: Readonly<Record<string, string>>) => Promise<void>;
   leave: () => void;
   dismissError: () => void;
 }
@@ -64,6 +88,7 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
   const { matchProvider } = useServices();
 
   const [matchId, setMatchId] = useState<string>();
+  const [opened, setOpened] = useState(false);
   const [state, setState] = useState<MatchState>();
   const [challenge, setChallenge] = useState<MatchChallenge>();
   const [results, setResults] = useState<MatchResults>();
@@ -75,6 +100,9 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
   // Read inside the polling loop, which must not restart when they change.
   const challengeRef = useRef<MatchChallenge | undefined>(undefined);
   const resultsRef = useRef<MatchResults | undefined>(undefined);
+  // The phase, read by the poll loop to choose its own next delay. A ref rather
+  // than the state value so the loop is not resubscribed on every tick.
+  const stateRef = useRef<MatchState['phase'] | undefined>(undefined);
 
   useEffect(() => {
     const shareOffset = loadResearchPreferences().utcOffset;
@@ -96,6 +124,7 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
       try {
         const next = await matchProvider.getMatch(matchId);
         if (!active) return;
+        stateRef.current = next.phase;
         setState(next);
 
         if (next.phase === 'running' && !challengeRef.current) {
@@ -112,8 +141,20 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
           setResults(loaded);
         }
 
-        // Nothing further can change; stop asking.
-        if (next.phase === 'results' || next.phase === 'cancelled') {
+        // The host reopened the room: the standings and the challenge belonged
+        // to the round that ended, and holding either would show the last
+        // round's scoreboard over the next round's lobby.
+        if (next.phase === 'lobby' && (resultsRef.current || challengeRef.current)) {
+          resultsRef.current = undefined;
+          challengeRef.current = undefined;
+          setResults(undefined);
+          setChallenge(undefined);
+          setLastAck(undefined);
+        }
+
+        // A cancelled round is over for good; a closed one can still be
+        // reopened, so it is watched, just not at playing speed.
+        if (next.phase === 'cancelled') {
           return;
         }
       } catch (reason) {
@@ -121,7 +162,8 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
         setError(describe(reason));
       }
       if (active) {
-        timer = setTimeout(() => void poll(), POLL_MS);
+        const closed = stateRef.current === 'results';
+        timer = setTimeout(() => void poll(), closed ? RESULTS_POLL_MS : POLL_MS);
       }
     };
 
@@ -166,10 +208,11 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
       // Hosting is create-then-join: the creator is not a participant until
       // they join, exactly like everybody else. `matchConfig` fills in the
       // fields the caller did not choose — the server takes no partial config.
-      enter(
-        async () =>
-          (await matchProvider.createMatch(matchConfig(overrides))).matchId,
-      ),
+      enter(async () => {
+        const created = await matchProvider.createMatch(matchConfig(overrides));
+        setOpened(true);
+        return created.matchId;
+      }),
     [enter, matchProvider],
   );
 
@@ -216,9 +259,57 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
     [matchId, matchProvider],
   );
 
+  /**
+   * Reopen the finished round, keeping the room and everybody in it.
+   *
+   * Every client is still polling the closed round, so they follow the phase
+   * back to the lobby on their own — nobody retypes the code, and the roster
+   * arrives intact.
+   */
+  const rematch = useCallback(async () => {
+    if (!matchId) return;
+    setBusy(true);
+    try {
+      const next = await matchProvider.rematch(matchId);
+      resultsRef.current = undefined;
+      challengeRef.current = undefined;
+      stateRef.current = next.phase;
+      setResults(undefined);
+      setChallenge(undefined);
+      setLastAck(undefined);
+      setState(next);
+    } catch (reason) {
+      setError(describe(reason));
+    } finally {
+      setBusy(false);
+    }
+  }, [matchId, matchProvider]);
+
+  /**
+   * Put the room into crews, for everybody rather than for this browser.
+   *
+   * Not `busy`-guarded like the others: teaming twenty people is twenty taps
+   * and blocking the roster between each one would make it unusable. The
+   * server replaces the whole map every time, so the last tap wins and a lost
+   * request costs one letter rather than the assignment.
+   */
+  const setCrews = useCallback(
+    async (crews: Readonly<Record<string, string>>) => {
+      if (!matchId) return;
+      try {
+        setState(await matchProvider.setCrews(matchId, crews));
+      } catch (reason) {
+        setError(describe(reason));
+      }
+    },
+    [matchId, matchProvider],
+  );
+
   const leave = useCallback(() => {
+    setOpened(false);
     challengeRef.current = undefined;
     resultsRef.current = undefined;
+    stateRef.current = undefined;
     setMatchId(undefined);
     setState(undefined);
     setChallenge(undefined);
@@ -230,8 +321,8 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
   const dismissError = useCallback(() => setError(undefined), []);
 
   return [
-    { matchId, state, challenge, results, offsetMs, lastAck, error, busy },
-    { host, join, start, submit, leave, dismissError },
+    { matchId, opened, state, challenge, results, offsetMs, lastAck, error, busy },
+    { host, join, start, submit, rematch, setCrews, leave, dismissError },
   ];
 }
 

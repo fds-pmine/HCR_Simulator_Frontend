@@ -2,25 +2,68 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Bot, LoaderCircle, Radio, Swords, Wifi, WifiOff } from 'lucide-react';
 import type { MatchProvider } from '../../services/contracts';
 import type { ChallengeSummary } from '../../types/domain';
+import type { CrewScoring, RankBy, RoundFormat } from '../../types/match';
 import { useServices } from '../../app/servicesContext';
+import {
+  CoopDiagram,
+  CrewsDiagram,
+  SoloDiagram,
+  SumDiagram,
+  WeakestTwoDiagram,
+} from './FormatDiagram';
 import { useLocalization } from '../preferences/localization';
+import {
+  AUTO_ADVANCE,
+  COOP_TARGETS,
+  CREW_SCORINGS,
+  DEFAULT_COOP_TARGET,
+  DEFAULT_DURATION_MS,
+  DURATIONS,
+  FORMATS,
+  RANKINGS,
+  RELAY_SWAPS,
+} from './roundRules';
+
+/** What the host chose for the round they are opening. */
+/** Player-facing name and one-line rule for each format. */
+const FORMAT_LABEL = {
+  solo: 'formatSolo',
+  crews: 'formatCrews',
+  coop: 'formatCoop',
+} as const;
+
+const FORMAT_HINT = {
+  solo: 'formatSoloHint',
+  crews: 'formatCrewsHint',
+  coop: 'formatCoopHint',
+} as const;
+
+const FORMAT_DIAGRAM = {
+  solo: SoloDiagram,
+  crews: CrewsDiagram,
+  coop: CoopDiagram,
+} as const;
+
+export interface HostChoice {
+  durationMs: number;
+  rankBy: RankBy;
+  challengeId?: string;
+  format: RoundFormat;
+  coopTarget?: number;
+  crewScoring: CrewScoring;
+  relaySwapMs?: number;
+  autoAdvanceMs?: number;
+}
 
 interface MatchSetupProps {
   kind: MatchProvider['kind'];
   busy: boolean;
   error?: string;
-  onHost: (durationMs: number, challengeId?: string) => void;
+  onHost: (choice: HostChoice) => void;
   onJoin: (code: string) => void;
   onBack: () => void;
   onDismissError: () => void;
 }
-
-/** Round lengths worth offering. Anything under a minute is not a round. */
-const DURATIONS = [
-  { label: '2 min', ms: 2 * 60_000 },
-  { label: '3 min', ms: 3 * 60_000 },
-  { label: '5 min', ms: 5 * 60_000 },
-];
 
 export function MatchSetup({
   kind,
@@ -32,7 +75,13 @@ export function MatchSetup({
   onDismissError,
 }: MatchSetupProps) {
   const { t } = useLocalization();
-  const [durationMs, setDurationMs] = useState(DURATIONS[1].ms);
+  const [durationMs, setDurationMs] = useState<number>(DEFAULT_DURATION_MS);
+  const [rankBy, setRankBy] = useState<RankBy>('completion');
+  const [format, setFormat] = useState<RoundFormat>('solo');
+  const [coopTarget, setCoopTarget] = useState<number>(DEFAULT_COOP_TARGET);
+  const [crewScoring, setCrewScoring] = useState<CrewScoring>('sum');
+  const [relaySwapMs, setRelaySwapMs] = useState(0);
+  const [autoAdvanceMs, setAutoAdvanceMs] = useState(0);
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
   const [catalog, setCatalog] = useState<ChallengeSummary[]>([]);
@@ -100,6 +149,86 @@ export function MatchSetup({
           <h2>{t('hostRound')}</h2>
           <p>{t('hostRoundBody')}</p>
 
+          {/*
+            The format leads, because it decides what the rest of the panel
+            means: a bar belongs to a co-op round and a scoring rule belongs to
+            a crew one, and offering either on a solo round would be offering a
+            setting that does nothing.
+          */}
+          {/*
+            Cards rather than a segmented control, and the rule written out
+            rather than hidden in a tooltip: this is chosen once, in front of a
+            waiting room, by somebody who should not have to hover to find out
+            what "co-op" does to the round.
+          */}
+          <div className="format-cards" role="radiogroup" aria-label={t('roundFormat')}>
+            {FORMATS.map((option) => {
+              const Diagram = FORMAT_DIAGRAM[option];
+              const chosen = format === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  className={`format-card ${chosen ? 'is-active' : ''}`}
+                  onClick={() => setFormat(option)}
+                  aria-checked={chosen}
+                  data-testid={`format-${option}`}
+                >
+                  <Diagram />
+                  <strong>{t(FORMAT_LABEL[option])}</strong>
+                  <span>{t(FORMAT_HINT[option])}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {format === 'coop' ? (
+            <div className="segmented" role="group" aria-label={t('classTarget')}>
+              <span>{t('classTarget')}</span>
+              {COOP_TARGETS.map((target) => (
+                <button
+                  key={target}
+                  type="button"
+                  className={coopTarget === target ? 'is-active' : ''}
+                  onClick={() => setCoopTarget(target)}
+                  aria-pressed={coopTarget === target}
+                  data-testid={`coop-target-${target}`}
+                >
+                  {target}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {format === 'crews' ? (
+            <div
+              className="format-cards format-cards--pair"
+              role="radiogroup"
+              aria-label={t('crewScoring')}
+            >
+              {CREW_SCORINGS.map((option) => {
+                const Diagram = option === 'sum' ? SumDiagram : WeakestTwoDiagram;
+                const chosen = crewScoring === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    className={`format-card ${chosen ? 'is-active' : ''}`}
+                    onClick={() => setCrewScoring(option)}
+                    aria-checked={chosen}
+                    data-testid={`crew-scoring-${option}`}
+                  >
+                    <Diagram />
+                    <strong>{t(option === 'sum' ? 'crewSum' : 'crewWeakestTwo')}</strong>
+                    <span>{t(option === 'sum' ? 'crewSumHint' : 'crewWeakestTwoHint')}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
           <div className="segmented" role="group" aria-label={t('roundLength')}>
             {DURATIONS.map((option) => (
               <button
@@ -110,6 +239,88 @@ export function MatchSetup({
                 aria-pressed={durationMs === option.ms}
               >
                 {option.label}
+              </button>
+            ))}
+          </div>
+
+          {/*
+            Which metric decides the round. Both are computed for every
+            submission either way; this chooses the one the standings are
+            ordered by, and the scoreboard shows the other alongside it.
+          */}
+          <div className="segmented" role="group" aria-label={t('rankedBy')}>
+            {RANKINGS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={rankBy === option ? 'is-active' : ''}
+                onClick={() => setRankBy(option)}
+                aria-pressed={rankBy === option}
+                title={option === 'completion' ? t('accuracyRankHint') : t('efficiencyRankHint')}
+                data-testid={`rank-by-${option}`}
+              >
+                {option === 'completion' ? t('similarityMetric') : t('finalScoreMetric')}
+              </button>
+            ))}
+          </div>
+
+          {/*
+            Endless: the round reopens itself. A session stops being a thing
+            somebody drives between every round and becomes a thing that runs,
+            which is the difference between a class that plays three rounds and
+            one that plays ten.
+          */}
+          <div className="segmented" role="group" aria-label={t('endless')}>
+            <span>{t('endless')}</span>
+            <button
+              type="button"
+              className={autoAdvanceMs === 0 ? 'is-active' : ''}
+              onClick={() => setAutoAdvanceMs(0)}
+              aria-pressed={autoAdvanceMs === 0}
+              data-testid="endless-off"
+            >
+              {t('classTargetOff')}
+            </button>
+            {AUTO_ADVANCE.map((gap) => (
+              <button
+                key={gap}
+                type="button"
+                className={autoAdvanceMs === gap ? 'is-active' : ''}
+                onClick={() => setAutoAdvanceMs(gap)}
+                aria-pressed={autoAdvanceMs === gap}
+                data-testid={`endless-${gap / 1_000}`}
+              >
+                {gap / 1_000}s
+              </button>
+            ))}
+          </div>
+
+          {/*
+            Orthogonal to the format on purpose: a relay is about who is at the
+            keyboard, not about how the round is scored, so any format can be
+            played on shared machines.
+          */}
+          <div className="segmented" role="group" aria-label={t('relaySwap')}>
+            <span>{t('relaySwap')}</span>
+            <button
+              type="button"
+              className={relaySwapMs === 0 ? 'is-active' : ''}
+              onClick={() => setRelaySwapMs(0)}
+              aria-pressed={relaySwapMs === 0}
+              data-testid="relay-off"
+            >
+              {t('classTargetOff')}
+            </button>
+            {RELAY_SWAPS.map((swap) => (
+              <button
+                key={swap}
+                type="button"
+                className={relaySwapMs === swap ? 'is-active' : ''}
+                onClick={() => setRelaySwapMs(swap)}
+                aria-pressed={relaySwapMs === swap}
+                data-testid={`relay-${swap / 1_000}`}
+              >
+                {swap / 1_000}s
               </button>
             ))}
           </div>
@@ -136,7 +347,18 @@ export function MatchSetup({
             className="big-button big-button--primary"
             type="button"
             disabled={busy}
-            onClick={() => onHost(durationMs, challengeId || undefined)}
+            onClick={() =>
+              onHost({
+                durationMs,
+                rankBy,
+                format,
+                crewScoring,
+                ...(format === 'coop' ? { coopTarget } : {}),
+                ...(relaySwapMs > 0 ? { relaySwapMs } : {}),
+                ...(autoAdvanceMs > 0 ? { autoAdvanceMs } : {}),
+                ...(challengeId ? { challengeId } : {}),
+              })
+            }
           >
             {busy ? <LoaderCircle className="spin" size={17} /> : <Radio size={17} />}
             {t('openRoom')}

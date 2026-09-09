@@ -74,6 +74,8 @@ export interface WorkbenchMatch {
   /** Whether the round is currently accepting entries. */
   canSubmit: boolean;
   submitting: boolean;
+  /** The round's closing stretch, which the submit control wears. */
+  urgent?: boolean;
   onSubmit: (compiled: CompiledProgram) => void;
 }
 
@@ -753,6 +755,7 @@ export function SimulationWorkbench({
                   disabled:
                     programmingMode === 'cutter-grid' || !match.canSubmit,
                   busy: match.submitting,
+                  ...(match.urgent ? { urgent: true } : {}),
                   ...(programmingMode === 'cutter-grid'
                     ? { title: t('backendReplayUnsupported') }
                     : {}),
