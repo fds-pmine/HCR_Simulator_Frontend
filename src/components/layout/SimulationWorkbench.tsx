@@ -194,6 +194,7 @@ export function SimulationWorkbench({
     showCutterGrid,
     toggleLeftPanel,
     toggleRightPanel,
+    revealStage,
     toggleLog,
     toggleTarget,
     toggleCutterGrid,
@@ -389,6 +390,11 @@ export function SimulationWorkbench({
   };
 
   const handleRun = async () => {
+    // Run and Step exist to be watched, and on a phone the program panel is
+    // standing where the robot is. Test is left alone: it reports its verdict
+    // in the lesson card, and closing the editor under somebody mid-iteration
+    // would cost them the thing they were about to fix.
+    revealStage();
     if (programmingMode === 'cutter-grid') {
       const frozen = await frozenCutterPlan();
       if (frozen) {
@@ -451,6 +457,7 @@ export function SimulationWorkbench({
     // — stepping after a completed run used to be a silent no-op, so the only
     // way forward was Reset.
     const resuming = snapshot.status === 'paused';
+    revealStage();
 
     // A step the engine declines — one pressed mid-motion, say — is not
     // evidence that the learner stepped, so the tutorial hears about it only
@@ -523,10 +530,7 @@ export function SimulationWorkbench({
           <div className="brand-mark">
             <Braces size={17} />
           </div>
-          <div>
-            <h1>HCR Simulator</h1>
-            <span>HAIRCUT CONTROL RUNTIME</span>
-          </div>
+          <h1>HCR Simulator</h1>
         </div>
 
         <div className="challenge-crumb">

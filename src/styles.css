@@ -334,6 +334,7 @@ input:focus-visible {
 .bootstrap-screen {
   display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
   place-content: center;
   justify-items: center;
   gap: 0.65rem;
@@ -425,8 +426,18 @@ input:focus-visible {
 }
 
 .workbench {
-  width: 100vw;
+  /*
+    `100%`, not `100vw`: `vw` counts the classic scrollbar, so on Windows the
+    shell was 15px wider than the window and the page scrolled sideways.
+
+    `dvh` because mobile Safari's `vh` is the tall viewport — the one you get
+    with the URL bar hidden — so a `100vh` shell puts its own bottom row
+    underneath the browser chrome. Nothing here scrolls the page, so the bar
+    never retracts and `dvh` never animates; it just reports the truth.
+  */
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--ground);
 }
@@ -475,7 +486,6 @@ input:focus-visible {
   letter-spacing: -0.02em;
 }
 
-.brand-lockup span,
 .challenge-crumb span {
   color: var(--muted);
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -548,6 +558,7 @@ input:focus-visible {
   position: relative;
   width: 100%;
   height: calc(100vh - var(--topbar-height));
+  height: calc(100dvh - var(--topbar-height));
   overflow: hidden;
 }
 
@@ -1543,9 +1554,18 @@ input:focus-visible {
 .menu-screen {
   position: relative;
   display: flex;
-  width: 100vw;
+  width: 100%;
+  /*
+    `dvh`, not `vh`. `#root` is `height: 100%` of a `overflow: hidden` html,
+    which on iOS is the SMALL viewport — the one with the URL bar showing —
+    while `100vh` is the large one. Capping the menu at `vh` therefore made it
+    taller than the box clipping it, and the last 60-120px of every menu, the
+    lesson list included, sat below a scroller that had already run out.
+  */
   min-height: 100vh;
+  min-height: 100dvh;
   max-height: 100vh;
+  max-height: 100dvh;
   flex-direction: column;
   align-items: center;
   /*
@@ -2759,6 +2779,7 @@ input:focus-visible {
   display: grid;
   width: min(640px, calc(100vw - 40px));
   max-height: calc(100vh - 60px);
+  max-height: calc(100dvh - 60px);
   gap: 14px;
   overflow-y: auto;
   padding: 22px;
@@ -3387,6 +3408,7 @@ input:focus-visible {
 
 .research-entry {
   min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(circle at 50% 15%, color-mix(in oklch, var(--accent) 14%, transparent), transparent 34%),
     var(--background);
@@ -3437,6 +3459,7 @@ input:focus-visible {
   display: grid;
   width: min(760px, calc(100vw - 36px));
   max-height: calc(100vh - 36px);
+  max-height: calc(100dvh - 36px);
   gap: 10px;
   overflow: auto;
   padding: 20px;
@@ -4197,5 +4220,316 @@ button.tutorial__step:hover {
   .stage:has(.error-banner) .hud,
   .stage:has(.error-banner) .tutorial {
     top: calc(var(--dock-top) + var(--control-height) + 66px);
+  }
+}
+
+/* ==========================================================================
+   NARROW STAGES — the panels stop floating.
+
+   Everything above this point treats the stage as a canvas with panels flying
+   over it: the program panel pinned left, the dock and inspector stacked in a
+   right-hand column, the lesson card centred on top of all of it. That works
+   because a 1280px stage has room for three columns and the middle one still
+   shows the robot.
+
+   A 393px stage has room for one. Left to the desktop rules a phone put the
+   dock on top of the Blockly canvas, the lesson card on top of the dock, and
+   pushed the program panel nine pixels off the right edge — every layer
+   landing on every other one.
+
+   So at 980px and under the stage becomes a column and the layers become rows:
+   the round HUD or a program error, then the lesson card, then whichever work
+   surface is open, then the dock. The 3D scene stays absolutely positioned
+   behind all of it and shows through wherever a row is absent — which is what
+   makes closing the program panel the phone's "look at the robot" gesture.
+
+   980px rather than a phone width because the centred lesson card is 520px
+   wide and the program panel's right edge is at 402px, so the two overlap on
+   every stage under 1324px. At 1280 that is the 52px of panel edge the spec
+   allows; at 830 it is half the editor. A portrait tablet wants the column.
+
+   Two panels cannot share the one work-surface row, so opening either closes
+   the other; that is enforced in `simulationStore.ts`, not here, because a
+   panel the topbar says is open must not be a panel CSS has quietly hidden.
+   ========================================================================== */
+
+@media (max-width: 980px) {
+  .stage {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  /*
+    Status rows. Both were centred overlays anchored to the top of the stage;
+    in the column they push the card down instead of covering it, which is
+    what you want from an error you are meant to read and fix.
+  */
+  .hud,
+  .error-banner,
+  .backend-replay-notice,
+  .planning-progress {
+    position: static;
+    order: 0;
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+
+  .error-banner {
+    max-height: 30dvh;
+    overflow-y: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .error-banner strong {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .error-banner button {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .error-banner span {
+    grid-column: 1 / -1;
+  }
+
+  /*
+    The lesson card. `flex: 0 1 auto` with a floor: it gives its height up to
+    the work surface when both are open, down to a header and one line, and
+    scrolls the rest. Collapsing it is still the way to get real room back.
+  */
+  .tutorial {
+    position: static;
+    order: 1;
+    width: auto;
+    min-height: 96px;
+    max-height: 45dvh;
+    flex: 0 1 auto;
+    transform: none;
+  }
+
+  .tutorial.is-collapsed {
+    width: auto;
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  /*
+    The work surface: program or inspector, never both. `.is-closed` becomes
+    `display: none` rather than a transform, so a closed panel gives its row
+    back to the scene instead of leaving a hole where the robot should be.
+  */
+  .side-panel {
+    position: static;
+    order: 2;
+    width: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    transform: none;
+    /* Sliding a panel that no longer slides in from anywhere. */
+    transition: none;
+  }
+
+  /*
+    Undoes the rule further up this file that hides the inspector below 980px
+    because the dock stands in its column. Down here they are separate rows,
+    and the inspector is where a lesson's joint angles are read.
+  */
+  .side-panel--right {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .side-panel--left.is-closed,
+  .side-panel--right.is-closed {
+    display: none;
+  }
+
+  /* The edge tabs re-open a panel from the side of a stage that no longer has
+     free sides. The topbar's two toggles are always visible and do the same. */
+  .edge-tab {
+    display: none;
+  }
+
+  /*
+    `margin-top: auto` is the whole bottom-anchoring: with both panels closed
+    there is free space in the column and it all collects above the dock, so
+    the dock sits under the thumb and the scene gets one contiguous band
+    instead of a strip above the controls and a strip below them. With a panel
+    open there is no free space to collect and the rule costs nothing.
+  */
+  .control-dock {
+    position: static;
+    order: 3;
+    width: auto;
+    margin-top: auto;
+    flex: 0 0 auto;
+  }
+
+  .arm-dock {
+    position: static;
+    order: 4;
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  /* Overlays that still cover the whole stage, given a phone's margins. */
+  .scoreboard {
+    padding: 12px;
+  }
+
+  .scoreboard__panel {
+    width: min(640px, calc(100vw - 24px));
+    max-height: calc(100dvh - 84px);
+    padding: 16px;
+  }
+}
+
+/* ==========================================================================
+   PHONES — the topbar and the thumb.
+
+   Separate from the column above because a portrait tablet has a stage that
+   wants rows and a topbar that is perfectly fine as it is. This block is the
+   width at which the wordmark stops fitting beside the controls, and at which
+   a 32px icon button stops being a target anyone can hit.
+   ========================================================================== */
+
+@media (max-width: 760px) {
+  :root {
+    --topbar-height: 48px;
+  }
+
+  /*
+    `minmax(0, 1fr) auto` rather than `1fr auto`: the brand is the half that
+    may be squeezed, and a `1fr` track refuses to go below its content, which
+    is how "HCR Simulator / HAIRCUT CONTROL RUNTIME" wrapped to 90px inside a
+    58px bar and spilled over the stage.
+  */
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  .brand-lockup {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .brand-lockup h1 {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* The mode badge is the first thing to go: the lesson card names the mode,
+     and it is not worth the width the two panel toggles need. */
+  .local-badge {
+    display: none;
+  }
+
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+  }
+
+  .topbar-actions {
+    gap: 5px;
+  }
+
+  /* 32px is a mouse target. These are the only way to reach the program panel
+     and the inspector on a phone, so they get a thumb's worth. */
+  .topbar-actions button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .control-dock .control-button {
+    height: 40px;
+  }
+
+  /*
+    The same rule for the icon buttons inside the rows — collapse a panel,
+    collapse the card, leave the lesson, dismiss an error. They were drawn at
+    24-28px, and `flex: none` because each one sits in a flex row that was
+    happy to shave it to 20px when the text beside it grew.
+  */
+  .panel-header button,
+  .tutorial__head button,
+  .error-banner button {
+    width: 40px;
+    height: 40px;
+    flex: none;
+  }
+
+  /*
+    16px, which is the size below which iOS Safari zooms the page to meet an
+    input it thinks is too small to type into — and having zoomed, leaves the
+    learner there. Typing your name into the versus lobby cost you the rest of
+    the screen.
+  */
+  .name-field,
+  .name-field input,
+  .name-field select,
+  .code-input {
+    height: 44px;
+    font-size: 16px;
+  }
+}
+
+/*
+  A lesson row is an index, a title with its description, and the meta column
+  that says how many voxels and which mode. The meta is `nowrap` and claims its
+  161px first, so under about 560px the title took what was left — 75px at
+  360px wide, one word per line, eleven lines deep. Below that width the meta
+  drops to its own line and lines up under the title it belongs to.
+*/
+@media (max-width: 560px) {
+  .lesson-row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .lesson-row__meta {
+    /* 28px of index plus the row's 13px gap. */
+    flex: 1 0 100%;
+    margin-left: 41px;
+  }
+}
+
+/*
+  Phone landscape. 345px of stage has to hold a card, a work surface and the
+  dock, and the column shares out what is missing in proportion to what each
+  row asked for — which handed the card two thirds of the shortfall's opposite
+  and left the Blockly panel 66px, a header strip with no canvas under it.
+
+  So the card's cap comes down to roughly a header and a line, and the dock
+  spends the width it has in landscape instead of the height it does not:
+  one row of six rather than four over three.
+*/
+@media (max-width: 980px) and (max-height: 520px) {
+  .tutorial {
+    min-height: 0;
+    max-height: 34dvh;
+  }
+
+  .control-dock {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  /* The widening that fills the second row's hole has no hole to fill. */
+  .control-dock:not(:has(.control-button--submit)) > .control-button:nth-last-child(-n + 3) {
+    grid-column: auto;
+  }
+
+  .control-dock .control-button {
+    height: 34px;
   }
 }

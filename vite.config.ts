@@ -15,6 +15,10 @@ export default defineConfig({
     // and went from 18 files to 223, most of them other people's tests.
     exclude: [
       'tests/e2e/**',
+      // The screenshot rigs are Playwright specs too — they have their own
+      // config — and `test.use()` throws the moment vitest imports one, which
+      // fails the whole run rather than skipping the file.
+      'tools/screenshots/**',
       '**/node_modules/**',
       '**/dist/**',
       '.claude/**',
