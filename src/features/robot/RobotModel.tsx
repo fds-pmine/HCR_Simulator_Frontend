@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useSceneTokens } from '../../theme/useSceneTokens';
 import type { Group } from 'three';
 import { MathUtils } from 'three';
 import type { SimulationEngine } from '../simulation/SimulationEngine';
@@ -11,18 +12,33 @@ interface RobotModelProps {
   activeJointId?: JointId;
 }
 
-const COLORS = {
-  base: '#263746',
-  link: '#648199',
-  joint: '#1cbbc2',
-  activeJoint: '#f5b74c',
-  tool: '#ef6e5b',
-} as const;
+/**
+ * The arm's colours, from the active theme.
+ *
+ * Emissive intensity is a dark-mode device and drops close to zero in light:
+ * on a bright stage, self-illumination does not glow, it flattens the form and
+ * reads as a printing error. The "this joint is active" signal is carried by
+ * the teal-to-amber hue jump, which is unambiguous on either ground.
+ */
+function useRobotColours() {
+  const tokens = useSceneTokens();
+  return {
+    base: tokens.robotBase,
+    link: tokens.robotLink,
+    joint: tokens.robotJoint,
+    activeJoint: tokens.robotJointActive,
+    tool: tokens.robotTool,
+    blade: tokens.robotBlade,
+    jointActiveEmissive: tokens.jointActiveEmissive,
+    toolEmissive: tokens.toolEmissive,
+  };
+}
 
 export function RobotModel({
   engine,
   activeJointId,
 }: RobotModelProps) {
+  const COLORS = useRobotColours();
   const baseYawRef = useRef<Group>(null);
   const shoulderRollRef = useRef<Group>(null);
   const shoulderRef = useRef<Group>(null);
@@ -124,13 +140,14 @@ export function RobotModel({
 }
 
 function ShoulderRollJoint({ active }: { active: boolean }) {
+  const COLORS = useRobotColours();
   return (
     <mesh castShadow rotation={[0, Math.PI / 2, 0]}>
       <torusGeometry args={[0.2, 0.045, 12, 28]} />
       <meshStandardMaterial
         color={active ? COLORS.activeJoint : COLORS.joint}
         emissive={active ? COLORS.activeJoint : '#000000'}
-        emissiveIntensity={active ? 0.22 : 0}
+        emissiveIntensity={active ? COLORS.jointActiveEmissive : 0}
         metalness={0.36}
         roughness={0.3}
       />
@@ -139,6 +156,7 @@ function ShoulderRollJoint({ active }: { active: boolean }) {
 }
 
 function Link({ length }: { length: number }) {
+  const COLORS = useRobotColours();
   return (
     <mesh castShadow receiveShadow position={[length / 2, 0, 0]}>
       <boxGeometry args={[length, 0.13, 0.13]} />
@@ -158,13 +176,14 @@ function Joint({
   active: boolean;
   scale: number;
 }) {
+  const COLORS = useRobotColours();
   return (
     <mesh castShadow>
       <sphereGeometry args={[scale, 24, 18]} />
       <meshStandardMaterial
         color={active ? COLORS.activeJoint : COLORS.joint}
         emissive={active ? COLORS.activeJoint : '#000000'}
-        emissiveIntensity={active ? 0.22 : 0}
+        emissiveIntensity={active ? COLORS.jointActiveEmissive : 0}
         metalness={0.28}
         roughness={0.32}
       />
@@ -173,6 +192,7 @@ function Joint({
 }
 
 function Tool({ length, radius }: { length: number; radius: number }) {
+  const COLORS = useRobotColours();
   return (
     <group>
       <mesh
@@ -182,7 +202,7 @@ function Tool({ length, radius }: { length: number; radius: number }) {
       >
         <cylinderGeometry args={[0.055, 0.075, length, 16]} />
         <meshStandardMaterial
-          color="#aebdca"
+          color={COLORS.blade}
           metalness={0.7}
           roughness={0.25}
         />
@@ -196,7 +216,7 @@ function Tool({ length, radius }: { length: number; radius: number }) {
         <meshStandardMaterial
           color={COLORS.tool}
           emissive={COLORS.tool}
-          emissiveIntensity={0.18}
+          emissiveIntensity={COLORS.toolEmissive}
           transparent
           opacity={0.9}
         />

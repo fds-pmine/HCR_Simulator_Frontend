@@ -21,6 +21,11 @@ import {
 } from './workspaceFactory';
 import { programmingWorkspaceMemory } from './workspaceMemory';
 import { useLocalization } from '../preferences/localization';
+import { useResolvedTheme } from '../../theme/useTheme';
+import { useSceneTokens } from '../../theme/useSceneTokens';
+import { readSceneTokens } from '../../theme/sceneTokens';
+import { resolveTheme } from '../../theme/theme';
+import { blocklyThemeFor, gridColourFor } from './blocklyTheme';
 
 export interface BlocklyEditorHandle {
   compile: () => EditorCompilation;
@@ -47,6 +52,8 @@ export const BlocklyEditor = forwardRef<
   ref,
 ) {
   const { locale, t } = useLocalization();
+  const theme = useResolvedTheme();
+  const tokens = useSceneTokens();
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | undefined>(undefined);
 
@@ -60,13 +67,17 @@ export const BlocklyEditor = forwardRef<
     const workspace = Blockly.inject(container, {
       toolbox: toolboxForMode(challenge, programmingMode, locale),
       renderer: 'zelos',
-      theme: Blockly.Themes.Zelos,
+      // Blockly otherwise fetches its icons from blockly-demo.appspot.com,
+      // which `img-src 'self' data: blob:` blocks in production — the trashcan
+      // and the zoom controls simply do not appear. 68 KB, served with the app.
+      media: `${import.meta.env.BASE_URL}blockly-media/`,
+      theme: blocklyThemeFor(resolveTheme(), readSceneTokens(resolveTheme())),
       trashcan: true,
       sounds: false,
       grid: {
         spacing: 24,
         length: 3,
-        colour: '#28404e',
+        colour: gridColourFor(readSceneTokens(resolveTheme())),
         snap: true,
       },
       zoom: {
@@ -132,6 +143,13 @@ export const BlocklyEditor = forwardRef<
       workspaceRef.current = undefined;
     };
   }, [challenge, locale, programmingMode]);
+
+  // Re-theme in place. `setTheme` re-renders every block against the new
+  // palette; re-injecting would also work, and would also discard the learner's
+  // scroll position, zoom and undo stack for a colour change.
+  useEffect(() => {
+    workspaceRef.current?.setTheme(blocklyThemeFor(theme, tokens));
+  }, [theme, tokens]);
 
   useEffect(() => {
     const workspace = workspaceRef.current;

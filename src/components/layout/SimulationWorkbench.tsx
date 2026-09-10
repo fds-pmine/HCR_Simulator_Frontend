@@ -55,6 +55,7 @@ import { ArmDock } from '../controls/ArmDock';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { LogDrawer } from './LogDrawer';
 import { useLocalization } from '../../features/preferences/localization';
+import { ThemeToggle } from '../../theme/ThemeToggle';
 import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import { LESSONS } from '../../data/challenges/lessons';
 import { localizeServoLesson } from '../../features/tutorial/servoLessonLocalization';
@@ -539,6 +540,7 @@ export function SimulationWorkbench({
             <i />
             {modeLabel ?? t('local')}
           </span>
+          <ThemeToggle />
           {onExit ? (
             <button type="button" onClick={onExit} aria-label={t('backToMenu')}>
               <LogOut size={16} />

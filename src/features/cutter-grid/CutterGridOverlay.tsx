@@ -1,4 +1,5 @@
 import { Line } from '@react-three/drei';
+import { useSceneTokens } from '../../theme/useSceneTokens';
 import type { Challenge, Vec3Tuple } from '../../types/domain';
 import { evaluateCutterGridSyncPtpV4 } from './compactPtpV4';
 import type {
@@ -12,6 +13,13 @@ import type {
   CutterTrajectoryPlanV4,
 } from './types';
 
+type ProfileNode = (
+  | CutterGridProfileV1
+  | CutterGridProfileV2
+  | CutterGridProfileV3
+  | CutterGridProfileV4
+)['nodes'][number];
+
 export function CutterGridOverlay({
   challenge,
   profile,
@@ -23,6 +31,7 @@ export function CutterGridOverlay({
   plan?: CutterTrajectoryPlanV1 | CutterTrajectoryPlanV2 | CutterTrajectoryPlanV3 | CutterTrajectoryPlanV4;
   executedStepCount?: number;
 }) {
+  const tokens = useSceneTokens();
   const sampledNodes = profile.nodes.filter((_, index) => index % 24 === 0);
   const positions = profile.nodes.map((node) => node.worldPosition);
   const min = [0, 1, 2].map((axis) =>
@@ -42,15 +51,24 @@ export function CutterGridOverlay({
     <group>
       <mesh position={boundsCenter}>
         <boxGeometry args={boundsSize} />
-        <meshBasicMaterial color="#8bb9ca" wireframe transparent opacity={0.38} />
+        <meshBasicMaterial
+          color={tokens.nodeBounds}
+          wireframe
+          transparent
+          opacity={tokens.boundsOpacity}
+        />
       </mesh>
       {sampledNodes.map((node) => (
         <mesh key={node.coord.join(',')} position={node.worldPosition}>
           <sphereGeometry args={[0.012, 5, 4]} />
           <meshBasicMaterial
-            color={('reachable' in node ? node.reachable : node.staticIkStatus === 'safe-candidate-known') ? '#38d6ce' : '#ff805d'}
+            color={reachable(node) ? tokens.nodeReachable : tokens.nodeBlocked}
             transparent
-            opacity={('reachable' in node ? node.reachable : node.staticIkStatus === 'safe-candidate-known') ? 0.35 : 0.22}
+            opacity={
+              reachable(node)
+                ? tokens.nodeReachableOpacity
+                : tokens.nodeBlockedOpacity
+            }
           />
         </mesh>
       ))}
@@ -58,15 +76,22 @@ export function CutterGridOverlay({
         <Line
           key={id}
           points={points}
-          color={stepIndex < executedStepCount ? '#38d6ce' : '#f3c75f'}
+          color={stepIndex < executedStepCount ? tokens.accent : tokens.nodePlanned}
           lineWidth={2}
           transparent
-          opacity={0.82}
+          opacity={tokens.pathOpacity}
         />
       ))}
       <axesHelper args={[0.48]} position={profile.originWorldPosition} />
     </group>
   );
+}
+
+/** V2 profiles carry `reachable`; V4 carries an IK status. Same question. */
+function reachable(node: ProfileNode): boolean {
+  return 'reachable' in node
+    ? node.reachable
+    : node.staticIkStatus === 'safe-candidate-known';
 }
 
 function plannedMovePaths(

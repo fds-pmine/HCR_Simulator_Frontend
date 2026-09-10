@@ -1,4 +1,5 @@
 import * as Blockly from 'blockly/core';
+import { BLOCK_STYLES } from '../blockly/blocklyTheme';
 import { BLOCK_TYPES } from '../blockly/blockConstants';
 import {
   CUTTER_GRID_BLOCK_FIELDS,
@@ -24,7 +25,7 @@ export function registerCutterGridBlocks(appLocale: AppLocale = 'en'): void {
           .appendField(copy.voxelUnit);
         this.setPreviousStatement(true);
         this.setNextStatement(true);
-        this.setColour('#18a6a6');
+        this.setStyle(BLOCK_STYLES.motion);
         this.setTooltip(
           copy.moveTooltip(copy.moveDirection[direction]),
         );
@@ -43,7 +44,7 @@ export function createCutterGridToolbox(
       {
         kind: 'category',
         name: copy.cutterGridCategory,
-        colour: '#18a6a6',
+        categorystyle: BLOCK_STYLES.motion,
         contents: Object.values(CUTTER_GRID_BLOCK_TYPES).map((type) => ({
           kind: 'block',
           type,
@@ -52,7 +53,7 @@ export function createCutterGridToolbox(
       {
         kind: 'category',
         name: copy.controlCategory,
-        colour: '#7c6ee6',
+        categorystyle: BLOCK_STYLES.logic,
         contents: [
           { kind: 'block', type: BLOCK_TYPES.wait },
           { kind: 'block', type: BLOCK_TYPES.repeat },

@@ -16,6 +16,7 @@ import {
   loadResearchPreferences,
 } from '../features/preferences/researchPreferences';
 import { DataConsentDialog } from '../features/preferences/DataConsentDialog';
+import { ThemeToggle } from '../theme/ThemeToggle';
 
 interface HomeScreenProps {
   identity: PlayerIdentity;
@@ -148,6 +149,8 @@ export function HomeScreen({
           {kind === 'online' ? <Wifi size={13} /> : <WifiOff size={13} />}
           {kind === 'online' ? t('backendConnected') : t('offlinePractice')}
         </span>
+
+        <ThemeToggle />
       </footer>
 
       {/*

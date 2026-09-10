@@ -1,4 +1,5 @@
 import * as Blockly from 'blockly/core';
+import { BLOCK_STYLES } from './blocklyTheme';
 import type {
   AllowedBlockType,
   Challenge,
@@ -135,7 +136,7 @@ export function registerHcrBlocks(
         .appendField('°');
       this.setPreviousStatement(true);
       this.setNextStatement(true);
-      this.setColour('#18a6a6');
+      this.setStyle(BLOCK_STYLES.motion);
       this.setTooltip(copy.setTooltip);
     },
   };
@@ -151,7 +152,7 @@ export function registerHcrBlocks(
         .appendField('ms');
       this.setPreviousStatement(true);
       this.setNextStatement(true);
-      this.setColour('#7c6ee6');
+      this.setStyle(BLOCK_STYLES.logic);
       this.setTooltip(copy.waitTooltip);
     },
   };
@@ -168,7 +169,7 @@ export function registerHcrBlocks(
       this.appendStatementInput(BLOCK_FIELDS.body).appendField(copy.do);
       this.setPreviousStatement(true);
       this.setNextStatement(true);
-      this.setColour('#df8a35');
+      this.setStyle(BLOCK_STYLES.loop);
       this.setTooltip(copy.repeatTooltip);
     },
   };
@@ -198,13 +199,13 @@ export function createToolbox(
       {
         kind: 'category',
         name: copy.servoCategory,
-        colour: '#18a6a6',
+        categorystyle: BLOCK_STYLES.motion,
         contents: servoContents,
       },
       {
         kind: 'category',
         name: copy.controlCategory,
-        colour: '#7c6ee6',
+        categorystyle: BLOCK_STYLES.logic,
         contents: controlContents,
       },
     ],

@@ -10,6 +10,9 @@ import { AlertTriangle, LoaderCircle, RotateCcw } from 'lucide-react';
 import type { WebGLRenderer } from 'three';
 import type { SimulationEngine } from './SimulationEngine';
 import { useSimulationSnapshot } from './useSimulationSnapshot';
+import { readSceneTokens } from '../../theme/sceneTokens';
+import { useSceneTokens } from '../../theme/useSceneTokens';
+import { resolveTheme } from '../../theme/theme';
 import { SimulationTicker } from './SimulationTicker';
 import { RobotModel } from '../robot/RobotModel';
 import { VoxelHair } from '../voxel/VoxelHair';
@@ -71,7 +74,10 @@ export function SimulatorCanvas({
 
   const handleCanvasCreated = useCallback(
     (gl: WebGLRenderer) => {
-      gl.setClearColor('#0a141d', 1);
+      // The scene's own floor colour, so frame zero is already in the right
+      // theme. Later flips are handled inside the scene, where a re-render can
+      // reach the renderer without remounting the canvas.
+      gl.setClearColor(readSceneTokens(resolveTheme()).stage, 1);
       setRenderState('ready');
 
       if (resumeAfterRecoveryRef.current) {
@@ -158,23 +164,33 @@ function SimulatorScene({
 }: SimulatorCanvasProps) {
   const snapshot = useSimulationSnapshot(engine);
   const challenge = engine.getChallenge();
+  const tokens = useSceneTokens();
+  const gl = useThree((state) => state.gl);
+
+  // The clear colour is set once when the canvas is created, so a theme change
+  // after that has to reach the renderer directly. Nothing here remounts the
+  // canvas: dropping the WebGL context would lose the camera the student has
+  // orbited to, and would collide with the context-loss recovery path.
+  useEffect(() => {
+    gl.setClearColor(tokens.stage, 1);
+  }, [gl, tokens.stage]);
 
   return (
     <>
       <SimulationTicker engine={engine} />
-      <color attach="background" args={['#0a141d']} />
-      <fog attach="fog" args={['#0a141d', 6, 12]} />
-      <ambientLight intensity={0.78} />
+      <color attach="background" args={[tokens.stage]} />
+      <fog attach="fog" args={[tokens.stage, tokens.fogNear, tokens.fogFar]} />
+      <ambientLight intensity={tokens.ambientIntensity} />
       <hemisphereLight
-        intensity={0.46}
-        color="#bfe7ff"
-        groundColor="#10171d"
+        intensity={tokens.hemiIntensity}
+        color={tokens.stageSky}
+        groundColor={tokens.stageBounce}
       />
       <directionalLight
         castShadow
         position={[3.5, 6, 3.5]}
-        intensity={2.2}
-        color="#f1f7ff"
+        intensity={tokens.keyIntensity}
+        color={tokens.stageKey}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
       />
@@ -208,16 +224,28 @@ function SimulatorScene({
       ) : null}
 
       <gridHelper
-        args={[12, 48, '#294454', '#172b37']}
+        args={[12, 48, tokens.gridMajor, tokens.gridMinor]}
         position={[0, 0.002, 0]}
       />
+      {/*
+        A shadow-only floor, not a lit plane painted the background colour.
+        A lit plane is tone-mapped and the background clear is not, so the two
+        can only coincide by accident — invisible when both are near-black, a
+        visible horizon seam as soon as the stage is bright. This way the floor
+        is exactly the background in both themes, and the shadow's weight
+        becomes a value we choose.
+      */}
       <mesh
         receiveShadow
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -0.012, 0]}
       >
         <planeGeometry args={[12, 12]} />
-        <meshStandardMaterial color="#0a141d" roughness={1} />
+        <shadowMaterial
+          transparent
+          color={tokens.shadowColor}
+          opacity={tokens.shadowOpacity}
+        />
       </mesh>
       <OrbitControls
         makeDefault
@@ -271,19 +299,21 @@ function Head({
   center: readonly [number, number, number];
   scale: readonly [number, number, number];
 }) {
+  const tokens = useSceneTokens();
+
   return (
     <group position={center}>
       <mesh castShadow receiveShadow scale={scale}>
         <sphereGeometry args={[1, 24, 18]} />
-        <meshStandardMaterial color="#d2a184" roughness={0.82} />
+        <meshStandardMaterial color={tokens.skin} roughness={0.82} />
       </mesh>
       <mesh position={[scale[0] * 0.94, 0.02, -0.2]}>
         <sphereGeometry args={[0.045, 12, 8]} />
-        <meshStandardMaterial color="#19242c" />
+        <meshStandardMaterial color={tokens.eye} />
       </mesh>
       <mesh position={[scale[0] * 0.94, 0.02, 0.2]}>
         <sphereGeometry args={[0.045, 12, 8]} />
-        <meshStandardMaterial color="#19242c" />
+        <meshStandardMaterial color={tokens.eye} />
       </mesh>
     </group>
   );

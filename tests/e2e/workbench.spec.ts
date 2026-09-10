@@ -37,22 +37,23 @@ const cutterGridBlockedWorkspaceState: Record<string, unknown> = {
   },
 };
 
-/** `#rrggbb` as the `rgb(r, g, b)` string `toHaveCSS` compares against. */
-function rgb(hex: string): string {
-  const value = Number.parseInt(hex.slice(1), 16);
-  return `rgb(${value >> 16}, ${(value >> 8) & 0xff}, ${value & 0xff})`;
-}
-
 /**
- * The clear colour `SimulatorCanvas` sets on the renderer.
+ * The stage colour, read from the page.
  *
- * Duplicated from the component rather than imported: this spec briefly did
- * import it, and when the scene was retuned to a light palette and back the
- * export went away with it, which broke module resolution and took the whole
- * file down — zero tests ran, not one failure. A stale literal here fails one
- * assertion with a readable diff instead.
+ * It used to be a literal duplicated from the component, on the reasoning that
+ * importing it could take the whole file down if the export was renamed. That
+ * reasoning still holds — nothing is imported here — but a literal cannot
+ * survive a retheme, and the app now has two themes with two stage colours.
+ * Reading the token asserts the thing that actually matters: the canvas is
+ * painted whatever `--stage` currently is.
  */
-const SCENE_BACKGROUND = '#0a141d';
+async function stageColour(page: Page): Promise<string> {
+  return page.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue('--stage')
+      .trim(),
+  );
+}
 
 test.describe('HCR Simulator workbench', () => {
   test.beforeEach(async ({ page }) => {
@@ -219,7 +220,7 @@ test.describe('HCR Simulator workbench', () => {
       page
         .getByTestId('simulator-canvas')
         .locator('canvas'),
-    ).toHaveCSS('background-color', rgb(SCENE_BACKGROUND));
+    ).toHaveCSS('background-color', await stageColour(page));
     await expect(
       page.getByText(
         'Editing is locked during positioning, planning, or execution',
