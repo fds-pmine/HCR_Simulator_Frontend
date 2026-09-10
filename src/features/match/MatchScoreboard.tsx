@@ -32,6 +32,15 @@ interface MatchScoreboardProps {
   autoAdvanceMs?: number;
   /** Stops the loop. Absent on a client that is not driving it. */
   onStopLoop?: () => void;
+  /**
+   * Ends the sitting and crowns the season's leader.
+   *
+   * Separate from {@link onStopLoop}, which only stops the clock: a room often
+   * wants the loop paused so it can talk about a result and then carry on. This
+   * is the other thing — the last round has been played, and the points table
+   * everybody has been building for the last hour finally gets read out.
+   */
+  onEndSession?: () => void;
   /** The co-op bar agreed before the round; 0 when the round was not a co-op one. */
   classTarget: number;
   /** The round's deadline in server time, for "landed with 3s to spare". */
@@ -109,6 +118,7 @@ export function MatchScoreboard({
   crewSeason = [],
   autoAdvanceMs,
   onStopLoop,
+  onEndSession,
   classTarget,
   closesAt,
   onNextRound,
@@ -386,6 +396,21 @@ export function MatchScoreboard({
           >
             {t('playAgain')}
           </button>
+          {/*
+            Offered only where it can mean something: on the machine driving the
+            session, once a round has actually been folded into the table.
+          */}
+          {onEndSession ? (
+            <button
+              className="big-button"
+              type="button"
+              onClick={onEndSession}
+              data-testid="end-session"
+            >
+              <Crown size={16} />
+              {t('endSession')}
+            </button>
+          ) : null}
           <button className="big-button" type="button" onClick={onExit}>
             <LogOut size={16} />
             {t('backToMenu')}

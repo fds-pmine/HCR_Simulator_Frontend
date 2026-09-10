@@ -5,10 +5,9 @@ import { DEFAULT_CHALLENGE_ID } from '../../data/challenges/defaultChallenge';
 import { LocalChallengeProvider } from '../../services/local/LocalChallengeProvider';
 import { LocalScoreProvider } from '../../services/local/LocalScoreProvider';
 import type { Challenge } from '../../types/domain';
-import { withBlankCanvas } from '../blockly/blankCanvas';
+import { withFreshCanvas } from '../blockly/blankCanvas';
 import type { EditorCompilation } from '../blockly/editorCompilation';
 import type { ProgrammingMode } from '../blockly/programmingMode';
-import { programmingWorkspaceMemory } from '../blockly/workspaceMemory';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { CONTROL_MODES_TUTORIAL_STEPS } from './controlModesTutorial';
 import { TutorialPanel } from './TutorialPanel';
@@ -28,12 +27,9 @@ export function ControlModesTutorialRun({ onExit }: { onExit: () => void }) {
       .getChallenge(DEFAULT_CHALLENGE_ID)
       .then((loaded) => {
         if (!active) return;
-        const blank = withBlankCanvas(loaded);
         // The bridge demonstrates isolation, so both workspaces must start
         // empty rather than inheriting programs authored in another screen.
-        programmingWorkspaceMemory.forget(blank, 'cutter-grid');
-        programmingWorkspaceMemory.forget(blank, 'servo');
-        setChallenge(blank);
+        setChallenge(withFreshCanvas(loaded));
       })
       .catch((reason: unknown) => {
         if (active) {

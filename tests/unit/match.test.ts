@@ -5,6 +5,7 @@ import {
   remainingFraction,
 } from '../../src/features/match/countdown';
 import { initialsOf, normalizeDisplayName } from '../../src/features/match/identity';
+import { ROUND_COUNTDOWN_MS } from '../../src/features/match/countdown';
 import { ApiClient } from '../../src/services/http/apiClient';
 import { HttpMatchProvider } from '../../src/services/http/HttpMatchProvider';
 import {
@@ -124,6 +125,20 @@ describe('LocalMatchProvider', () => {
     expect(revealed.challenge.targetHair.voxels.size).toBeGreaterThan(0);
   });
 
+  it('grants the count-in rather than charging the round for it', async () => {
+    // Clients hold the editor back for `ROUND_COUNTDOWN_MS` after `opensAt` so
+    // that every screen starts on the same second. Online that comes out of the
+    // round, because only the server may move a deadline. Here the provider is
+    // the server, so a sixty-second round is sixty seconds of editing.
+    const match = provider();
+    const created = await match.createMatch(matchConfig({ durationMs: 60_000 }));
+    await match.joinMatch(created.matchId);
+    const started = await match.startMatch(created.matchId);
+
+    expect(started.opensAt).toBeDefined();
+    expect(started.closesAt! - started.opensAt!).toBe(ROUND_COUNTDOWN_MS + 60_000);
+  });
+
   it('withholds results until the round closes', async () => {
     const match = provider();
     const created = await match.createMatch(matchConfig({ durationMs: 60_000 }));
@@ -155,7 +170,7 @@ describe('LocalMatchProvider', () => {
       clientScore: score(41),
     });
 
-    vi.advanceTimersByTime(61_000);
+    vi.advanceTimersByTime(ROUND_COUNTDOWN_MS + 61_000);
     const results = await match.getResults(created.matchId);
     const mine = results.rows.find((row) => row.playerId === 'you');
     expect(mine?.completionScore).toBe(88);
@@ -175,7 +190,7 @@ describe('LocalMatchProvider', () => {
       program: PROGRAM,
       clientScore: score(70),
     });
-    vi.advanceTimersByTime(61_000);
+    vi.advanceTimersByTime(ROUND_COUNTDOWN_MS + 61_000);
     await match.getResults(created.matchId);
 
     const reopened = await match.rematch(created.matchId);
@@ -198,12 +213,12 @@ describe('LocalMatchProvider', () => {
     const created = await match.createMatch(matchConfig({ durationMs: 60_000 }));
     await match.joinMatch(created.matchId);
     await match.startMatch(created.matchId);
-    vi.advanceTimersByTime(61_000);
+    vi.advanceTimersByTime(ROUND_COUNTDOWN_MS + 61_000);
     const first = await match.getResults(created.matchId);
 
     await match.rematch(created.matchId);
     await match.startMatch(created.matchId);
-    vi.advanceTimersByTime(61_000);
+    vi.advanceTimersByTime(ROUND_COUNTDOWN_MS + 61_000);
     const second = await match.getResults(created.matchId);
 
     const bots = (rows: typeof first.rows) =>
@@ -232,7 +247,7 @@ describe('LocalMatchProvider', () => {
     await match.joinMatch(created.matchId);
     await match.startMatch(created.matchId);
 
-    vi.advanceTimersByTime(11_000);
+    vi.advanceTimersByTime(ROUND_COUNTDOWN_MS + 11_000);
     const ack = await match.submit(created.matchId, {
       submissionId: 'late',
       challengeId: 'c',
@@ -253,7 +268,7 @@ describe('LocalMatchProvider', () => {
     const created = await match.createMatch(matchConfig({ durationMs: 5_000 }));
     await match.joinMatch(created.matchId);
     await match.startMatch(created.matchId);
-    vi.advanceTimersByTime(6_000);
+    vi.advanceTimersByTime(ROUND_COUNTDOWN_MS + 6_000);
 
     const results = await match.getResults(created.matchId);
     const mine = results.rows.find((row) => row.playerId === 'you');

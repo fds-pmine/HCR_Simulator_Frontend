@@ -650,6 +650,13 @@ npm run test:e2e
 
 - 模式 ID 为 `cutter-grid`，显示名为 `Cutter Grid`；`servo` 始终为默认模式。
 - 首阶段只在 Practice 和专属 Lessons 开放。Versus、后端 Session/Program 提交、远端评分和 Electron Arm Bridge 保持 Servo-only。
+- Amended 2026-09-10: an **offline** Versus room may be opened in `cutter-grid`. The round declares one
+  editor for everybody (`MatchConfig.programmingMode`, mirroring `hcr_contract::round::MatchConfig`), the
+  room refuses to open on a Challenge with no certified Profile, and the browser plans and scores the
+  route exactly as Practice does. Nothing is sent: online Versus, backend Session/Program submission,
+  remote scoring and the Electron Arm Bridge stay Servo-only until the backend opens V4 planning to
+  submissions (`hcr-backend/docs/08-CUTTER-GRID.md` §0). A round is never mixed-mode, because Servo and
+  Cutter Grid are different exercises on the same Challenge and §15.1 forbids comparing their scores.
 - Servo 与 Cutter Grid 使用独立内存 Workspace；只允许在 `idle` 切换，切换时重置仿真但保留两侧积木内容。
 - Cutter Grid 共享默认 Challenge 的初始 Hair、12 个目标剪除 voxel 及现有评分配置，但不与 Servo 分数作公平性比较。
 - 未匹配已认证 Profile 的 Challenge 必须保持 Servo-only。
@@ -720,6 +727,9 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 - Run、Test、Step 必须重放同一冻结 V4 计划；编辑工作区、切换模式或 Challenge 时取消旧请求。远程规划显示同一 `planning` 状态，不增加 SSE、轮询或以墙钟改变搜索结果。
 - 前端与 Rust 必须共享版本化 JSON fixture：输入 Challenge、V4 Profile、Program、动态限制；成功向量输出紧凑 primitive、接触事件、真实结果、诊断和各自稳定签名，失败向量输出结构化错误。密集认证样本可不写入 fixture，但两端必须重建并匹配规定的语义和摘要容差。
 - 首期 Cutter Grid 仍只本地评分：不得发送评分、Session、Match 或 Program IR，Versus 与 ArmDock 继续拒绝 V4。UI 只消费可序列化计划并作绝对时间显示；不得以浏览器特有状态修补或改变规划结果。
+- Amended 2026-09-10: an offline Versus room may plan V4 **locally**, on the same terms — the plan and the
+  score stay in the browser and the entry carries neither, so the prohibition above is unchanged for
+  every path that leaves it. ArmDock still rejects V4.
 
 ### 15.4 版本化边界
 
@@ -729,6 +739,9 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 - 内部 IK waypoint 不计玩家命令数；预计时间按冻结同步轨迹加 Wait 计算。Cutter Grid 完成后只使用本地评分器。
 - 过渡期内 V1 Profile、V1 轨迹和 V1 签名不得被 V2 Worker 接受；V2 运行资产必须使用独立 `CutterGridProfileV2`、`CutterTrajectoryPlanV2`、入口 ID 和覆盖入场的稳定签名。Servo Program IR、后端 wire schema、Session/Match、Versus 和 ArmDock 不变。
 - V4 运行资产必须使用独立 `CutterGridProfileV4`、`CutterTrajectoryPlanV4`、紧凑 primitive、实际接触事件和 V4 签名。V1–V3 Cutter Grid 计划和签名对 V4 fail closed；Servo Program IR、后端 wire schema、Session/Match 和 Versus 不变，ArmDock 对 V4 保持禁用。
+- Amended 2026-09-10: the wire is still unchanged. What changed is which editor an offline room may be
+  opened in, and the one field that says so — `MatchConfig.programmingMode` — was already in the backend
+  contract and is enforced there.
 
 ### 15.5 启用门禁
 

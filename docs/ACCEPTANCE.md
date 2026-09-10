@@ -169,6 +169,48 @@
 
 上述视觉项由 `tests/e2e/visualAcceptance.spec.ts` 在实际 Chrome/Edge 通道生成四张截图并检查视口、溢出和核心控件；2026-08-13 对截图完成肉眼复核。截图位于被忽略的 `test-results/`，不提交构建或验收产物。
 
+## Versus round changes (2026-09-10)
+
+Automated: `tests/unit/versusFlow.test.tsx`, `tests/unit/versusSeason.test.ts`,
+`tests/unit/match.test.ts`, `tests/unit/programmingMode.test.ts` and
+`tests/e2e/versusRoundModes.spec.ts`.
+
+- [x] A rematch opens on an empty canvas. The editor's page-lifetime memory is keyed by Challenge
+      signature and mode, so a round reopened on the same Challenge used to restore the previous
+      round's finished program; `withFreshCanvas` drops every mode before the editor mounts.
+- [x] Only the client that opened the room draws Start and Next round. Everybody else is told they are
+      waiting for the host. This is a convention, not authority: the server has no host, and the room
+      code remains the whole permission model.
+- [x] Starting counts the room in for `ROUND_COUNTDOWN_MS` against `opensAt` on the server's clock, so
+      every screen enters the round on the same second rather than on its own poll. An offline room
+      grants those seconds (`closesAt = opensAt + countdown + duration`); online they are the first
+      seconds of the round, because only the server may move a deadline.
+- [x] The scoreboard can end the session, which crowns the leader of the points table — rounds, wins
+      and best round included — rather than leaving the last round's scoreboard on the projector.
+- [x] An offline room can be opened in Cutter Grid. The lobby states which editor the round uses, the
+      workbench offers no switch, and a route can be planned, tested and entered.
+- [x] Opening a Cutter Grid room on a Challenge with no certified Profile is refused at creation
+      rather than at T0. An unpinned Cutter Grid room considers only Challenges that support the mode.
+- [x] Online rounds keep the Cutter Grid option disabled while `08-CUTTER-GRID.md` §0 keeps V4 out of
+      submissions.
+
+### Manual scenario F: an endless session, end to end
+
+1. Host an offline round with Endless set to 10s, play two rounds and let the loop reopen the room.
+2. Confirm round two opens with an empty Blockly canvas, not the program that won round one.
+3. Confirm the count-in appears before the editor on every screen, and that a second browser joined by
+   code sees "waiting for the host" instead of Start.
+4. On the scoreboard, press End the session and confirm the champion is the points leader, which need
+   not be the winner of the last round.
+5. Press Next round from the champion screen and confirm the room reopens and the loop resumes.
+
+### Manual scenario G: a Cutter Grid round
+
+1. Host an offline round with the editor set to Cutter Grid; confirm the lobby names the editor.
+2. Confirm the workbench opens in Cutter Grid with no mode switch, and that the Grid overlay is available.
+3. Build a route, press Test, then Submit; confirm the entry is accepted and the round scores it.
+4. Let the round close and confirm the scoreboard ranks the entry like any other.
+
 ## 关键人工场景
 
 ### 场景 A：完整运行

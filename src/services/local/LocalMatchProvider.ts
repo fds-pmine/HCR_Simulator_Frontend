@@ -14,6 +14,8 @@ import type {
   MatchSubmissionAck,
 } from '../../types/match';
 import type { ProgramMetrics } from '../../types/domain';
+import { ROUND_COUNTDOWN_MS } from '../../features/match/countdown';
+import { cutterGridAvailableForChallenge } from '../../features/cutter-grid/profileRegistry';
 
 /**
  * An offline practice round.
@@ -58,7 +60,7 @@ export class LocalMatchProvider implements MatchProvider {
     const matchId = roomCode();
     const room: Room = {
       matchId,
-      config,
+      config: await this.playableConfig(config),
       phase: 'lobby',
       players: new Map(),
       entries: new Map(),
@@ -76,6 +78,41 @@ export class LocalMatchProvider implements MatchProvider {
     }
     this.rooms.set(matchId, room);
     return this.snapshot(room);
+  }
+
+  /**
+   * The same round, pinned to a challenge it can actually be played on.
+   *
+   * Cutter Grid needs a certified profile per challenge — the mode is only
+   * offered where one proves the lattice is reachable, that entry cuts nothing
+   * and that a reference route removes exactly the target — so a room opened on
+   * an unprofiled item would be a lobby nobody could submit into, discovered at
+   * T0 with twenty people watching. The server refuses that at creation
+   * (`06-MULTIPLAYER.md` §3) and so does this: pinned and unplayable is an
+   * error, unpinned considers only the challenges that do support the mode.
+   */
+  private async playableConfig(config: MatchConfig): Promise<MatchConfig> {
+    if (config.programmingMode !== 'cutter-grid') {
+      return config;
+    }
+
+    const pinned = config.challengeRef?.challengeId;
+    const candidates = pinned
+      ? [pinned]
+      : (await this.challenges.listChallenges()).map((summary) => summary.id);
+
+    for (const challengeId of candidates) {
+      const challenge = await this.challenges.getChallenge(challengeId);
+      if (cutterGridAvailableForChallenge(challenge)) {
+        return { ...config, challengeRef: { challengeId, version: 1 } };
+      }
+    }
+
+    throw new Error(
+      pinned
+        ? 'That challenge has no certified Cutter Grid profile, so it cannot be played in Cutter Grid.'
+        : 'No challenge in the catalog has a certified Cutter Grid profile.',
+    );
   }
 
   async joinMatch(matchId: string): Promise<MatchState> {
@@ -100,7 +137,12 @@ export class LocalMatchProvider implements MatchProvider {
     const now = Date.now();
     room.phase = 'running';
     room.opensAt = now;
-    room.closesAt = now + room.config.durationMs;
+    // The clients hold the editor back for `ROUND_COUNTDOWN_MS` after `opensAt`
+    // so that every screen starts on the same second. Online that comes out of
+    // the round, because only the server may move a deadline. This room *is*
+    // the server, so it grants the countdown instead of charging the players
+    // for it: a three-minute round here is three minutes of editing.
+    room.closesAt = now + ROUND_COUNTDOWN_MS + room.config.durationMs;
     return this.snapshot(room);
   }
 

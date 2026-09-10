@@ -1,6 +1,6 @@
 import type { Challenge } from '../../types/domain';
 import { cutterGridChallengeSignature } from '../cutter-grid/signature';
-import type { ProgrammingMode } from './programmingMode';
+import { PROGRAMMING_MODES, type ProgrammingMode } from './programmingMode';
 
 export function programmingWorkspaceKey(
   challenge: Challenge,
@@ -27,6 +27,17 @@ export class ProgrammingWorkspaceMemory {
 
   forget(challenge: Challenge, mode: ProgrammingMode): void {
     this.#states.delete(programmingWorkspaceKey(challenge, mode));
+  }
+
+  /**
+   * Drop this challenge in every mode.
+   *
+   * What a caller opening a fresh attempt actually means. Forgetting one mode
+   * leaves the other holding the program it was written in, and the two modes
+   * are one keystroke apart in the workbench.
+   */
+  forgetChallenge(challenge: Challenge): void {
+    for (const mode of PROGRAMMING_MODES) this.forget(challenge, mode);
   }
 
   clear(): void {

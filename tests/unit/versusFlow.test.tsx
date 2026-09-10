@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../../src/app/providers';
 import type { AppServices } from '../../src/app/servicesContext';
 import { VersusRound } from '../../src/features/match/VersusRound';
+import { MatchSetup } from '../../src/features/match/MatchSetup';
+import { cutterGridAvailableForChallenge } from '../../src/features/cutter-grid/profileRegistry';
 import { MatchScoreboard } from '../../src/features/match/MatchScoreboard';
+import { SessionChampion } from '../../src/features/match/SessionChampion';
+import { matchConfig } from '../../src/types/match';
+import { defaultChallengeDefinition } from '../../src/data/challenges/defaultChallenge';
+import { recordRound } from '../../src/features/match/season';
 import type { MatchResultRow, MatchResults } from '../../src/types/match';
 import { DEFAULT_MATCH_CONFIG } from '../../src/types/match';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
@@ -105,6 +111,89 @@ describe('versus flow', () => {
   });
 });
 
+describe('the editor a round is played in', () => {
+  const setup = (kind: 'practice' | 'online', onHost: (choice: never) => void = () => {}) =>
+    render(
+      <AppProviders services={stubbedServices()}>
+        <MatchSetup
+          kind={kind}
+          busy={false}
+          onHost={onHost as () => void}
+          onJoin={() => {}}
+          onBack={() => {}}
+          onDismissError={() => {}}
+        />
+      </AppProviders>,
+    );
+
+  it('offers Cutter Grid in an offline room', () => {
+    // The offline room plans and scores the route in this browser, which is all
+    // a practice round ever needed.
+    const { getByTestId } = setup('practice');
+    expect(getByTestId('round-mode-cutter-grid')).toBeEnabled();
+  });
+
+  it('keeps an online round in Servo Angles', () => {
+    // Closed until the backend opens V4 planning to submissions
+    // (`08-CUTTER-GRID.md` §0). A mode whose entries the server would refuse is
+    // worse than no mode at all.
+    const { getByTestId } = setup('online');
+    expect(getByTestId('round-mode-cutter-grid')).toBeDisabled();
+    expect(getByTestId('round-mode-servo')).toBeEnabled();
+  });
+
+  it('opens the room in the editor the host picked', () => {
+    const onHost = vi.fn();
+    const { getByTestId, getByRole } = setup('practice', onHost);
+
+    fireEvent.click(getByTestId('round-mode-cutter-grid'));
+    fireEvent.click(getByRole('button', { name: /Open Room/ }));
+
+    expect(onHost).toHaveBeenCalledWith(
+      expect.objectContaining({ programmingMode: 'cutter-grid' }),
+    );
+  });
+
+  it('pins a Cutter Grid room to a challenge that has a certified profile', async () => {
+    const challenges = new LocalChallengeProvider();
+    const provider = new LocalMatchProvider(challenges);
+
+    const state = await provider.createMatch(
+      matchConfig({ programmingMode: 'cutter-grid' }),
+    );
+
+    // Unpinned selection considers only challenges the mode can be played on,
+    // so the room opens on one rather than discovering at T0 that it cannot.
+    expect(state.config.challengeRef?.challengeId).toBeDefined();
+    const challenge = await challenges.getChallenge(
+      state.config.challengeRef!.challengeId,
+    );
+    expect(cutterGridAvailableForChallenge(challenge)).toBe(true);
+  });
+
+  it('refuses to open a Cutter Grid room on an unprofiled challenge', async () => {
+    // A lobby on an item with no certified profile is a round nobody can submit
+    // into, and the twenty people in it would find that out at T0.
+    const unprofiled = {
+      ...defaultChallengeDefinition,
+      id: 'unprofiled',
+      targetHair: defaultChallengeDefinition.initialHair,
+    };
+    const provider = new LocalMatchProvider(
+      new LocalChallengeProvider([unprofiled]),
+    );
+
+    await expect(
+      provider.createMatch(
+        matchConfig({
+          programmingMode: 'cutter-grid',
+          challengeRef: { challengeId: 'unprofiled', version: 1 },
+        }),
+      ),
+    ).rejects.toThrow(/Cutter Grid/);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // The scoreboard, rendered directly — the round that produces it needs WebGL.
 // ---------------------------------------------------------------------------
@@ -125,6 +214,15 @@ function row(
     serverReceivedAt: 1,
   };
 }
+
+/** Round one: the rival takes it, so the session is not one round restated. */
+const RESULTS_ROUND_ONE: MatchResults = {
+  matchId: 'ABC234',
+  challengeId: 'neat-short-cap',
+  challengeVersion: 1,
+  rankBy: 'completion',
+  rows: [row('rival', 1, 60), row('u-test', 2, 50)],
+};
 
 const RESULTS: MatchResults = {
   matchId: 'ABC234',
@@ -232,5 +330,73 @@ describe('the endless loop on the scoreboard', () => {
   it('says nothing at all when the loop is off', () => {
     board();
     expect(screen.queryByTestId('auto-advance')).not.toBeInTheDocument();
+  });
+
+  it('offers the end of the session only where it can mean something', () => {
+    // Ending a sitting reads out the points table, and it is the host who
+    // decides that the last round has been played.
+    board({ autoAdvanceMs: 20_000, onStopLoop: () => {} });
+    expect(screen.queryByTestId('end-session')).not.toBeInTheDocument();
+
+    const onEndSession = vi.fn();
+    board({ autoAdvanceMs: 20_000, onStopLoop: () => {}, onEndSession });
+    fireEvent.click(screen.getByTestId('end-session'));
+    expect(onEndSession).toHaveBeenCalledOnce();
+  });
+});
+
+describe('the champion of a session', () => {
+  // Two rounds, so the table is a table rather than one round restated: the
+  // rival wins round one, u-test wins round two by more.
+  const season = recordRound(
+    recordRound([], RESULTS_ROUND_ONE),
+    RESULTS,
+  );
+
+  const champion = (extra: Partial<Parameters<typeof SessionChampion>[0]> = {}) =>
+    render(
+      <AppProviders services={stubbedServices()}>
+        <SessionChampion
+          season={season}
+          identity={IDENTITY}
+          kind="online"
+          onExit={() => {}}
+          {...extra}
+        />
+      </AppProviders>,
+    );
+
+  it('crowns the points leader, not the last round winner', () => {
+    champion();
+
+    // Rival took round one; u-test took round two and the personal best with
+    // it. Points, not the last scoreboard, decide the session.
+    expect(screen.getByTestId('session-champion')).toHaveTextContent('u-test');
+    expect(screen.getByTestId('session-podium')).toHaveTextContent('rival');
+  });
+
+  it('says so plainly when no round was ever finished', () => {
+    render(
+      <AppProviders services={stubbedServices()}>
+        <SessionChampion season={[]} identity={IDENTITY} kind="online" onExit={() => {}} />
+      </AppProviders>,
+    );
+
+    expect(screen.getByTestId('session-champion')).toHaveTextContent(
+      /No rounds were finished/,
+    );
+    expect(screen.queryByTestId('session-podium')).not.toBeInTheDocument();
+  });
+
+  it('lets only the host open another round from here', () => {
+    champion();
+    expect(
+      screen.queryByTestId('champion-another-round'),
+    ).not.toBeInTheDocument();
+
+    const onAnotherRound = vi.fn();
+    champion({ onAnotherRound });
+    fireEvent.click(screen.getByTestId('champion-another-round'));
+    expect(onAnotherRound).toHaveBeenCalledOnce();
   });
 });

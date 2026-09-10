@@ -5,10 +5,13 @@ import {
   Clock3,
   Copy,
   EyeOff,
+  Grid3x3,
+  Hourglass,
   LoaderCircle,
   LogOut,
   Rocket,
   ShieldCheck,
+  SlidersHorizontal,
   Timer,
   UserRoundX,
   Users,
@@ -33,6 +36,16 @@ interface MatchLobbyProps {
   onAssignCrew: (playerId: string) => void;
   /** What game this round is, declared when the room was opened. */
   format: RoundFormat;
+  /**
+   * Whether this client opened the room.
+   *
+   * Not authority — the server has no host, and a patched client could still
+   * call start. It is the difference between one machine driving the session
+   * and twenty racing to, which is a usability problem rather than a security
+   * one and is fixed the same way a usability problem always is: by only
+   * drawing the button for the person whose job it is.
+   */
+  isHost: boolean;
   onStart: () => void;
   onLeave: () => void;
 }
@@ -45,12 +58,14 @@ export function MatchLobby({
   crews,
   onAssignCrew,
   format,
+  isHost,
   onStart,
   onLeave,
 }: MatchLobbyProps) {
   const { t } = useLocalization();
   const [copied, setCopied] = useState(false);
   const length = roundLengthUnits(state.config.durationMs);
+  const mode = state.config.programmingMode ?? 'servo';
 
   const copyCode = async () => {
     try {
@@ -168,6 +183,20 @@ export function MatchLobby({
                 <span>{t('serverClockBody')}</span>
               </div>
             </li>
+            {/*
+              Which editor the round is played in, stated before it starts:
+              it is the difference between writing joint angles and writing a
+              route across the lattice, and finding out at T0 costs a round.
+            */}
+            <li>
+              {mode === 'cutter-grid' ? <Grid3x3 size={15} /> : <SlidersHorizontal size={15} />}
+              <div>
+                <strong>
+                  {t(mode === 'cutter-grid' ? 'cutterGridMode' : 'servoAnglesMode')}
+                </strong>
+                <span>{t('singleModeRound')}</span>
+              </div>
+            </li>
             <li>
               <EyeOff size={15} />
               <div>
@@ -199,16 +228,23 @@ export function MatchLobby({
         </section>
       </div>
 
-      <button
-        className="big-button big-button--primary big-button--wide"
-        type="button"
-        disabled={busy}
-        onClick={onStart}
-        data-testid="start-round"
-      >
-        {busy ? <LoaderCircle className="spin" size={18} /> : <Rocket size={18} />}
-        {t('startRound')}
-      </button>
+      {isHost ? (
+        <button
+          className="big-button big-button--primary big-button--wide"
+          type="button"
+          disabled={busy}
+          onClick={onStart}
+          data-testid="start-round"
+        >
+          {busy ? <LoaderCircle className="spin" size={18} /> : <Rocket size={18} />}
+          {t('startRound')}
+        </button>
+      ) : (
+        <p className="lobby__waiting" data-testid="waiting-for-host">
+          <Hourglass size={16} />
+          {t('waitingForHost')}
+        </p>
+      )}
       <p className="menu-screen__hint">
         {t('lobbyStartHint')}
       </p>

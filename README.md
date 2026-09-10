@@ -75,6 +75,20 @@ who submitted them, until the round closes. You can submit more than once. Only 
 The complete rules and their rationale are in
 [`../hcr-backend/docs/06-MULTIPLAYER.md`](../hcr-backend/docs/06-MULTIPLAYER.md).
 
+The machine that opened the room starts the round and opens the next one; everybody else waits, so twenty
+people cannot race each other into a round or wipe a scoreboard the room is still reading. Starting counts
+the room in — three seconds against the server's clock — so every screen begins together instead of on its
+own poll.
+
+A round is played in one editor, chosen when the room opens. Servo Angles is the default. Cutter Grid rounds
+work in offline rooms, which plan and score the route in the browser; online rounds stay in Servo Angles
+until the backend opens V4 planning to submissions
+([`../hcr-backend/docs/08-CUTTER-GRID.md`](../hcr-backend/docs/08-CUTTER-GRID.md) §0).
+
+Rounds accumulate into a points table across the sitting, and **End the session** on the scoreboard closes it
+by crowning the leader of that table — the player who kept turning up and improving, which is not always the
+winner of the last round.
+
 Both modes have a **Test** button next to Run. Test uses the same engine and produces the same result without
 rendering the animation, so you can iterate in milliseconds regardless of rendering speed.
 

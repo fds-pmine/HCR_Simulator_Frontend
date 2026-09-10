@@ -492,6 +492,38 @@ inherit them silently:
 
 - [ ] 分别通过两仓库质量门、跨语言审计、性能与 Chrome/Edge 视觉验收；只推送功能分支供审查，不合并或部署。
 
+## Versus round work, 2026-09-10
+
+Authorized directly by the user in the session of 2026-09-10, outside the phased plan above: four items
+raised from classroom use, delivered together on one branch. Every claim below is covered by
+`tests/unit/versusFlow.test.tsx`, `tests/unit/versusSeason.test.ts`, `tests/unit/match.test.ts`,
+`tests/unit/programmingMode.test.ts` and `tests/e2e/versusRoundModes.spec.ts`, and recorded in
+`docs/ACCEPTANCE.md`.
+
+- [x] **The canvas a new attempt opens on.** `ProgrammingWorkspaceMemory` is keyed by Challenge signature
+      and mode and outlives a round, so a rematch on the same Challenge reopened the editor on the
+      previous round's finished program — `withBlankCanvas` only ever dropped the *starter* workspace.
+      `withFreshCanvas` forgets every mode and is called during render, before the editor mounts, by
+      Versus, Solo Practice and the Control Modes tutorial. The memory itself stays: it is what keeps a
+      mode switch or a panel collapse from costing a learner their work mid-attempt.
+- [x] **A session has an ending.** Rounds already folded into a points table; nothing ever read the top of
+      it. `SessionChampion` crowns the leader — points, rounds, wins, the crew league — and the scoreboard
+      offers **End the session** to the host once a round has been folded in.
+- [x] **The round declares its editor.** `MatchConfig.programmingMode` was already in the backend contract
+      (`hcr_contract::round::MatchConfig`, enforced there with `WRONG_PROGRAMMING_MODE`); the client now
+      sets it. An offline room may be opened in Cutter Grid, refuses to open on a Challenge with no
+      certified Profile, and enters a route as the program plus the frozen V4 plan it was scored on —
+      all of it in the browser. Online rounds keep the option disabled while `08-CUTTER-GRID.md` §0 keeps
+      V4 out of submissions; see the amendments in v0.3 §15.1, §15.3.4 and §15.4.
+- [x] **Who starts, and when.** Start and Next round are drawn only on the client that opened the room —
+      a convention, not authority, since the server has no host and the room code is still the whole
+      permission model. Starting counts the room in for `ROUND_COUNTDOWN_MS` against `opensAt`, so every
+      screen enters on the same second instead of on its own poll. An offline room grants those seconds;
+      online they are the first seconds of the round, because only the server may move a deadline.
+
+Not done, and deliberately: no online Cutter Grid round, which needs either the V4 submission channel or a
+V2 plan this frontend no longer produces; and no server-side host, which would be a backend change.
+
 ## 4. 关键实现约定
 
 ### 仿真与 React

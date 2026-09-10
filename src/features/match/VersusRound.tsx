@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { useServices } from '../../app/servicesContext';
-import { SimulationWorkbench } from '../../components/layout/SimulationWorkbench';
+import {
+  SimulationWorkbench,
+  type CutterGridEntry,
+} from '../../components/layout/SimulationWorkbench';
 import type { MatchResults } from '../../types/match';
 import type { CompiledProgram } from '../blockly/programTypes';
 import { SimulationEngine } from '../simulation/SimulationEngine';
-import { runHeadless } from '../simulation/headlessRun';
+import { runCutterGridHeadless, runHeadless } from '../simulation/headlessRun';
 import type { PlayerIdentity } from './identity';
 import { MatchHud } from './MatchHud';
 import { MatchLobby } from './MatchLobby';
 import { MatchScoreboard } from './MatchScoreboard';
 import { MatchSetup } from './MatchSetup';
-import { isEndgame, useRemainingMs } from './countdown';
+import { SessionChampion } from './SessionChampion';
+import { ROUND_COUNTDOWN_MS, isCountingIn, isEndgame, useRemainingMs } from './countdown';
 import { resubmitIntervalFor } from './roundRules';
 import { assignCrew, crewTotals, crewsFor } from './crews';
 import {
@@ -21,7 +25,7 @@ import {
   type Season,
 } from './season';
 import { useMatch } from './useMatch';
-import { withBlankCanvas } from '../blockly/blankCanvas';
+import { withFreshCanvas } from '../blockly/blankCanvas';
 import { useLocalization } from '../preferences/localization';
 
 interface VersusRoundProps {
@@ -58,9 +62,16 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
   const crewScoring = session.state?.config.crewScoring ?? 'sum';
   const classTarget = session.state?.config.coopTarget ?? 0;
   const autoAdvanceMs = session.state?.config.autoAdvanceMs ?? 0;
+  // The round declares the editor, and every client reads it from the same
+  // place. Absent means Servo, which is what every round was before the field.
+  const programmingMode = session.state?.config.programmingMode ?? 'servo';
   // Stoppable, because a loop nobody can stop is a loop that runs over the
   // moment the room wanted to talk about a result.
   const [looping, setLooping] = useState(true);
+  // Whether the sitting is over. Ending it is what turns the points table into
+  // a result: an endless session otherwise just stopped, with the last round's
+  // scoreboard left on the projector and the season nobody ever read out.
+  const [sessionOver, setSessionOver] = useState(false);
 
   // Fold each round into the table exactly once.
   //
@@ -106,10 +117,16 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
 
   // Everyone starts from the same empty canvas, so the round measures who can
   // write the program rather than who inherits the better head start.
+  //
+  // Fresh rather than merely blank: a rematch reopens the *same* challenge, and
+  // the editor remembers a canvas by challenge signature, so dropping only the
+  // starter workspace left round two opening on round one's finished program.
+  // Cleared here, during render, because the editor reads that memory as it
+  // mounts and an effect would run too late to matter.
   const challenge = useMemo(
     () =>
       session.challenge
-        ? withBlankCanvas(session.challenge.challenge)
+        ? withFreshCanvas(session.challenge.challenge)
         : undefined,
     [session.challenge],
   );
@@ -146,6 +163,23 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
   // Ticks once a tenth of a second while a round runs, so the closing stretch
   // arrives on time rather than on the next 1.2-second poll.
   const remainingMs = useRemainingMs(session.state?.closesAt, session.offsetMs);
+  // The same clock, pointed at the start of the round rather than its end.
+  const opensAt = session.state?.opensAt;
+  const msToGo = useRemainingMs(
+    opensAt === undefined ? undefined : opensAt + ROUND_COUNTDOWN_MS,
+    session.offsetMs,
+  );
+  /*
+    Who may open a round.
+
+    The server has no host — the room code is the whole permission model — so
+    this is a convention, not an authority, and it is enforced by not drawing
+    the button rather than by refusing the call. That is enough for the problem
+    it solves: twenty people who can all press Start, and all press Next round,
+    wiping the scoreboard the room is still reading. The projector opened the
+    room, so the projector drives it.
+  */
+  const isHost = session.opened;
 
   if (!session.matchId || !session.state) {
     return (
@@ -168,6 +202,7 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
             ...(choice.autoAdvanceMs !== undefined
               ? { autoAdvanceMs: choice.autoAdvanceMs }
               : {}),
+            programmingMode: choice.programmingMode,
             minSubmitIntervalMs: resubmitIntervalFor(choice.durationMs),
             // Version 1: the catalog serves the latest, and a round pins the
             // version so recalibration cannot move a score mid-round.
@@ -183,7 +218,32 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
     );
   }
 
-  if (phase === 'lobby' || phase === 'countdown') {
+  if (sessionOver) {
+    return (
+      <SessionChampion
+        season={tables.season}
+        crewSeason={tables.crews}
+        identity={identity}
+        kind={matchProvider.kind}
+        busy={session.busy}
+        {...(isHost
+          ? {
+              onAnotherRound: () => {
+                setSessionOver(false);
+                setLooping(true);
+                void actions.rematch().then(() => actions.start());
+              },
+            }
+          : {})}
+        onExit={() => {
+          actions.leave();
+          onExit();
+        }}
+      />
+    );
+  }
+
+  if (phase === 'lobby') {
     return (
       <MatchLobby
         state={session.state}
@@ -195,12 +255,36 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
           void actions.setCrews(assignCrew(crews, playerId))
         }
         format={format}
+        isHost={isHost}
         onStart={() => void actions.start()}
         onLeave={() => {
           actions.leave();
           onExit();
         }}
       />
+    );
+  }
+
+  /*
+    3, 2, 1.
+
+    Held on every client until the same instant on the server's clock, so the
+    round starts together instead of whenever each browser's poll happened to
+    notice it had. The challenge is fetched behind this screen, which is the
+    other thing the pause buys: the editor appears with the round already
+    loaded rather than after a loading spinner nobody's rivals had to sit
+    through.
+  */
+  if (phase === 'countdown' || (phase === 'running' && isCountingIn(msToGo))) {
+    return (
+      <main className="bootstrap-screen round-countdown">
+        <p className="phase-kicker">{t('roundStarting')}</p>
+        <strong className="round-countdown__count" aria-hidden="true">
+          {opensAt === undefined ? '—' : Math.ceil(msToGo / 1_000)}
+        </strong>
+        <h1>{t('closestWins')}</h1>
+        <p>{t('simultaneousReveal')}</p>
+      </main>
     );
   }
 
@@ -235,11 +319,36 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
     await actions.submit(compiled.program, clientScore);
   };
 
+  /*
+    A Cutter Grid entry.
+
+    Scored the same way and by the same engine, from the frozen plan the editor
+    has already produced. What travels to the room is the block count and the
+    score, not the lattice program: this path is offline-only
+    (`MatchSetup`), the offline room replays nothing, and inventing a wire shape
+    the backend has not opened yet (`08-CUTTER-GRID.md` §0 keeps V4 out of
+    submissions) would be a contract this side made up on its own.
+  */
+  const handleSubmitCutterGrid = async (entry: CutterGridEntry) => {
+    const clientScore = await runCutterGridHeadless(
+      engine,
+      entry.plan,
+      entry.sourceBlockCount,
+    );
+    await actions.submit(
+      { nodes: [], sourceBlockCount: entry.sourceBlockCount },
+      clientScore,
+    );
+  };
+
   return (
     <SimulationWorkbench
       challenge={challenge}
       engine={engine}
       modeLabel={matchProvider.kind === 'online' ? t('versusRound') : t('practice')}
+      availableProgrammingModes={[programmingMode]}
+      initialProgrammingMode={programmingMode}
+      challengeVersion={session.challenge?.version ?? 1}
       onExit={() => {
         actions.leave();
         onExit();
@@ -268,13 +377,21 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
             classTarget={classTarget}
             crewSeason={tables.crews}
             {...(autoAdvanceMs > 0 && looping ? { autoAdvanceMs } : {})}
-            {...(autoAdvanceMs > 0 && looping && session.opened
+            {...(autoAdvanceMs > 0 && looping && isHost
               ? { onStopLoop: () => setLooping(false) }
+              : {})}
+            {...(isHost && tables.season.length > 0
+              ? {
+                  onEndSession: () => {
+                    setLooping(false);
+                    setSessionOver(true);
+                  },
+                }
               : {})}
             {...(session.state.closesAt !== undefined
               ? { closesAt: session.state.closesAt }
               : {})}
-            onNextRound={() => void actions.rematch()}
+            {...(isHost ? { onNextRound: () => void actions.rematch() } : {})}
             busy={session.busy}
             onPlayAgain={actions.leave}
             onExit={() => {
@@ -299,6 +416,12 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
           ? { urgent: true }
           : {}),
         onSubmit: (compiled) => void handleSubmit(compiled),
+        ...(programmingMode === 'cutter-grid'
+          ? {
+              onSubmitCutterGrid: (entry: CutterGridEntry) =>
+                void handleSubmitCutterGrid(entry),
+            }
+          : {}),
       }}
     />
   );

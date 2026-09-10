@@ -78,6 +78,28 @@ export interface WorkbenchMatch {
   /** The round's closing stretch, which the submit control wears. */
   urgent?: boolean;
   onSubmit: (compiled: CompiledProgram) => void;
+  /**
+   * Enter a Cutter Grid program, which is not a {@link CompiledProgram}.
+   *
+   * A servo program *is* its own answer — the IR is the joint commands, and
+   * replaying it reproduces the run. A Cutter Grid program is a route across a
+   * lattice, and the motion that walks it comes out of a compile-time IK search
+   * against a certified profile, so the plan travels with the program or the
+   * run cannot be reproduced from it (`08-CUTTER-GRID.md`).
+   *
+   * Absent on a caller with nowhere to send one, which is every caller but a
+   * round: submitting then falls back to the servo path and reports the same
+   * refusal it always did.
+   */
+  onSubmitCutterGrid?: (submission: CutterGridEntry) => void;
+}
+
+/** A Cutter Grid program entered into a round, with the motion it planned to. */
+export interface CutterGridEntry {
+  program: CompiledCutterGridProgramV2['program'];
+  plan: CutterTrajectoryPlanV4;
+  /** Blocks the learner actually placed, which is what efficiency is scored on. */
+  sourceBlockCount: number;
 }
 
 /**
@@ -444,7 +466,21 @@ export function SimulationWorkbench({
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Planning first, because a Cutter Grid entry is the program *and* the
+    // motion it planned to. `frozenCutterPlan` reuses the plan the last Test
+    // produced when the workspace has not changed since, so submitting after
+    // testing costs nothing.
+    if (programmingMode === 'cutter-grid' && match?.onSubmitCutterGrid) {
+      const frozen = await frozenCutterPlan();
+      if (!frozen) return;
+      match.onSubmitCutterGrid({
+        program: frozen.compiled.program,
+        plan: frozen.plan,
+        sourceBlockCount: frozen.compiled.program.sourceBlockCount,
+      });
+      return;
+    }
     const compiled = compile();
     if (compiled) {
       match?.onSubmit(compiled);
@@ -515,6 +551,8 @@ export function SimulationWorkbench({
     setProgrammingMode(nextMode);
   };
 
+  const gridEntryUnsupported =
+    programmingMode === 'cutter-grid' && match?.onSubmitCutterGrid === undefined;
   const visibleError = compileError ?? snapshot.errorMessage;
   const displayLesson = LESSONS.find(({ id }) => id === challenge.id);
   const challengeName = challenge.id === DEFAULT_CHALLENGE_ID
@@ -757,12 +795,14 @@ export function SimulationWorkbench({
           {...(match
             ? {
                 submit: {
-                  onSubmit: handleSubmit,
-                  disabled:
-                    programmingMode === 'cutter-grid' || !match.canSubmit,
+                  onSubmit: () => void handleSubmit(),
+                  // A Cutter Grid program can only be entered where the caller
+                  // can carry one. Where it cannot, the control says why rather
+                  // than failing on the press.
+                  disabled: gridEntryUnsupported || !match.canSubmit,
                   busy: match.submitting,
                   ...(match.urgent ? { urgent: true } : {}),
-                  ...(programmingMode === 'cutter-grid'
+                  ...(gridEntryUnsupported
                     ? { title: t('backendReplayUnsupported') }
                     : {}),
                 },

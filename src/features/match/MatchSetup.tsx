@@ -3,6 +3,10 @@ import { ArrowLeft, Bot, LoaderCircle, Radio, Swords, Wifi, WifiOff } from 'luci
 import type { MatchProvider } from '../../services/contracts';
 import type { ChallengeSummary } from '../../types/domain';
 import type { CrewScoring, RankBy, RoundFormat } from '../../types/match';
+import {
+  PROGRAMMING_MODES,
+  type ProgrammingMode,
+} from '../blockly/programmingMode';
 import { useServices } from '../../app/servicesContext';
 import {
   CoopDiagram,
@@ -53,6 +57,7 @@ export interface HostChoice {
   crewScoring: CrewScoring;
   relaySwapMs?: number;
   autoAdvanceMs?: number;
+  programmingMode: ProgrammingMode;
 }
 
 interface MatchSetupProps {
@@ -81,6 +86,7 @@ export function MatchSetup({
   const [coopTarget, setCoopTarget] = useState<number>(DEFAULT_COOP_TARGET);
   const [crewScoring, setCrewScoring] = useState<CrewScoring>('sum');
   const [relaySwapMs, setRelaySwapMs] = useState(0);
+  const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>('servo');
   const [autoAdvanceMs, setAutoAdvanceMs] = useState(0);
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState('');
@@ -229,6 +235,44 @@ export function MatchSetup({
             </div>
           ) : null}
 
+          {/*
+            Which editor the round is played in. Everyone plays in the same one
+            — the two are different exercises on the same challenge, so a mixed
+            round would rank two things and publish one table.
+
+            Offline only, for now. The offline room plans and scores the route
+            in this browser, which is all a practice round ever needed; the
+            online path is closed until the backend opens V4 planning to
+            submissions (`08-CUTTER-GRID.md` §0), and offering a mode whose
+            submissions the server would refuse is worse than not offering it.
+          */}
+          <div className="segmented" role="group" aria-label={t('programmingMode')}>
+            <span>{t('programmingMode')}</span>
+            {PROGRAMMING_MODES.map((mode) => {
+              const unavailable = mode === 'cutter-grid' && !practice;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  className={programmingMode === mode ? 'is-active' : ''}
+                  onClick={() => setProgrammingMode(mode)}
+                  aria-pressed={programmingMode === mode}
+                  disabled={unavailable}
+                  {...(unavailable ? { title: t('gridRoundOfflineOnly') } : {})}
+                  data-testid={`round-mode-${mode}`}
+                >
+                  {mode === 'servo' ? t('servoAnglesMode') : t('cutterGridMode')}
+                </button>
+              );
+            })}
+          </div>
+
+          {programmingMode === 'cutter-grid' ? (
+            <p className="menu-card__foot" data-testid="grid-round-note">
+              {t('gridRoundNote')}
+            </p>
+          ) : null}
+
           <div className="segmented" role="group" aria-label={t('roundLength')}>
             {DURATIONS.map((option) => (
               <button
@@ -353,6 +397,7 @@ export function MatchSetup({
                 rankBy,
                 format,
                 crewScoring,
+                programmingMode,
                 ...(format === 'coop' ? { coopTarget } : {}),
                 ...(relaySwapMs > 0 ? { relaySwapMs } : {}),
                 ...(autoAdvanceMs > 0 ? { autoAdvanceMs } : {}),

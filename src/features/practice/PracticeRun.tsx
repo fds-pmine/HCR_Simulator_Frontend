@@ -12,7 +12,7 @@ import type { NextItem, SessionSnapshot } from '../../types/session';
 import type { CompiledProgram } from '../blockly/programTypes';
 import { SimulationEngine } from '../simulation/SimulationEngine';
 import { runHeadless } from '../simulation/headlessRun';
-import { withBlankCanvas } from '../blockly/blankCanvas';
+import { withFreshCanvas } from '../blockly/blankCanvas';
 import { PracticePanel } from './PracticePanel';
 import { useLocalization } from '../preferences/localization';
 
@@ -73,8 +73,12 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
       try {
         const next = await sessionProvider.next(sessionId);
         setItem(next);
+        // Fresh, not merely blank: an endless run can serve the same item
+        // again, and the editor remembers a canvas by challenge signature —
+        // so the "next" challenge would open on the program that just solved
+        // it.
         setChallenge(
-          withBlankCanvas(await challengeProvider.getChallenge(next.challengeId)),
+          withFreshCanvas(await challengeProvider.getChallenge(next.challengeId)),
         );
       } catch (reason) {
         // A bank with nothing left to serve is a finish, not a fault.

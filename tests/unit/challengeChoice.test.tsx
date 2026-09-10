@@ -59,6 +59,7 @@ describe('choosing a challenge', () => {
       rankBy: 'completion',
       format: 'solo',
       crewScoring: 'sum',
+      programmingMode: 'servo',
       challengeId: 'cap-trim-aaa',
     });
   });
@@ -91,6 +92,7 @@ describe('choosing a challenge', () => {
       rankBy: 'completion',
       format: 'solo',
       crewScoring: 'sum',
+      programmingMode: 'servo',
     });
   });
 
@@ -118,6 +120,7 @@ describe('choosing a challenge', () => {
       rankBy: 'final',
       format: 'solo',
       crewScoring: 'sum',
+      programmingMode: 'servo',
     });
   });
 
@@ -177,6 +180,7 @@ describe('choosing a challenge', () => {
       rankBy: 'completion',
       format: 'coop',
       crewScoring: 'sum',
+      programmingMode: 'servo',
       coopTarget: 80,
       relaySwapMs: 60_000,
       autoAdvanceMs: 20_000,

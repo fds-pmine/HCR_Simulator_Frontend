@@ -52,6 +52,34 @@ export function isEndgame(remainingMs: number, durationMs = 0): boolean {
   );
 }
 
+/**
+ * The pause between the round opening and the editor appearing.
+ *
+ * Twenty laptops poll the room up to a poll interval apart, so without it the
+ * round began at a different instant on every screen and the difference was
+ * pure luck of when each client last asked. Counting down to a moment on the
+ * *server's* clock removes that: everybody sees 3, 2, 1 and starts together,
+ * whatever their poll happened to land on.
+ *
+ * It is a hold, not an extension: the deadline belongs to the server and a
+ * client cannot move it, so online this is the first three seconds of the
+ * round. The offline room, which owns its own clock, grants the three seconds
+ * instead of charging the round for them.
+ */
+export const ROUND_COUNTDOWN_MS = 3_000;
+
+/**
+ * Whether the editor is still being held back, given the time left until GO.
+ *
+ * Bounded above as well as below. A browser whose clock is set days ahead
+ * reports a huge remainder against a deadline it has not really got wrong, and
+ * an unbounded test would hold that player out of a round everybody else is
+ * already playing — the one failure mode worse than starting late.
+ */
+export function isCountingIn(msToGo: number): boolean {
+  return msToGo > 0 && msToGo <= ROUND_COUNTDOWN_MS;
+}
+
 /** How often the countdown re-renders. Fine enough to animate the last seconds. */
 const TICK_MS = 100;
 

@@ -20,7 +20,9 @@ import {
 import { classTargetResult } from '../../src/features/match/classTarget';
 import { marginsFor } from '../../src/features/match/margins';
 import {
+  ROUND_COUNTDOWN_MS,
   countdownUrgency,
+  isCountingIn,
   isEndgame,
   relayLeg,
 } from '../../src/features/match/countdown';
@@ -610,5 +612,24 @@ describe('the crew league', () => {
       { crew: 'C', points: 8, rounds: 2, wins: 0 },
     ]);
     expect(league.map((entry) => entry.crew)).toEqual(['A', 'B', 'C']);
+  });
+});
+
+describe('the count-in before a round', () => {
+  it('holds the editor back only inside the countdown window', () => {
+    expect(isCountingIn(ROUND_COUNTDOWN_MS)).toBe(true);
+    expect(isCountingIn(1)).toBe(true);
+    // The round is under way: there is nothing left to hold.
+    expect(isCountingIn(0)).toBe(false);
+    expect(isCountingIn(-4_000)).toBe(false);
+  });
+
+  it('refuses to hold a player out on a badly set clock', () => {
+    // A browser set a day ahead reports a remainder of tens of millions. Held
+    // on that, it would sit out a round everybody else is already playing —
+    // worse than starting a few seconds late, which is all the alternative
+    // costs.
+    expect(isCountingIn(86_400_000)).toBe(false);
+    expect(isCountingIn(ROUND_COUNTDOWN_MS + 1)).toBe(false);
   });
 });

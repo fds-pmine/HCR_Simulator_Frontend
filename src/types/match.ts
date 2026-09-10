@@ -5,6 +5,7 @@
  * `hcr_contract::round`. The backend serializes with `rename_all = "camelCase"`,
  * so these are the wire names verbatim — no adapter layer, nothing to drift.
  */
+import type { ProgrammingMode } from '../features/blockly/programmingMode';
 import type { ProgramMetrics } from './domain';
 
 /** Lifecycle of a round. */
@@ -84,6 +85,23 @@ export interface MatchConfig {
    * is on the wire so twenty laptops prompt the swap on the same second.
    */
   relaySwapMs?: number;
+  /**
+   * Which editor the round is played in. Everyone uses the same one.
+   *
+   * Absent means `servo`, which is what every round was before this field
+   * existed. The two modes are not the same task on the same challenge — one
+   * Cutter Grid command crosses a lattice cell, one servo command drives a
+   * joint, and Cutter Grid solves the head avoidance that is most of what the
+   * servo version tests — so a mixed round would rank two different exercises
+   * and publish the result as one standing. SPEC v0.3 §15.1 rules that out and
+   * `06-MULTIPLAYER.md` §3 makes the round, not the player, the thing that
+   * chooses.
+   *
+   * Unlike the clock values here this one is *enforced*, online: the server
+   * reads the mode off the scored result and refuses a submission written in
+   * the other with {@link MatchRejection} `wrong-programming-mode`.
+   */
+  programmingMode?: ProgrammingMode;
 }
 
 /**
@@ -159,7 +177,9 @@ export type MatchRejection =
   | 'rate-limited'
   | 'not-participant'
   | 'wrong-phase'
-  | 'wrong-challenge';
+  | 'wrong-challenge'
+  /** Right challenge, wrong editor. The fix is to switch modes, not rooms. */
+  | 'wrong-programming-mode';
 
 /**
  * Response to a submission during a round.
@@ -193,6 +213,13 @@ export interface MatchResults {
   challengeId: string;
   challengeVersion: number;
   rankBy: RankBy;
+  /**
+   * The editor every row was written in. Absent means `servo`.
+   *
+   * The round is single-mode, so it applies to the whole table — and a table of
+   * scores means something only next to the task it ranks.
+   */
+  programmingMode?: ProgrammingMode;
   rows: MatchResultRow[];
 }
 
@@ -211,4 +238,6 @@ export const REJECTION_LABELS: Record<MatchRejection, string> = {
   'not-participant': 'You are not in this round.',
   'wrong-phase': 'The round is not accepting submissions right now.',
   'wrong-challenge': 'That program was scored against a different challenge.',
+  'wrong-programming-mode':
+    'This round is played in the other editor, so that program is not an entry in it.',
 };

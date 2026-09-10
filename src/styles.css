@@ -2731,6 +2731,20 @@ input:focus-visible {
   text-shadow: 0 0 60px color-mix(in oklch, var(--accent) 50%, transparent);
 }
 
+/*
+  3, 2, 1 — the hold before the editor appears, counted against the server's
+  clock so every screen in the room lands on the same second.
+*/
+.round-countdown__count {
+  color: var(--cyan);
+  font-size: clamp(4rem, 16vw, 9rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  text-shadow: 0 0 60px color-mix(in oklch, var(--accent) 50%, transparent);
+}
+
 .round-flash span {
   color: var(--ink-muted);
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -3210,6 +3224,29 @@ input:focus-visible {
 }
 
 /*
+  What stands where the Start button is on the host's screen.
+
+  Same weight and same place, so a player who has been told "wait for the
+  projector" reads the reason rather than hunting for a button that is not
+  there.
+*/
+.lobby__waiting {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--panel-border-strong);
+  border-radius: 10px;
+  color: var(--muted-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/*
   The three panels under the standings: the podium the round was *not* ranked
   by, crew totals, and the running season table. Each is optional and each is
   arithmetic over rows the server already ranked, never a re-scoring.
@@ -3283,6 +3320,97 @@ input:focus-visible {
   color: var(--gold);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/*
+  The end of a sitting: who won the points table, not who won the last round.
+
+  Built on `.bootstrap-screen` because it *replaces* the round rather than
+  covering it — the rounds are over, and a dialog floating above a scoreboard
+  nobody can act on any more would say the opposite.
+*/
+.champion h1 {
+  color: var(--gold);
+}
+
+.champion__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: center;
+  margin: 0;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.champion__stats strong {
+  color: var(--gold);
+  font-size: var(--font-md);
+}
+
+.champion__podium {
+  display: grid;
+  gap: 4px;
+  width: min(420px, 100%);
+  margin: 0.4rem 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--fill-1);
+  list-style: none;
+  text-align: left;
+}
+
+.champion__podium li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: var(--font-sm);
+}
+
+.champion__podium li.is-you strong {
+  color: var(--cyan);
+}
+
+.champion__podium li > span:first-child {
+  width: 16px;
+  flex: none;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--font-micro);
+}
+
+.champion__podium li > small {
+  color: var(--muted);
+  font-size: var(--font-micro);
+}
+
+.champion__podium li > output {
+  margin-left: auto;
+  color: var(--gold);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.champion__crew {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--font-sm);
+}
+
+.champion__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  margin-top: 0.6rem;
 }
 
 .scoreboard__disclaimer {
