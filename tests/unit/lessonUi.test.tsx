@@ -90,7 +90,13 @@ describe('lesson picker', () => {
     expect(container.querySelectorAll('.lesson-row.is-done')).toHaveLength(1);
   });
 
-  it('locks the curriculum in order', () => {
+  const unlockedRows = () =>
+    screen
+      .getAllByRole('button')
+      .filter((button) => button.classList.contains('lesson-row'))
+      .filter((row) => !row.hasAttribute('disabled'));
+
+  it('locks each track in order, and opens both tracks from the start', () => {
     const { rerender } = render(
       <LessonPicker
         completed={new Set()}
@@ -99,10 +105,11 @@ describe('lesson picker', () => {
         onBack={() => {}}
       />,
     );
-    const rows = screen.getAllByRole('button').filter((button) =>
-      button.classList.contains('lesson-row'),
-    );
-    expect(rows.filter((row) => !row.hasAttribute('disabled'))).toHaveLength(1);
+    // Both tracks are entered independently: a learner with no progress can
+    // start Cutter Grid 1 *or* Servo Angles 1. Servo used to be gated behind
+    // the last Cutter Grid lesson, which put the whole angle track out of
+    // reach of anyone starting fresh.
+    expect(unlockedRows()).toHaveLength(2);
 
     rerender(
       <LessonPicker
@@ -112,10 +119,18 @@ describe('lesson picker', () => {
         onBack={() => {}}
       />,
     );
-    const updatedRows = screen.getAllByRole('button').filter((button) =>
-      button.classList.contains('lesson-row'),
+    expect(unlockedRows()).toHaveLength(3);
+
+    // Progress in one track does not open the other beyond its own first row.
+    rerender(
+      <LessonPicker
+        completed={new Set([LESSONS[0].id])}
+        onPick={() => {}}
+        onPickCutterGrid={() => {}}
+        onBack={() => {}}
+      />,
     );
-    expect(updatedRows.filter((row) => !row.hasAttribute('disabled'))).toHaveLength(2);
+    expect(unlockedRows()).toHaveLength(3);
   });
 
   it('lists and routes all dedicated Cutter Grid lessons', () => {
@@ -931,7 +946,7 @@ describe('reviewing a lesson while working through it', () => {
         onExit={() => {}}
       />,
     );
-    expect(screen.getByTestId('lesson-goal-recap')).toHaveTextContent(servo.goal);
+    expect(screen.getByTestId('lesson-goal-pending')).toBeInTheDocument();
     expect(screen.getByTestId('angle-section-requirement')).toHaveTextContent(
       'Press Test',
     );
@@ -959,10 +974,75 @@ describe('reviewing a lesson while working through it', () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('SERVO ANGLES LESSON')).toBeInTheDocument();
-    expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('lesson-goal-pending')).not.toBeInTheDocument();
     expect(screen.queryByTestId('next-angle-section')).not.toBeInTheDocument();
 
     fireEvent.click(toggle);
-    expect(screen.getByTestId('lesson-goal-recap')).toBeInTheDocument();
+    expect(screen.getByTestId('lesson-goal-pending')).toBeInTheDocument();
+  });
+
+  it('withholds the lesson goal until the learner has been idle 30 seconds', () => {
+    vi.useFakeTimers();
+    try {
+      const props = {
+        lesson: servo,
+        solved: false,
+        quizPassed: false,
+        onQuizPassed: () => {},
+        sectionIndex: 12,
+        furthestSectionIndex: 12,
+        onSelectSection: () => {},
+        onPreviousSection: () => {},
+        onNextSection: () => {},
+        onExit: () => {},
+      };
+      const { rerender } = render(
+        <LessonGoal {...props} sectionSatisfied={false} />,
+      );
+      // The goal states the answer, so it is not on screen while anyone might
+      // still be working it out.
+      expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
+      expect(screen.getByTestId('lesson-goal-pending')).toBeInTheDocument();
+
+      // Activity restarts the clock: 29s, a keypress, then 29s more is still
+      // not 30 seconds of quiet.
+      act(() => { vi.advanceTimersByTime(29_000); });
+      act(() => { fireEvent.keyDown(window, { key: 'a' }); });
+      act(() => { vi.advanceTimersByTime(29_000); });
+      expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
+
+      act(() => { vi.advanceTimersByTime(1_500); });
+      expect(screen.getByTestId('lesson-goal-recap')).toHaveTextContent(servo.goal);
+
+      // Having read it, acting on it does not snatch it away again.
+      act(() => { fireEvent.keyDown(window, { key: 'b' }); });
+      expect(screen.getByTestId('lesson-goal-recap')).toBeInTheDocument();
+
+      // A new section is a new question, so the answer is withheld again.
+      rerender(<LessonGoal {...props} sectionIndex={13} sectionSatisfied={false} />);
+      expect(screen.queryByTestId('lesson-goal-recap')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows the goal immediately once a real section requirement is met', () => {
+    render(
+      <LessonGoal
+        lesson={servo}
+        solved={false}
+        quizPassed={false}
+        onQuizPassed={() => {}}
+        sectionSatisfied
+        sectionIndex={12}
+        furthestSectionIndex={12}
+        onSelectSection={() => {}}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onExit={() => {}}
+      />,
+    );
+    // Nothing is being spoiled: the work this section asks for is already done.
+    expect(screen.getByTestId('lesson-goal-recap')).toHaveTextContent(servo.goal);
   });
 });

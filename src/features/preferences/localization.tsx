@@ -139,6 +139,7 @@ const EN_MESSAGES = {
   notInGrid: 'Not in grid',
   buildThis: 'Leave this in the workspace',
   hintPending: 'Stuck? The answer appears after two minutes of trying.',
+  goalPending: 'Stuck? The goal appears after 30 seconds without input.',
   connectedProgram: 'Connected for this program',
   staticIkOnly: 'Static IK map only',
   servoAngles: 'SERVO ANGLES',
@@ -395,6 +396,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     practice: '练习', practiceComplete: '练习完成', practiceFailed: '无法继续练习', choosingChallenge: '正在选择下一项挑战…', ability: '能力估计', choosingNext: '正在选择下一项挑战…',
     versusRound: '多人对战', versusTitle: '相同挑战，相同计时。', versusIntro: '所有玩家会在同一时刻收到相同发型，并在固定时间内提交。最接近目标者获胜；本轮结束前不显示分数。', offlinePracticeTitle: '离线练习', backendOnlineTitle: '已连接后端', offlinePracticeBody: '当前未配置服务器。对战只在此标签页中运行，对手是预设机器人，分数由浏览器计算。设置 VITE_HCR_API_BASE_URL 后可连接真实对手。', onlineRoundBody: '服务器会重放并评分每个程序，并以服务器时间判断提交是否赶上截止时间。', practiceBots: '三个练习机器人会加入房间。', offlineRoomOnly: '离线房间只存在于此标签页，房间码无法分享。', roundError: '对战错误', dismissError: '关闭错误消息', challengeForRound: '本轮挑战', multiplayerPrivacy: '多人游戏仅共享当前 UTC 偏移，用于显示玩家当地时间；不会发送精确时区名称或位置。', hostRound: '创建对战', hostRoundBody: '创建房间、分享房间码，所有人进入后即可开始。', roundLength: '对战时长', serverChoose: '由服务器选择', openRoom: '创建房间', joinRound: '加入对战', joinRoundBody: '输入房主提供的房间码。', roomCode: '房间码', roomCodeLabel: '房间码', joinRoom: '加入房间', lobby: '等候室', waitingStart: '等待开始', leave: '离开', players: '玩家', you: '你', bot: '机器人', rules: '规则', startRound: '开始对战', scoresSealed: '本轮结束前所有分数均保密', roundClosed: '本轮结束', youWin: '你获胜', noEntries: '无人提交', playAgain: '再玩一次', roundCancelled: '对战已取消', roundAbandoned: '本轮对战已放弃', roundStarting: '对战即将开始', revealingChallenge: '正在公布挑战…', simultaneousReveal: '所有玩家会在同一时刻收到挑战。', go: '开始', closestWins: '最接近目标者获胜', loading: '正在载入', positioning: '正在定位', planning: '正在规划', idle: '待机', running: '正在运行', paused: '已暂停', completed: '已完成', stopped: '已停止', error: '错误', safeIkKnown: '已知安全逆解', noSafeIk: '未找到安全逆解', executed: '已执行', planned: '已规划', serverClockRule: '分钟，以服务器时钟为准', secondsClockRule: '秒，以服务器时钟为准', serverClockBody: '服务器在截止时间前收到提交即为有效；不会参考你的设备时钟。', hiddenStandings: '排名暂不公开', hiddenStandingsBody: '本轮结束前无人知道自己的排名。你可以测试自己的程序，但所有正式分数均保持保密。', bestAttempt: '可重复提交，以最佳一次为准', serverReplayBody: '服务器会重放每个评分程序，因此分数来自程序本身，而不是浏览器上报的数值。', localScoreBody: '这是练习对战：分数由当前浏览器计算，因此结果不是正式成绩。', namesUnverified: '显示名称未经验证', namesUnverifiedBody: '这里没有账户系统，任何人都可选择任意名称，因此排名不能用于验证身份。', lobbyStartHint: '房间内任何人都可开始。挑战会同时向所有玩家公布。当地时间仅使用共享的 UTC 偏移；不会发送精确时区名称或位置。', closed: '已结束', timeLeft: '剩余时间', attemptLocked: '提交已确认。可以再次提交改进，以最佳一次为准。', attemptRejected: '本次提交未被接受。', roundResults: '对战结果', finalScoreMetric: '最终得分', similarityMetric: '与目标的相似度', rankedBy: '排名依据', noAttempt: '未提交', accuracyRankHint: '按发型与目标的接近程度排名。', efficiencyRankHint: '按加权总分排名：准确度，加上更短、更快的程序。', accuracyPodium: '准确度前三', efficiencyPodium: '效率前三', crewTotals: '小组总分', submittedCount: '已提交', assignCrew: '点击设置该玩家的小组', seasonTable: '积分榜', roundsPlayed: '轮', points: '分', nextRound: '下一轮', submitNow: '立即提交', revealing: '正在揭晓…', personalBest: '本轮刷新了个人最佳', personalBestShort: '个人最佳', thisScreenOnly: '小组与目标仅存在于本屏幕——请在投影机上设置。', seasonScope: '本房间，自你加入起', roundFormat: '赛制', formatSolo: '个人', formatCrews: '小组', formatCoop: '协作', formatSoloHint: '个人排名，最接近目标者获胜。', formatCrewsHint: '以小组成绩为主，个人成绩仍列在下方。', formatCoopHint: '没有赢家。全班一起达标，或者都不达标。', crewScoring: '小组计分', crewSum: '全员计入', crewWeakestTwo: '最低两名', crewSumHint: '每位成员都计入，所以让最安静的成员提交才能提升小组成绩。', crewWeakestTwoHint: '只计最低的两名，因此无法靠一个人带飞全组。', relaySwap: '接力换人', crewsDrawn: '小组由房间码自动分配。点击字母可为所有人手动调整。', crewStandings: '小组排名', crew: '小组', relayLeg: '第', relaySwapIn: '秒后换人：', endless: '无尽模式', nextRoundIn: '下一轮开始还有', stopLoop: '停止循环', crewLeague: '小组积分榜', crewWins: '获胜', podiumStreak: '连续进入前三', behind: '落后于', aheadBy: '领先', photoFinish: '险胜', landedWith: '提交时剩余', classTarget: '全班目标', classTargetOff: '关闭', classTargetCleared: '全班达标。', classTargetMissed: '全班差', lowestInRoom: '房间最低分',
     theme: '主题', themeSystem: '跟随系统', themeLight: '浅色', themeDark: '深色',
+    goalPending: '卡住了？停止操作 30 秒后会显示本课目标。',
   },
   'zh-TW': {
     language: '語言', player: '玩家', tagline: '編程控制機械臂、修剪髮型、挑戰時間。',
@@ -430,6 +432,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     practice: '練習', practiceComplete: '練習完成', practiceFailed: '無法繼續練習', choosingChallenge: '正在選擇下一項挑戰…', ability: '能力估計', choosingNext: '正在選擇下一項挑戰…',
     versusRound: '多人對戰', versusTitle: '相同挑戰，相同計時。', versusIntro: '所有玩家會在同一時刻收到相同髮型，並在固定時間內提交。最接近目標者獲勝；本輪結束前不顯示分數。', offlinePracticeTitle: '離線練習', backendOnlineTitle: '已連接後端', multiplayerPrivacy: '多人遊戲只會分享目前 UTC 偏移，用於顯示玩家當地時間；不會傳送精確時區名稱或位置。', hostRound: '建立對戰', hostRoundBody: '建立房間、分享房間碼，所有人進入後即可開始。', roundLength: '對戰時間', serverChoose: '由伺服器選擇', openRoom: '建立房間', joinRound: '加入對戰', joinRoundBody: '輸入房主提供的房間碼。', roomCode: '房間碼', roomCodeLabel: '房間碼', joinRoom: '加入房間', lobby: '等候室', waitingStart: '等待開始', leave: '離開', players: '玩家', you: '你', bot: '機器人', rules: '規則', startRound: '開始對戰', scoresSealed: '本輪結束前所有分數均保密', roundClosed: '本輪結束', youWin: '你獲勝', noEntries: '無人提交', playAgain: '再玩一次', roundCancelled: '對戰已取消', roundAbandoned: '本輪對戰已放棄', roundStarting: '對戰即將開始', revealingChallenge: '正在公布挑戰…', simultaneousReveal: '所有玩家會在同一時刻收到挑戰。', go: '開始', closestWins: '最接近目標者獲勝', loading: '正在載入', positioning: '正在定位', planning: '正在規劃', idle: '待機', running: '正在執行', paused: '已暫停', completed: '已完成', stopped: '已停止', error: '錯誤', safeIkKnown: '已知安全逆解', noSafeIk: '未找到安全逆解', executed: '已執行', planned: '已規劃', serverClockRule: '分鐘，以伺服器時鐘為準', secondsClockRule: '秒，以伺服器時鐘為準', serverClockBody: '伺服器在截止時間前收到提交即為有效；不會參考你的裝置時鐘。', hiddenStandings: '排名暫不公開', hiddenStandingsBody: '本輪結束前沒有人知道自己的排名。你可以測試自己的程式，但所有正式分數均保持保密。', bestAttempt: '可重複提交，以最佳一次為準', serverReplayBody: '伺服器會重播每個評分程式，因此分數來自程式本身，而不是瀏覽器回報的數值。', localScoreBody: '這是練習對戰：分數由目前瀏覽器計算，因此結果不是正式成績。', namesUnverified: '顯示名稱未經驗證', namesUnverifiedBody: '這裡沒有帳號系統，任何人都可選擇任意名稱，因此排名不能用來驗證身分。', lobbyStartHint: '房間內任何人都可開始。挑戰會同時向所有玩家公布。當地時間只使用共享的 UTC 偏移；不會傳送精確時區名稱或位置。', closed: '已結束', timeLeft: '剩餘時間', attemptLocked: '提交已確認。可以再次提交改進，以最佳一次為準。', attemptRejected: '本次提交未被接受。', roundResults: '對戰結果', finalScoreMetric: '最終分數', similarityMetric: '與目標的相似度', rankedBy: '排名依據', noAttempt: '未提交', accuracyRankHint: '依髮型與目標的接近程度排名。', efficiencyRankHint: '依加權總分排名：準確度，加上更短、更快的程式。', accuracyPodium: '準確度前三', efficiencyPodium: '效率前三', crewTotals: '小組總分', submittedCount: '已提交', assignCrew: '點擊設定該玩家的小組', seasonTable: '積分榜', roundsPlayed: '輪', points: '分', nextRound: '下一輪', submitNow: '立即提交', revealing: '正在揭曉…', personalBest: '本輪刷新了個人最佳', personalBestShort: '個人最佳', thisScreenOnly: '小組與目標僅存在於本螢幕——請在投影機上設定。', seasonScope: '本房間，自你加入起', roundFormat: '賽制', formatSolo: '個人', formatCrews: '小組', formatCoop: '協作', formatSoloHint: '個人排名，最接近目標者獲勝。', formatCrewsHint: '以小組成績為主，個人成績仍列在下方。', formatCoopHint: '沒有贏家。全班一起達標，或者都不達標。', crewScoring: '小組計分', crewSum: '全員計入', crewWeakestTwo: '最低兩名', crewSumHint: '每位成員都計入，所以讓最安靜的成員提交才能提升小組成績。', crewWeakestTwoHint: '只計最低的兩名，因此無法靠一個人帶飛全組。', relaySwap: '接力換人', crewsDrawn: '小組由房間碼自動分配。點擊字母可為所有人手動調整。', crewStandings: '小組排名', crew: '小組', relayLeg: '第', relaySwapIn: '秒後換人：', endless: '無盡模式', nextRoundIn: '下一輪開始還有', stopLoop: '停止循環', crewLeague: '小組積分榜', crewWins: '獲勝', podiumStreak: '連續進入前三', behind: '落後於', aheadBy: '領先', photoFinish: '險勝', landedWith: '提交時剩餘', classTarget: '全班目標', classTargetOff: '關閉', classTargetCleared: '全班達標。', classTargetMissed: '全班差', lowestInRoom: '房間最低分',
     theme: '主題', themeSystem: '跟隨系統', themeLight: '淺色', themeDark: '深色',
+    goalPending: '卡住了？停止操作 30 秒後會顯示本課目標。',
   },
   'zh-HK': {
     language: '語言', player: '玩家', tagline: '編程控制機械臂、剪出髮型、挑戰時間。',
@@ -456,6 +459,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     participateStudy: '參與學術研究並進入', exitStudy: '退出', studyTitle: '參與學術研究', studyIntro: 'HCR 係一項研究人點樣學機械臂編程嘅學術項目。請睇清楚下面嘅資料說明，再主動揀參唔參與。',
     studyDeclinedTitle: '你已揀唔參與研究', studyDeclinedBody: '系統未建立模擬器工作階段或者玩家識別碼。你可以關閉呢一頁，或者再睇研究說明。', reviewStudy: '再睇研究說明', closeApplication: '關閉應用程式',
     theme: '主題', themeSystem: '跟隨系統', themeLight: '淺色', themeDark: '深色',
+    goalPending: '卡住咗？停手 30 秒之後會顯示今課目標。',
   },
   ja: {
     language: '言語', player: 'プレイヤー', tagline: 'アームをプログラムし、髪型を作り、時間に挑戦。',
@@ -477,6 +481,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     participateStudy: '学術研究に参加する', exitStudy: '終了', studyTitle: '学術研究への参加', studyIntro: 'HCRは、ロボットプログラミングの学習過程を調べる学術研究です。データの扱いを確認し、参加するかどうかを選んでください。',
     studyDeclinedTitle: '研究には参加しません', studyDeclinedBody: 'シミュレーターのセッションやプレイヤーIDは作成されていません。このページを閉じるか、研究内容をもう一度確認できます。', reviewStudy: '研究内容を確認する', closeApplication: 'アプリを閉じる',
     theme: 'テーマ', themeSystem: 'システムに合わせる', themeLight: 'ライト', themeDark: 'ダーク',
+    goalPending: '行き詰まりましたか？操作しないまま30秒でレッスンの目標を表示します。',
   },
   ko: {
     language: '언어', player: '플레이어', tagline: '로봇 팔을 프로그래밍하고 머리를 다듬어 기록에 도전하세요.',
@@ -498,6 +503,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     participateStudy: '학술 연구에 참여', exitStudy: '나가기', studyTitle: '학술 연구 참여', studyIntro: 'HCR은 사람들이 로봇 프로그래밍을 배우는 과정을 살펴보는 학술 연구입니다. 데이터 사용 내용을 확인한 뒤 참여 여부를 선택하세요.',
     studyDeclinedTitle: '연구에 참여하지 않았습니다', studyDeclinedBody: '시뮬레이터 세션이나 플레이어 식별자는 생성되지 않았습니다. 이 페이지를 닫거나 연구 안내를 다시 확인할 수 있습니다.', reviewStudy: '연구 안내 다시 보기', closeApplication: '앱 닫기',
     theme: '테마', themeSystem: '시스템 따르기', themeLight: '라이트', themeDark: '다크',
+    goalPending: '막혔나요? 30초 동안 입력이 없으면 레슨 목표를 표시합니다.',
   },
   es: {
     language: 'IDIOMA', player: 'JUGADOR', tagline: 'Programa el brazo. Corta el cabello. Supera el reloj.',
@@ -519,6 +525,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     participateStudy: 'Participar en el estudio académico', exitStudy: 'Salir', studyTitle: 'Participación en el estudio', studyIntro: 'HCR estudia cómo aprende la gente a programar robots. Revisa el uso de los datos y decide si quieres participar.',
     studyDeclinedTitle: 'Has decidido no participar', studyDeclinedBody: 'No se ha creado ninguna sesión del simulador ni identificador de jugador. Puedes cerrar esta página o volver a consultar la información del estudio.', reviewStudy: 'Revisar la información', closeApplication: 'Cerrar la aplicación',
     theme: 'Tema', themeSystem: 'Seguir al sistema', themeLight: 'Claro', themeDark: 'Oscuro',
+    goalPending: '¿Atascado? El objetivo aparece tras 30 segundos sin actividad.',
   },
   fr: {
     language: 'LANGUE', player: 'JOUEUR', tagline: 'Programmez le bras. Taillez les cheveux. Battez le chrono.',
@@ -540,6 +547,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     participateStudy: 'Participer à l’étude universitaire', exitStudy: 'Quitter', studyTitle: 'Participation à l’étude', studyIntro: 'HCR étudie la façon dont les personnes apprennent à programmer des robots. Consultez l’utilisation prévue des données, puis choisissez de participer ou non.',
     studyDeclinedTitle: 'Vous avez choisi de ne pas participer', studyDeclinedBody: 'Aucune session du simulateur ni aucun identifiant de joueur n’a été créé. Vous pouvez fermer cette page ou relire les informations sur l’étude.', reviewStudy: 'Relire les informations', closeApplication: 'Fermer l’application',
     theme: 'Thème', themeSystem: 'Suivre le système', themeLight: 'Clair', themeDark: 'Sombre',
+    goalPending: 'Bloqué ? L’objectif apparaît après 30 secondes sans action.',
   },
   ru: {
     language: 'ЯЗЫК', player: 'ИГРОК', tagline: 'Программируйте манипулятор. Стригите волосы. Побеждайте время.',
@@ -561,6 +569,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     participateStudy: 'Участвовать в академическом исследовании', exitStudy: 'Выйти', studyTitle: 'Участие в исследовании', studyIntro: 'HCR изучает, как люди учатся программировать роботов. Ознакомьтесь с использованием данных и решите, хотите ли вы участвовать.',
     studyDeclinedTitle: 'Вы решили не участвовать', studyDeclinedBody: 'Сеанс симулятора и идентификатор игрока не созданы. Вы можете закрыть эту страницу или снова прочитать информацию об исследовании.', reviewStudy: 'Прочитать информацию ещё раз', closeApplication: 'Закрыть приложение',
     theme: 'Тема', themeSystem: 'Как в системе', themeLight: 'Светлая', themeDark: 'Тёмная',
+    goalPending: 'Не получается? Цель появится после 30 секунд без действий.',
   },
   de: {
     language: 'SPRACHE', player: 'SPIELER', tagline: 'Programmiere den Roboterarm. Schneide die Frisur. Schlage die Zeit.',
@@ -573,6 +582,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     requiredData: 'Für die Online-Bewertung werden das kompilierte Blockly-Programm sowie Aufgaben- und Bewertungsdaten an den Server gesendet.', researchChoice: 'Meine eingereichten Programme, Ergebnisse, Primärsprache und grobe UTC-Abweichung dürfen für deidentifizierte Lernforschung verwendet werden.', researchHint: 'Primärsprache und UTC-Abweichung lassen sich unter „Weitere Einstellungen“ getrennt ausschalten. Browser-Fingerabdrücke und genaue Zeitzonennamen werden nicht erhoben.',
     dataSettings: 'Dateneinstellungen', privacyTitle: 'Deine Datenauswahl', privacyIntro: 'Für die Online-Bewertung sind einige Daten erforderlich. Über ihre Forschungsnutzung entscheidest du getrennt.', necessaryTitle: 'Erforderliche Bewertungsdaten', necessaryBody: 'Kompiliertes Blockly-Programm, Aufgabenversion und Ergebnis. Für Online-Training und Mehrspieler immer aktiv.', optionalTitle: 'Optionale Lernforschung', optionalBody: 'Eingereichte Programme und Ergebnisse sowie Primärsprache und grobe UTC-Abweichung. Kein Browser-Fingerabdruck und keine genaue Zeitzone.', necessaryOnly: 'Nur erforderliche Daten', acceptResearch: 'Forschung erlauben', moreSettings: 'Weitere Einstellungen', saveSettings: 'Einstellungen speichern', notNow: 'Nicht teilnehmen', allowAllResearch: 'Alle Forschungsdaten erlauben', programResearchTitle: 'Programme und Ergebnisse', programResearchBody: 'Nimmt die eingereichte Blockly IR und das Ergebnis in den deidentifizierten Datensatz auf.', languageResearchTitle: 'Primärsprache', languageResearchBody: 'Teilt nur einen groben Sprachcode wie de oder en.', timezoneResearchTitle: 'UTC-Abweichung', timezoneResearchBody: 'Teilt nur die aktuelle Abweichung in Minuten, keinen genauen Zeitzonennamen.', neverCollected: 'Browser-Fingerabdrücke werden nie erhoben.', participateStudy: 'An der akademischen Studie teilnehmen', exitStudy: 'Beenden', studyTitle: 'Teilnahme an der akademischen Studie', studyIntro: 'HCR untersucht, wie Menschen Roboterprogrammierung lernen. Lies die Angaben zur Datennutzung und entscheide anschließend über deine Teilnahme.', studyDeclinedTitle: 'Du nimmst nicht an der Studie teil', studyDeclinedBody: 'Es wurden weder eine Simulatorsitzung noch eine Spielerkennung angelegt. Du kannst die Seite schließen oder die Studieninformationen erneut lesen.', reviewStudy: 'Studieninformationen erneut lesen', closeApplication: 'Anwendung schließen',
     theme: 'Design', themeSystem: 'System folgen', themeLight: 'Hell', themeDark: 'Dunkel',
+    goalPending: 'Steckst du fest? Nach 30 Sekunden ohne Eingabe erscheint das Lernziel.',
   },
 };
 

@@ -112,9 +112,15 @@ export function LessonPicker({
       <ol className="lesson-list">
         {servoLessons.map((lesson, index) => {
           const done = completed.has(lesson.id);
-          const unlocked = index === 0
-            ? completed.has(cutterGridLessons[cutterGridLessons.length - 1].id)
-            : completed.has(servoLessons[index - 1].id);
+          // The two tracks are entered independently, exactly as the Cutter
+          // Grid list above is. Gating Servo lesson 1 behind the *tenth* Grid
+          // lesson made the angle track unreachable for anyone who had not
+          // finished the whole Grid track — which is every new student, and
+          // every returning one sitting at a different laptop, because progress
+          // lives in this browser's localStorage and nowhere else. A session
+          // that opens on the angle lessons cannot start behind that door.
+          const unlocked =
+            index === 0 || completed.has(servoLessons[index - 1].id);
           return (
             <li key={lesson.id}>
               <button

@@ -14,6 +14,14 @@ import { localizeServoLesson } from './servoLessonLocalization';
 import { LessonMultipleChoice } from './LessonMultipleChoice';
 import { LessonRequirement } from './LessonRequirement';
 import { LessonSectionProgress } from './LessonSectionProgress';
+import { useIdleHint } from './useIdleHint';
+
+/**
+ * How long the room goes quiet before the goal — which states the answer —
+ * appears. Thirty seconds is long enough that nobody mid-thought sees it and
+ * short enough that being stuck does not become being stuck for the block.
+ */
+const GOAL_IDLE_MS = 30_000;
 
 interface LessonGoalProps {
   lesson: Lesson;
@@ -59,6 +67,18 @@ export function LessonGoal({
   const sectionRequirement = quizSection || lastSection
     ? 'none'
     : lessonSectionRequirement(section);
+
+  // Sections 1-10 and 18 ask for nothing, so `sectionSatisfied` is trivially
+  // true on them — which is most of the lesson. Reading it as "the work is
+  // done" would put the answer back on screen everywhere it matters, so the
+  // goal is only handed over early where there was a requirement and it was
+  // met.
+  const goalEarned = sectionRequirement !== 'none' && sectionSatisfied;
+  const goalRevealed = useIdleHint({
+    delayMs: GOAL_IDLE_MS,
+    resetKey: sectionIndex,
+    disabled: goalEarned,
+  });
   const lessonNumber = displayLesson.name.match(/^\d+/)?.[0] ?? '—';
 
   return (
@@ -108,10 +128,14 @@ export function LessonGoal({
             your prediction" never says which program to press Test on, and the one
             card that does state it — the outcome — is eleven Next presses back.
           */}
-          {quizSection || lastSection ? null : (
+          {quizSection || lastSection ? null : goalRevealed || goalEarned ? (
             <p className="lesson-goal-recap" data-testid="lesson-goal-recap">
               <strong>{t('thisLesson')}</strong>
               <span>{displayLesson.goal}</span>
+            </p>
+          ) : (
+            <p className="lesson-goal-pending" data-testid="lesson-goal-pending">
+              {t('goalPending')}
             </p>
           )}
 

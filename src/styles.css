@@ -3829,6 +3829,22 @@ button.tutorial__step:hover {
   line-height: 1.5;
 }
 
+/*
+  The placeholder that stands in for the goal until the learner has been idle
+  for half a minute. Deliberately quieter than the goal it replaces: it is a
+  note that help exists, not a thing to read.
+*/
+.lesson-goal-pending {
+  margin-top: 2px;
+  padding: 8px 10px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 8px;
+  color: var(--muted) !important;
+  font-size: var(--font-xs) !important;
+  font-style: italic;
+  line-height: 1.5;
+}
+
 .lesson-goal-recap strong {
   color: var(--gold);
   font-size: var(--font-micro);
