@@ -367,6 +367,52 @@ input:focus-visible {
   cursor: pointer;
 }
 
+/*
+  Endless practice: the pair of buttons on the finished screen, and the
+  countdown that replaces them once the loop is running. `.bootstrap-screen >
+  button` only reaches direct children, so these carry their own box.
+*/
+.practice-endless {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 0.6rem;
+}
+
+.practice-endless button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--panel-border-strong);
+  border-radius: 8px;
+  background: var(--cyan-soft);
+  cursor: pointer;
+}
+
+.practice-endless__go {
+  border-color: var(--accent) !important;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.practice-endless__countdown {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--font-sm);
+}
+
+.practice-endless__countdown strong {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.practice-endless__runs {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
 .spin {
   color: var(--cyan);
   animation: spin 1s linear infinite;

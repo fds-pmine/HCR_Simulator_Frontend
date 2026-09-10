@@ -3,6 +3,7 @@ import profileV2Fixture from '../../../tests/fixtures/cutter-grid-profile-v2.jso
 import type { Challenge } from '../../types/domain';
 import { cutterGridProfileMatchesChallenge } from './profile';
 import { cutterGridProfileV2MatchesChallenge } from './profileV2';
+import { cutterGridChallengeSignatureV2 } from './signature';
 import { upgradeCutterGridProfileV2ToV3 } from './profileV3';
 import { upgradeCutterGridProfileV2ToV4 } from './profileV4';
 import type {
@@ -26,6 +27,19 @@ const bundledProfilesV2 = new Map<string, CutterGridProfileV2>(
     : [],
 );
 
+/**
+ * V4 profiles certified ahead of time, one per Servo Angles lesson.
+ *
+ * These are the reason a lesson can be played in Cutter Grid at all: the mode
+ * is only offered where a profile proves the lattice is reachable, that entry
+ * cuts nothing, and that a reference route removes exactly the target. They
+ * ship as V4 rather than V2 because the V4 upgrade compresses a megabyte of
+ * entry options down to a few kilobytes — 273 KB an item instead of 1.25 MB.
+ *
+ * `import.meta.glob` with `eager` keeps the lookup synchronous, which every
+ * caller here depends on, while still letting the set grow by dropping a file
+ * in the directory rather than by editing this list.
+ */
 const bundledProfilesV4 = new Map<string, CutterGridProfileV4>();
 
 export function registeredCutterGridProfile(
@@ -38,7 +52,12 @@ export function registeredCutterGridProfile(
 }
 
 export function cutterGridAvailableForChallenge(challenge: Challenge): boolean {
-  return registeredCutterGridProfile(challenge) !== undefined;
+  // An existence check, deliberately not `registeredCutterGridProfileV4`:
+  // that one *builds* a V4 when only a V2 is bundled, and generating a
+  // 256-node collision roadmap is not what a caller asking "is this mode
+  // offered?" is expecting to pay for.
+  if (registeredCutterGridProfile(challenge) !== undefined) return true;
+  return bundledProfilesV4.has(cutterGridChallengeSignatureV2(challenge));
 }
 
 /**
@@ -76,11 +95,21 @@ export function registeredCutterGridProfileV3(
 export function registeredCutterGridProfileV4(
   challenge: Challenge,
 ): CutterGridProfileV4 | undefined {
+  // A bundled V2 wins when there is one. The signature covers `targetHair`, and
+  // two challenges can legitimately share a target — Servo lesson 4 sweeps the
+  // base to 145 degrees, which removes exactly the eleven crown voxels the
+  // shipped challenge asks for, so the two hash identically. Deriving from V2
+  // first keeps the richer profile (it carries the node map the overlay and the
+  // reachability tests read) instead of letting a pre-certified, node-less one
+  // shadow it.
   const profile = registeredCutterGridProfileV2(challenge);
-  if (!profile) return undefined;
-  const cached = bundledProfilesV4.get(profile.challengeSignature);
-  if (cached) return cached;
-  const upgraded = upgradeCutterGridProfileV2ToV4(challenge, profile);
-  bundledProfilesV4.set(profile.challengeSignature, upgraded);
-  return upgraded;
+  if (profile) {
+    const cached = bundledProfilesV4.get(profile.challengeSignature);
+    if (cached?.nodes.length) return cached;
+    const upgraded = upgradeCutterGridProfileV2ToV4(challenge, profile);
+    bundledProfilesV4.set(profile.challengeSignature, upgraded);
+    return upgraded;
+  }
+
+  return bundledProfilesV4.get(cutterGridChallengeSignatureV2(challenge));
 }

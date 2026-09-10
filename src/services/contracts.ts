@@ -135,6 +135,16 @@ export interface SessionStartOptions {
   initialTheta?: number;
   /** Fixed for the session lifetime; defaults to the servo scale on the wire. */
   programmingMode?: ProgrammingMode;
+  /**
+   * Practise rather than measure.
+   *
+   * A measurement session may only serve calibrated items and stops once the
+   * estimate is precise enough, which is why the bank runs dry after a dozen.
+   * A practice session lifts both rules and lets the CAT engine synthesise a
+   * hairstyle when nothing in the pool fits, so it keeps going. Its ability
+   * figure is not an authoritative measurement.
+   */
+  practice?: boolean;
 }
 
 /**

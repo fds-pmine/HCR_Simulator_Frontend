@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, LoaderCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  Infinity as InfinityIcon,
+  LoaderCircle,
+} from 'lucide-react';
 import { useServices } from '../../app/servicesContext';
+import type { ProgrammingMode } from '../blockly/programmingMode';
 import { SimulationWorkbench } from '../../components/layout/SimulationWorkbench';
 import type { Challenge } from '../../types/domain';
 import type { NextItem, SessionSnapshot } from '../../types/session';
@@ -32,6 +37,13 @@ interface PracticeRunProps {
  * Offline there is no estimator, so the sequence is the lessons in written
  * order — the same shape, labelled honestly.
  */
+/**
+ * How long the finished screen holds before an endless run opens the next
+ * session. Shorter than the versus loop's ten seconds: there is no scoreboard
+ * to read here, only a total, and a learner who wanted to stop has a button.
+ */
+const ENDLESS_GAP_MS = 5_000;
+
 export function PracticeRun({ onExit }: PracticeRunProps) {
   const { t } = useLocalization();
   const { challengeProvider, scoreProvider, sessionProvider } = useServices();
@@ -43,6 +55,12 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState<string>();
   const [attempted, setAttempted] = useState(0);
+  // Kept apart from `attempted`, which resets with each session.
+  const [completedTotal, setCompletedTotal] = useState(0);
+  const [endless, setEndless] = useState(false);
+  const [sessionsRun, setSessionsRun] = useState(1);
+  const [resumeIn, setResumeIn] = useState(0);
+  const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>('servo');
 
   // Strict Mode invokes effects twice in development; without this the app
   // would open two sessions and quietly halve the item budget.
@@ -70,26 +88,74 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     [challengeProvider, sessionProvider],
   );
 
-  // Open one mode-pinned session, then let its CAT selector serve item zero.
-  // Cutter Grid remains unavailable here until V4 submissions are accepted by
-  // the backend; planning alone is not an authoritative CAT response.
+  /*
+    Open one mode-pinned session, then let its CAT selector serve item zero.
+
+    A session is single-mode on purpose: it estimates one ability, and the same
+    challenge is a different task in each mode — one Cutter Grid command crosses
+    a lattice cell, one servo command drives a joint — so mixing them would
+    average two abilities into a number that describes neither.
+  */
+  const beginSession = useCallback(async (
+    mode: ProgrammingMode = programmingMode,
+    { practice = false }: { practice?: boolean } = {},
+  ) => {
+    setFinished(undefined);
+    setAttempted(0);
+    try {
+      const opened = await sessionProvider.start({
+        programmingMode: mode,
+        practice,
+      });
+      setSession(opened);
+      await advance(opened.sessionId);
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : 'Could not start practice.',
+      );
+    }
+  }, [advance, programmingMode, sessionProvider]);
+
   useEffect(() => {
     if (started.current) {
       return;
     }
     started.current = true;
-    void sessionProvider
-      .start({ programmingMode: 'servo' })
-      .then(async (opened) => {
-        setSession(opened);
-        await advance(opened.sessionId);
-      })
-      .catch((reason: unknown) => {
-        setError(
-          reason instanceof Error ? reason.message : 'Could not start practice.',
-        );
-      });
-  }, [advance, sessionProvider]);
+    void beginSession();
+  }, [beginSession]);
+
+  /*
+    Endless practice.
+
+    A session stops on purpose: the adaptive terminator ends it once the
+    ability estimate is precise enough, or at its item ceiling. That is right
+    for *measuring* somebody and wrong for somebody who just wants to keep
+    cutting hair, so endless does not disable the terminator — it opens a fresh
+    session when the last one closes. Each session still measures honestly, and
+    the running total below the ability figure is what carries across them.
+  */
+  useEffect(() => {
+    if (!endless || !finished) {
+      return;
+    }
+    // The deadline is a local, and every read of the clock happens inside a
+    // timer callback: rendering stays pure and the effect body sets no state.
+    const deadline = Date.now() + ENDLESS_GAP_MS;
+    const update = () => {
+      setResumeIn(Math.max(0, Math.ceil((deadline - Date.now()) / 1_000)));
+    };
+    const immediate = setTimeout(update, 0);
+    const tick = setInterval(update, 250);
+    const timer = setTimeout(() => {
+      setSessionsRun((run) => run + 1);
+      void beginSession(programmingMode, { practice: true });
+    }, ENDLESS_GAP_MS);
+    return () => {
+      clearTimeout(immediate);
+      clearInterval(tick);
+      clearTimeout(timer);
+    };
+  }, [beginSession, endless, finished, programmingMode]);
 
   const engine = useMemo(() => {
     if (!challenge) {
@@ -128,6 +194,7 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
           challengeVersion: item.challengeVersion,
           program: compiled.program,
         });
+        setCompletedTotal((total) => total + 1);
         const outcome = await sessionProvider.respond(
           session.sessionId,
           item.itemRef,
@@ -188,12 +255,63 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
       <main className="bootstrap-screen">
         <p className="phase-kicker">{t('practiceComplete')}</p>
         <h1>
-          {attempted} challenge{attempted === 1 ? '' : 's'} done
+          {completedTotal} challenge{completedTotal === 1 ? '' : 's'} done
         </h1>
+        {sessionsRun > 1 ? (
+          <p className="practice-endless__runs">
+            {sessionsRun} {t('practiceSessions')}
+          </p>
+        ) : null}
         <p>{finished}</p>
-        <button type="button" onClick={onExit}>
-          {t('backToMenu')}
-        </button>
+
+        {endless ? (
+          <div className="practice-endless" data-testid="practice-endless-loop">
+            <p className="practice-endless__countdown">
+              {t('nextChallengeIn')} <strong>{resumeIn}s</strong>
+            </p>
+            <button
+              type="button"
+              data-testid="practice-endless-stop"
+              onClick={() => setEndless(false)}
+            >
+              {t('stopLoop')}
+            </button>
+          </div>
+        ) : (
+          <div className="practice-endless">
+            <button
+              type="button"
+              className="practice-endless__go"
+              data-testid="practice-endless-start"
+              onClick={() => {
+                setEndless(true);
+                setSessionsRun((run) => run + 1);
+                void beginSession(programmingMode, { practice: true });
+              }}
+            >
+              <InfinityIcon size={15} />
+              {t('keepPractising')}
+            </button>
+            <button
+              type="button"
+              data-testid="practice-switch-mode"
+              onClick={() => {
+                const next: ProgrammingMode =
+                  programmingMode === 'servo' ? 'cutter-grid' : 'servo';
+                setProgrammingMode(next);
+                setSessionsRun((run) => run + 1);
+                void beginSession(next);
+              }}
+            >
+              {programmingMode === 'servo'
+                ? t('cutterGridMode')
+                : t('servoAnglesMode')}
+            </button>
+            <button type="button" onClick={onExit}>
+              {t('backToMenu')}
+            </button>
+          </div>
+        )}
       </main>
     );
   }
@@ -214,7 +332,7 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
       engine={engine}
       modeLabel={t('practice')}
       onExit={onExit}
-      availableProgrammingModes={['servo']}
+      availableProgrammingModes={[programmingMode]}
       cutterGridPlannerMode={
         sessionProvider.kind === 'adaptive' ? 'remote' : 'local'
       }

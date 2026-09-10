@@ -29,7 +29,9 @@
     "electron:dev": "cross-env VITE_HCR_API_BASE_URL=http://127.0.0.1:18623 concurrently -k -n vite,electron -c cyan,magenta \"vite --strictPort\" \"wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
     "electron:preview": "npm run build:desktop && electron .",
     "build:desktop": "cross-env VITE_HCR_API_BASE_URL=https://api.hcr.rs npm run build",
-    "app:build": "npm run build:desktop && electron-builder --publish never"
+    "app:build": "npm run build:desktop && electron-builder --publish never",
+    "lessons:fixture": "vitest run --config lesson-challenges.config.ts",
+    "lessons:profiles": "vitest run --config lesson-grid-profiles.config.ts"
   },
   "main": "electron/main.cjs",
   "dependencies": {
