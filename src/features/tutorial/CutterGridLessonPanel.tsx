@@ -60,6 +60,7 @@ export function CutterGridLessonPanel({
   quizPassed,
   practicalPassed,
   practicalAttempted,
+  lessonSolved,
   sectionSatisfied,
   onQuizPassed,
 }: {
@@ -75,8 +76,11 @@ export function CutterGridLessonPanel({
   onNextLesson?: () => void;
   onExit: () => void;
   quizPassed: boolean;
+  /** The Blockly practical alone — not the quiz. */
   practicalPassed: boolean;
   practicalAttempted: boolean;
+  /** Both gates: the quiz and the practical. Only this releases the lesson. */
+  lessonSolved: boolean;
   /** Whether this section's own build-or-test requirement is met. */
   sectionSatisfied: boolean;
   onQuizPassed: () => void;
@@ -197,6 +201,19 @@ export function CutterGridLessonPanel({
                     ? t('practicalNotPassed')
                     : t('pressTest')}
               </span>
+              {/*
+                Two gates release a lesson, and this card used to be told about
+                one boolean covering both: a learner holding a correct program
+                with the quiz still open was told their *program* did not meet
+                the practical, which points them at the wrong thing entirely.
+                The practical now reports the practical, and the outstanding
+                quiz says so itself.
+              */}
+              {quizPassed ? null : (
+                <span className="tutorial__state" data-testid="lesson-quiz-outstanding">
+                  {t('quizOutstanding')}
+                </span>
+              )}
             </div>
           ) : null}
 
@@ -211,7 +228,7 @@ export function CutterGridLessonPanel({
                 <ArrowLeft size={14} /> {t('previous')}
               </button>
             ) : <span />}
-            {lastSection && !practicalPassed ? null : (
+            {lastSection && !lessonSolved ? null : (
               <button
                 className="big-button big-button--primary tutorial__next"
                 type="button"

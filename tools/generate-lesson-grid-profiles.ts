@@ -50,7 +50,10 @@ it.each(LESSONS.map((lesson, index) => [index + 1, lesson] as const))(
 
     mkdirSync(outDir, { recursive: true });
     const file = resolve(outDir, `${lesson.id}.json`);
-    const json = `${JSON.stringify(v4, null, 2)}\n`;
+    // Minified: these are machine artefacts nobody reads, and they are
+    // imported into the bundle, where every byte of indentation is paid for by
+    // the browser that has to parse it.
+    const json = `${JSON.stringify(v4)}\n`;
     writeFileSync(file, json);
     process.stdout.write(
       `${lesson.id}: ${wanted.length} cut voxels, ` +

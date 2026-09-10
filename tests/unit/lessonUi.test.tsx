@@ -223,6 +223,7 @@ describe('Cutter Grid lesson sections', () => {
           onExit={() => {}}
           quizPassed={false}
           practicalPassed={false}
+          lessonSolved={false}
           practicalAttempted={false}
           sectionSatisfied={true}
           onQuizPassed={() => {}}
@@ -254,6 +255,7 @@ describe('Cutter Grid lesson sections', () => {
         onExit={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied={true}
         onQuizPassed={() => {}}
@@ -283,6 +285,7 @@ describe('Cutter Grid lesson sections', () => {
         onExit={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied={true}
         onQuizPassed={() => {}}
@@ -308,6 +311,7 @@ describe('Cutter Grid lesson sections', () => {
         onExit={() => {}}
         quizPassed
         practicalPassed
+        lessonSolved
         practicalAttempted
         onQuizPassed={() => {}}
         sectionSatisfied={true}
@@ -336,6 +340,7 @@ describe('Cutter Grid lesson sections', () => {
         onExit={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied={true}
         onQuizPassed={onQuizPassed}
@@ -369,12 +374,50 @@ describe('Cutter Grid lesson sections', () => {
         onExit={() => {}}
         quizPassed
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied={true}
         onQuizPassed={onQuizPassed}
       />,
     );
     expect(screen.getByTestId('next-grid-section')).toBeEnabled();
+  });
+
+  it('reports the practical and the quiz as the separate gates they are', () => {
+    // The card used to be handed one boolean covering both gates, so a learner
+    // holding a passing program with the quiz still open was told their
+    // *program* had failed the practical — the one thing that was fine.
+    render(
+      <CutterGridLessonPanel
+        lesson={lesson}
+        lessonIndex={0}
+        lessonTotal={CUTTER_GRID_LESSONS.length}
+        sectionIndex={lesson.sections.length - 1}
+        furthestSectionIndex={lesson.sections.length - 1}
+        onSelectSection={() => {}}
+        onPreviousSection={() => {}}
+        onNextSection={() => {}}
+        onNextLesson={() => {}}
+        onExit={() => {}}
+        quizPassed={false}
+        practicalPassed
+        lessonSolved={false}
+        practicalAttempted
+        sectionSatisfied={true}
+        onQuizPassed={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Blockly practical passed')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Test complete. The program does not meet the practical requirements yet.'),
+    ).not.toBeInTheDocument();
+    // …and the outstanding quiz says so itself, rather than going unmentioned.
+    expect(screen.getByTestId('lesson-quiz-outstanding')).toHaveTextContent(
+      'Quiz not passed yet',
+    );
+    // Both gates still hold the lesson closed.
+    expect(screen.queryByTestId('next-grid-lesson')).not.toBeInTheDocument();
   });
 
   it('keeps the next Grid lesson hidden until Blockly Test passes', () => {
@@ -392,6 +435,7 @@ describe('Cutter Grid lesson sections', () => {
         onExit={() => {}}
         quizPassed
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied={true}
         onQuizPassed={() => {}}
@@ -415,6 +459,7 @@ describe('Cutter Grid lesson sections', () => {
         onExit={() => {}}
         quizPassed
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted
         onQuizPassed={() => {}}
         sectionSatisfied={true}
@@ -439,6 +484,7 @@ describe('Cutter Grid lesson sections', () => {
         onExit={() => {}}
         quizPassed
         practicalPassed
+        lessonSolved
         practicalAttempted
         onQuizPassed={() => {}}
         sectionSatisfied={true}
@@ -511,6 +557,7 @@ describe('practice gating', () => {
         onExit={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied={false}
         onQuizPassed={() => {}}
@@ -537,6 +584,7 @@ describe('practice gating', () => {
         onExit={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied
         onQuizPassed={() => {}}
@@ -572,6 +620,7 @@ describe('practice gating', () => {
         onSelectSection={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied={false}
         onQuizPassed={() => {}}
@@ -611,6 +660,7 @@ describe('practice gating', () => {
         onExit={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied
         onQuizPassed={() => {}}
@@ -848,6 +898,7 @@ describe('reviewing a lesson while working through it', () => {
         onExit={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied={false}
         onQuizPassed={() => {}}
@@ -903,6 +954,7 @@ describe('reviewing a lesson while working through it', () => {
         onExit={() => {}}
         quizPassed={false}
         practicalPassed={false}
+        lessonSolved={false}
         practicalAttempted={false}
         sectionSatisfied
         onQuizPassed={() => {}}

@@ -40,7 +40,17 @@ const bundledProfilesV2 = new Map<string, CutterGridProfileV2>(
  * caller here depends on, while still letting the set grow by dropping a file
  * in the directory rather than by editing this list.
  */
-const bundledProfilesV4 = new Map<string, CutterGridProfileV4>();
+const certifiedV4 = import.meta.glob<{ default: CutterGridProfileV4 }>(
+  '../../data/cutter-grid-profiles/*.json',
+  { eager: true },
+);
+
+const bundledProfilesV4 = new Map<string, CutterGridProfileV4>(
+  Object.values(certifiedV4).map((module) => [
+    module.default.challengeSignature,
+    module.default,
+  ]),
+);
 
 export function registeredCutterGridProfile(
   challenge: Challenge,

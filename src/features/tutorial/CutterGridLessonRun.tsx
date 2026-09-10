@@ -422,8 +422,9 @@ function CutterGridLessonStage({
             sectionIndex={sectionIndex}
             furthestSectionIndex={furthestSectionIndex}
             quizPassed={quizPassed}
-            practicalPassed={solved}
+            practicalPassed={practicalPassed}
             practicalAttempted={successfulTestCount > 0}
+            lessonSolved={solved}
             sectionSatisfied={sectionSatisfied || sectionIndex < furthestSectionIndex}
             onQuizPassed={onQuizPassed}
             onPreviousSection={onPreviousSection}
