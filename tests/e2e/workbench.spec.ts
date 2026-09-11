@@ -65,6 +65,9 @@ test.describe('HCR Simulator workbench', () => {
     // in teaching order and then the authored challenge, so it opens on the
     // first lesson item — a fixed, reproducible starting point either way.
     await page.getByRole('button', { name: /Solo Practice/ }).click();
+    // Which editor, asked before anything is measured: a session is pinned to
+    // one. Everything below this line is about the Servo workbench.
+    await page.getByTestId('practice-mode-servo').click();
     await expect(
       page.getByRole('heading', { name: '1 · First Cut' }),
     ).toBeVisible();
