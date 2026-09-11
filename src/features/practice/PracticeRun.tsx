@@ -43,8 +43,10 @@ interface PracticeRunProps {
  * session now starts before any item is served and every response follows the
  * signed itemRef path.
  *
- * Offline there is no estimator, so the sequence is the lessons in written
- * order — the same shape, labelled honestly.
+ * Offline there is no estimator, so the sequence is the whole catalog shuffled
+ * per session — the same shape, labelled honestly: a random order is not an
+ * adaptive one, and the panel says `fixed` rather than showing an ability
+ * estimate it does not have.
  */
 /**
  * How long the finished screen holds before an endless run opens the next

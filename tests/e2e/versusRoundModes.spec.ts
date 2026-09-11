@@ -112,6 +112,13 @@ test('accepts a Cutter Grid entry into the round', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Versus/ }).click();
   await page.getByTestId('round-mode-cutter-grid').click();
+  // Pinned, because this test is about the entry rather than about the draw:
+  // an unpinned room now picks a challenge at random, and `CERTIFIED_ROUTE`
+  // answers this one. Choosing it here says so out loud instead of relying on
+  // whatever the picker happens to deal.
+  await page
+    .getByLabel('Challenge for this round')
+    .selectOption('neat-short-cap');
   await page.getByRole('button', { name: /Open Room/ }).click();
   await page.getByTestId('start-round').click();
   await expect(page.getByTestId('blockly-editor')).toBeVisible({

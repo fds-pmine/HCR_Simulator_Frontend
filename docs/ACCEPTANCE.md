@@ -209,6 +209,19 @@ Automated: `tests/unit/versusFlow.test.tsx`, `tests/unit/versusSeason.test.ts`,
       into: the route travels, the trajectory does not, and online the server plans and scores it. An
       adaptive Cutter Grid session is built only from items this server holds a Profile for.
 
+## Shuffled offline practice (2026-09-11)
+
+- [x] Offline Solo Practice deals its nine items — the eight Servo lessons plus the authored
+      Challenge — in a fresh random order per session, and still serves each exactly once before the
+      session ends. The order is the only thing that changed: `kind` stays `'fixed'`, so no screen
+      claims the sequence is adapting to the learner.
+- [x] An offline round whose host pinned no Challenge draws one per round instead of always opening
+      the head of the catalog, and the draw comes from a shuffled bag: consecutive rounds in one room
+      can never repeat, and every Challenge gets a turn before any gets a second.
+- [x] A host-pinned Challenge survives every rematch, unpinned Cutter Grid rooms redraw only among
+      Challenges with a certified Profile, and a room's Challenge is still withheld until the round
+      starts.
+
 ### Manual scenario F: an endless session, end to end
 
 1. Host an offline round with Endless set to 10s, play two rounds and let the loop reopen the room.

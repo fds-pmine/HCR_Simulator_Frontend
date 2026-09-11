@@ -16,6 +16,7 @@ import type {
 import type { ProgramMetrics } from '../../types/domain';
 import { ROUND_COUNTDOWN_MS } from '../../features/match/countdown';
 import { cutterGridAvailableForChallenge } from '../../features/cutter-grid/profileRegistry';
+import { reshuffledAfter } from './shuffle';
 
 /**
  * An offline practice round.
@@ -60,13 +61,20 @@ export class LocalMatchProvider implements MatchProvider {
     const matchId = roomCode();
     const room: Room = {
       matchId,
-      config: await this.playableConfig(config),
+      // Copied, not held: the room rewrites `challengeRef` on every draw, and
+      // that must not reach back into the caller's settings object.
+      config: { ...config },
+      // A host who named the item meant it, in this round and every rematch.
+      // Everyone else gets a fresh draw per round.
+      hostPinned: config.challengeRef !== undefined,
+      bag: [],
       phase: 'lobby',
       players: new Map(),
       entries: new Map(),
       bots: makeBots(matchId, Math.min(3, Math.max(0, config.maxPlayers - 1))),
       rounds: 1,
     };
+    await this.prepareChallenge(room);
     for (const bot of room.bots) {
       room.players.set(bot.playerId, {
         playerId: bot.playerId,
@@ -81,38 +89,97 @@ export class LocalMatchProvider implements MatchProvider {
   }
 
   /**
-   * The same round, pinned to a challenge it can actually be played on.
+   * Settle what the round will be played on, before anybody joins it.
    *
    * Cutter Grid needs a certified profile per challenge — the mode is only
    * offered where one proves the lattice is reachable, that entry cuts nothing
    * and that a reference route removes exactly the target — so a room opened on
    * an unprofiled item would be a lobby nobody could submit into, discovered at
    * T0 with twenty people watching. The server refuses that at creation
-   * (`06-MULTIPLAYER.md` §3) and so does this: pinned and unplayable is an
-   * error, unpinned considers only the challenges that do support the mode.
+   * (`06-MULTIPLAYER.md` §3) and so does this: a pinned item the mode cannot be
+   * played on is an error, and an unpinned Cutter Grid room draws its challenge
+   * here rather than at T0 so the failure, if there is one, happens at creation.
+   *
+   * An unpinned Servo room draws nothing yet. Any challenge will do, so the
+   * draw waits for {@link getMatchChallenge} — the moment it is revealed — and
+   * the lobby carries no item for a curious player to read out of the state.
    */
-  private async playableConfig(config: MatchConfig): Promise<MatchConfig> {
-    if (config.programmingMode !== 'cutter-grid') {
-      return config;
+  private async prepareChallenge(room: Room): Promise<void> {
+    const pinned = room.config.challengeRef?.challengeId;
+    if (pinned) {
+      if (
+        room.config.programmingMode === 'cutter-grid' &&
+        !cutterGridAvailableForChallenge(
+          await this.challenges.getChallenge(pinned),
+        )
+      ) {
+        throw new Error(
+          'That challenge has no certified Cutter Grid profile, so it cannot be played in Cutter Grid.',
+        );
+      }
+      return;
     }
 
-    const pinned = config.challengeRef?.challengeId;
-    const candidates = pinned
-      ? [pinned]
-      : (await this.challenges.listChallenges()).map((summary) => summary.id);
+    if (room.config.programmingMode === 'cutter-grid') {
+      room.config.challengeRef = {
+        challengeId: await this.draw(room),
+        version: 1,
+      };
+    }
+  }
 
-    for (const challengeId of candidates) {
+  /**
+   * The next challenge this room plays, drawn at random without repeating.
+   *
+   * Every unpinned round used to open on the head of the catalog, so a class
+   * that played six rounds played the same haircut six times and rounds two
+   * through six measured who remembered round one. Drawing from a bag — a
+   * shuffle dealt one item at a time, refilled when it empties — gives every
+   * challenge a turn before any challenge gets a second one, and
+   * {@link reshuffledAfter} keeps the seam between two bags from repeating.
+   */
+  private async draw(room: Room): Promise<string> {
+    if (room.bag.length === 0) {
+      const eligible = await this.playableChallenges(room.config);
+      if (eligible.length === 0) {
+        throw new Error(
+          room.config.programmingMode === 'cutter-grid'
+            ? 'No challenge in the catalog has a certified Cutter Grid profile.'
+            : 'The challenge catalog is empty.',
+        );
+      }
+      room.bag = reshuffledAfter(eligible, room.lastDrawn);
+    }
+    const drawn = room.bag.shift() as string;
+    room.lastDrawn = drawn;
+    return drawn;
+  }
+
+  /**
+   * Catalog ids a round in this mode can actually be played on.
+   *
+   * Servo runs on anything. Cutter Grid asks each challenge whether it has a
+   * certified profile, which means building every one of them — lessons derive
+   * their target by running their solution — so this is the one place the
+   * offline provider does real work. It is paid once per room, and
+   * `buildLessonChallenge` caches, so a second room is free.
+   */
+  private async playableChallenges(config: MatchConfig): Promise<string[]> {
+    const listed = (await this.challenges.listChallenges()).map(
+      (summary) => summary.id,
+    );
+    if (config.programmingMode !== 'cutter-grid') {
+      return listed;
+    }
+
+    const playable: string[] = [];
+    for (const challengeId of listed) {
       const challenge = await this.challenges.getChallenge(challengeId);
       if (cutterGridAvailableForChallenge(challenge)) {
-        return { ...config, challengeRef: { challengeId, version: 1 } };
+        playable.push(challengeId);
       }
     }
-
-    throw new Error(
-      pinned
-        ? 'That challenge has no certified Cutter Grid profile, so it cannot be played in Cutter Grid.'
-        : 'No challenge in the catalog has a certified Cutter Grid profile.',
-    );
+    return playable;
   }
 
   async joinMatch(matchId: string): Promise<MatchState> {
@@ -156,21 +223,15 @@ export class LocalMatchProvider implements MatchProvider {
       // Same wording the server uses, so the two modes read alike.
       throw new Error('The challenge is revealed when the round starts.');
     }
-    const pinned = room.config.challengeRef;
-    if (pinned) {
-      return {
-        challenge: await this.challenges.getChallenge(pinned.challengeId),
-        version: pinned.version,
-      };
+    if (!room.config.challengeRef) {
+      // An unpinned Servo room draws at the reveal, and records the draw: every
+      // player is shown the one item, and the results row names the same one.
+      room.config.challengeRef = { challengeId: await this.draw(room), version: 1 };
     }
-    const [first] = await this.challenges.listChallenges();
-    if (!first) {
-      throw new Error('The challenge catalog is empty.');
-    }
-    room.config.challengeRef = { challengeId: first.id, version: 1 };
+    const { challengeId, version } = room.config.challengeRef;
     return {
-      challenge: await this.challenges.getChallenge(first.id),
-      version: 1,
+      challenge: await this.challenges.getChallenge(challengeId),
+      version,
     };
   }
 
@@ -299,9 +360,9 @@ export class LocalMatchProvider implements MatchProvider {
    * interface, and a control that worked online and did nothing offline would
    * be a worse lie than the practice label already has to tell.
    *
-   * Fresh bots each time, for the same reason the server picks a new
-   * challenge — replaying the identical opponents would make round two a
-   * memory test.
+   * Fresh bots each time, and — unless the host named the item — a fresh
+   * challenge, for the same reason the server picks a new one: replaying the
+   * identical round would make round two a memory test.
    */
   async rematch(matchId: string): Promise<MatchState> {
     const room = this.room(matchId);
@@ -314,6 +375,10 @@ export class LocalMatchProvider implements MatchProvider {
     delete room.opensAt;
     delete room.closesAt;
     room.entries.clear();
+    if (!room.hostPinned) {
+      delete room.config.challengeRef;
+      await this.prepareChallenge(room);
+    }
     for (const player of room.players.values()) {
       player.submitted = false;
     }
@@ -448,6 +513,18 @@ interface Room {
   bots: Bot[];
   /** Rounds played in this room, so a rematch draws different bots. */
   rounds: number;
+  /**
+   * Whether the host named the challenge in the lobby.
+   *
+   * Pinned rooms keep it across rematches — a host who chose an item wants that
+   * item, and a class working one haircut all afternoon is a real lesson plan.
+   * Unpinned rooms redraw every round.
+   */
+  hostPinned: boolean;
+  /** Challenges left in the current shuffle, dealt one per round. */
+  bag: string[];
+  /** The last challenge dealt, so a refilled bag cannot repeat it. */
+  lastDrawn?: string;
 }
 
 const ZERO_METRICS: ProgramMetrics = {

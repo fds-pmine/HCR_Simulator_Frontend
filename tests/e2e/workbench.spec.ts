@@ -55,22 +55,33 @@ async function stageColour(page: Page): Promise<string> {
   );
 }
 
+/**
+ * The nine names Solo Practice can open on, as they read on the workbench.
+ *
+ * Named exhaustively rather than matched loosely: a heading this does not
+ * recognise means the catalog changed, and that should stop the suite rather
+ * than slip through a permissive pattern.
+ */
+const PRACTICE_ITEM =
+  /^(1 · First Cut|2 · Sweep Further|3 · Ten-Voxel Sweep|4 · Find the Edge|5 · Elbow Band|6 · Wrist Band|7 · Stop the Lower Band|8 · Two Working Bands|Crown Trim)$/;
+
 test.describe('HCR Simulator workbench', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await expect(
       page.getByRole('heading', { name: 'HCR Simulator' }),
     ).toBeVisible();
-    // The app opens on the mode menu. Offline, Solo Practice walks the lessons
-    // in teaching order and then the authored challenge, so it opens on the
-    // first lesson item — a fixed, reproducible starting point either way.
+    // The app opens on the mode menu. Offline, Solo Practice shuffles its nine
+    // items per session, so which one greets this hook is a draw — and that is
+    // safe here because every one of them starts from the same 241-voxel hair
+    // and the same five-joint arm, and answers the two programs below
+    // identically. `tests/unit/shuffledPractice.test.ts` is what holds that
+    // true; if a tenth item ever broke it, it fails there rather than here.
     await page.getByRole('button', { name: /Solo Practice/ }).click();
     // Which editor, asked before anything is measured: a session is pinned to
     // one. Everything below this line is about the Servo workbench.
     await page.getByTestId('practice-mode-servo').click();
-    await expect(
-      page.getByRole('heading', { name: '1 · First Cut' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: PRACTICE_ITEM })).toBeVisible();
     await expect(page.getByTestId('blockly-editor')).toBeVisible();
     await expect(page.getByTestId('simulator-canvas')).toBeVisible();
     await expect(page.getByTestId('simulator-canvas')).toHaveAttribute(
@@ -114,9 +125,9 @@ test.describe('HCR Simulator workbench', () => {
   /**
    * Seed an explicit Servo program.
    *
-   * Practice opens the first lesson item now, whose shipped starter is a
-   * single block, so these tests state the program they need instead of
-   * editing fields on a starter whose shape is a product decision.
+   * Practice opens on one of nine items, none of which ships a starter worth
+   * editing, so these tests state the program they need rather than depending
+   * on a canvas whose shape is a product decision — and, now, on a draw.
    */
   async function seedServoProgram(
     page: Page,
@@ -158,7 +169,7 @@ test.describe('HCR Simulator workbench', () => {
   /**
    * Long enough to catch mid-flight.
    *
-   * The lesson's own solution is a single 30° sweep that finishes in half a
+   * A lesson's own solution is a single 30° sweep that finishes in half a
    * second, which is too fast to pause, step or stop against.
    */
   const LONG_PROGRAM = [

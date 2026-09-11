@@ -14,8 +14,8 @@ Class 1 did **not** finish "the curriculum". The Lessons track cannot be finishe
 
 What class 1 *did* exhaust is everything reachable **without** the gate, and that really is under an hour of material:
 
-- **Solo Practice offline is a fixed nine-item sequence** — the eight Servo lessons in written order, then the authored challenge (`src/services/local/LocalSessionProvider.ts:31-35`). **Eight of the nine are solved by typing one or two numbers:** items 1–4 are a single X block (`lessons.ts:85,106,126,146`), items 5–7 are two blocks (`:167,188,209`), and item 9 is a single block again (`REFERENCE_SOLUTION` at `src/features/voxel/hairGenerator.ts:57-62`). Only item 8 needs six (`lessons.ts:231-238`).
-- **It advances on any attempt, scored or not.** `respond` increments the index without consulting a score (`LocalSessionProvider.ts:75-93`), so pressing **Submit** nine times walks the whole sequence whether or not anything was solved.
+- **Solo Practice offline is nine items, shuffled fresh every session** — the eight Servo lessons plus the authored challenge, dealt in a random order each run (`src/services/local/LocalSessionProvider.ts:42-45,54-66`). **Eight of the nine are solved by typing one or two numbers:** lessons **1–4** are a single X block (`lessons.ts:85,106,126,146`), lessons **5–7** are two blocks (`:167,188,209`), and the authored challenge is a single block again (`REFERENCE_SOLUTION` at `src/features/voxel/hairGenerator.ts:57-62`). Only lesson **8** needs six (`lessons.ts:231-238`). **Every lesson prints its own number in its name** — `5 · Elbow Band` (`lessons.ts:80,101,122,142,162,183,204,225`) — so say the name, never the position: no two students are on the same item at the same time any more, and "everyone look at item 5" now means nothing.
+- **It advances on any attempt, scored or not.** `respond` increments the index without consulting a score (`LocalSessionProvider.ts:89-108`), so pressing **Submit** nine times walks the whole sequence whether or not anything was solved.
 - **The three tutorials are 25 steps total** — Cutter Grid 8, Control Modes 9, Servo Angles 8 (`src/features/tutorial/TutorialPicker.tsx:40,50,60`).
 - **The authored challenge prints its own answer.** On screen it reads *"Move X · Base Yaw from 90° to 150°; keep Y, Z, B, and E at Home"* (`src/features/preferences/localization.tsx:47`).
 
@@ -29,7 +29,7 @@ They said they did not understand the cutting procedure. They were right to. Gre
 
 The provider set flips **all at once** on one environment variable: with `VITE_HCR_API_BASE_URL` set, the challenge provider, session provider and match provider all become HTTP (`src/services/http/config.ts:21-30`, `src/app/resolveServices.ts:36-38`). That matters more than it sounds:
 
-- **Offline**, Solo Practice is the fixed nine-item lesson sequence and the versus challenge dropdown lists nine items.
+- **Offline**, Solo Practice is those same nine items in a per-session shuffle, and the versus challenge dropdown lists nine items.
 - **Online**, Solo Practice is the server's adaptive engine over the backend bank, which is **four items** — the authored challenge plus up to three generated `Cap Trim NN%` items (`hcr-backend/crates/hcr/src/seed.rs:28-81`, names built at `crates/hcr_qbank/src/generator.rs:450`). The lessons are not in it.
 
 Part 1 and Part 3 need the lesson sequence. Part 2 needs the server. So **run Vite twice**:
@@ -276,22 +276,24 @@ They missed class 1 entirely. **Do not try to catch them up on the Lessons track
 
 ---
 
-### P1.2 · The nine-item ladder — 0:35–0:55 (20 min) · Slides 16–18
+### P1.2 · The nine items — 0:35–0:55 (20 min) · Slides 16–18
 
-The room now works the Solo Practice sequence. **Tell them how it advances**, because nobody is told: press **Submit** to move to the next item; it advances on any attempt, scored or not (`LocalSessionProvider.ts:75-93`), and the panel counts `N done · M to go` (`PracticePanel.tsx:56-59`). Nobody can get stuck.
+The room now works the Solo Practice sequence. **Tell them how it advances**, because nobody is told: press **Submit** to move to the next item; it advances on any attempt, scored or not (`LocalSessionProvider.ts:89-108`), and the panel counts `N done · M to go` (`PracticePanel.tsx:56-59`). Nobody can get stuck.
+
+**The nine arrive in a different order on every screen**, so run this block by name, not by position: the table below is the catalog, not the running order, and a student who opens on `8 · Two Working Bands` has drawn the hardest one first. Say so out loud once — *"you are each getting these in your own order, so your neighbour's screen is not your screen"* — and let the difficulty land where it lands. Nobody is stuck on a hard draw: **Submit** moves past it.
 
 Announce the ladder and run a visible countdown. **Do not read the answers out.** In Solo Practice each lesson shows only its `description`, which names the joint but not the angle (`lessons.ts:81,102,123,143,163,184,205,226`, surfaced via `lessonBase` at `:330-345`) — the answer-printing `goal` field is only shown inside the gated Lessons track (`lessons.ts:271`). So these are real puzzles here.
 
-| Item | On screen | Target of the exercise | Perfect score |
+| Lesson | On screen | Target of the exercise | Perfect score |
 |---|---|---|---|
 | 1–4 | First Cut · Sweep Further · Ten-Voxel Sweep · Find the Edge | One X block each: 120, 130, 135, 145 (`lessons.ts:85,106,126,146`). Ask *why* 135 gets a ten-voxel band and 145 gets one more. | 100 / 100 / 100 → **100.0** each |
 | 5 | **5 · Elbow Band** | `Z · Elbow = 95`, then `X = 135` (`:167`). Z selects a lower three-voxel band. | Eff 50, Time 100 → **87.5** |
 | 6 | **6 · Wrist Band** | `B · Wrist = 105`, then `X = 135` (`:188`). B selects the upper band. | **87.5** |
 | 7 | **7 · Stop the Lower Band** | `Z = 95`, then stop `X` at **130**, not 135 (`:209`). 135 takes one extra voxel and is an overcut (`:212-213`). | **87.5** |
 | 8 | **8 · Two Working Bands** | `Z 95 → X 135 → X 90 → Z 90 → B 105 → X 135` (`:231-238`). The high-water mark of the whole shipped curriculum. | Eff 16.7, Time 38.2 → **69.9** |
-| 9 | **Crown Trim** (dropdown: Neat Short Haircut) | One block, `X = 150`. | **100.0** |
+| — | **Crown Trim** (dropdown: Neat Short Haircut) | The authored challenge, unnumbered on screen. One block, `X = 150`. | **100.0** |
 
-**The number that carries the whole afternoon is on item 8: the *perfect* answer scores 69.9.** Derive it on the projector — cost `6 + 0.25×6 = 7.5` → efficiency `1.25/7.5×100 = 16.7`; duration `83.3 + 750 + 750 + 83.3 + 200 + 750 = 2616.7 ms` → time `38.2`; final `0.6×100 + 0.25×16.7 + 0.15×38.2 = 69.9`. Then ask the room the question Part 2 and Part 3 are both built on: *"Item 8 is harder, longer and completely correct, and it scores thirty points below item 1. Is the score wrong, or is the score telling you something?"* Do not answer it. Slide 18.
+**The number that carries the whole afternoon is on lesson 8: the *perfect* answer scores 69.9.** Derive it on the projector — cost `6 + 0.25×6 = 7.5` → efficiency `1.25/7.5×100 = 16.7`; duration `83.3 + 750 + 750 + 83.3 + 200 + 750 = 2616.7 ms` → time `38.2`; final `0.6×100 + 0.25×16.7 + 0.15×38.2 = 69.9`. Then ask the room the question Part 2 and Part 3 are both built on: *"Lesson 8 is harder, longer and completely correct, and it scores thirty points below lesson 1. Is the score wrong, or is the score telling you something?"* Do not answer it. Slide 18.
 
 **Do these two things live, on the projector, inside this block:**
 
@@ -400,7 +402,7 @@ Two cheap things to do with them out loud. **Read a photo finish and ask what ac
 
 **Done looks like:** N names in the roster on the projector for N students, every chip reading BACKEND CONNECTED, and every player showing a crew letter rather than a `+`.
 
-**Fallback:** if a chip reads **OFFLINE · PRACTICE** on the ROUND URL, that machine is on the wrong port or the CORS preflight is failing — and note that the app will still *look* like it works, filling the lobby with three scripted bots (`src/services/local/LocalMatchProvider.ts:65`). If the LAN is dead for everyone, go to §7.
+**Fallback:** if a chip reads **OFFLINE · PRACTICE** on the ROUND URL, that machine is on the wrong port or the CORS preflight is failing — and note that the app will still *look* like it works, filling the lobby with three scripted bots (`src/services/local/LocalMatchProvider.ts:74`). If the LAN is dead for everyone, go to §7.
 
 ### The four rounds — 1:25–1:59
 
@@ -408,7 +410,7 @@ Pin a **different challenge every round** from the dropdown (`MatchSetup.tsx:141
 
 | # | Clock | Length | Ranked by | Pin | The point |
 |---|---|---|---|---|---|
-| **1 · Crew Blitz** | 1:25–1:33 | **60 s** | Similarity | Neat Short Haircut (screen: *Crown Trim*) | Everyone already solved this in P1.2 item 9. Sixty seconds, one block. **Set `CLASS TARGET` to 60 in the lobby before you start**: the round is won or lost by the whole room together, and the scoreboard says so in one line. The only thing that matters is whether *everyone* got a submission in — a player who did not counts as zero, so helping your neighbour is the optimal move and is explicitly allowed. Crew totals are the tie-break story underneath. **The stage turns red with 15 seconds left** — that is your cue for the submitted count, and the chip of everyone still missing is already pulsing on the projector, so you can name them. |
+| **1 · Crew Blitz** | 1:25–1:33 | **60 s** | Similarity | Neat Short Haircut (screen: *Crown Trim*) | Everyone already solved this in P1.2 — it is the Crown Trim item. Sixty seconds, one block. **Set `CLASS TARGET` to 60 in the lobby before you start**: the round is won or lost by the whole room together, and the scoreboard says so in one line. The only thing that matters is whether *everyone* got a submission in — a player who did not counts as zero, so helping your neighbour is the optimal move and is explicitly allowed. Crew totals are the tie-break story underneath. **The stage turns red with 15 seconds left** — that is your cue for the submitted count, and the chip of everyone still missing is already pulsing on the projector, so you can name them. |
 | **2 · Blitz** | 1:33–1:41 | **90 s** | Similarity | Cap Trim (1st generated) | An unseen hairstyle, 90 seconds, resubmit every second (`roundRules.ts:36-38`). Nobody polishes; everybody ships. **Red stage at 22.5 seconds.** This is the round where the *"landed with 0.4s"* line under a name is worth reading aloud — in ninety seconds somebody always arrives on the buzzer. |
 | **3 · Accuracy** | 1:41–1:51 | **3 min** | Similarity | Cap Trim (2nd generated) | The one long round, and **the only one today whose closing stretch is the full 30 seconds** the design was written for. Afterwards, a **2-minute winner interview**: bring them to the projector, have them show their program and name the one decision that made the difference — but start it *after* the reveal has finished, about four seconds, not over it. |
 | **4 · Efficiency** | 1:51–1:59 | **90 s** | **Final score** | Cap Trim (3rd generated) | Press `rank-by-final` on the host screen. Same arm, same hairstyle, different game: *"accuracy, plus shorter and faster programs"* (`localization.tsx:308`). State this **before** the round so people choose a strategy. The margins under each name are then measured in final score rather than similarity (`margins.ts:34-35`), which is precisely the number P2.4 argues about. |
@@ -519,7 +521,7 @@ Everyone switches back to **`http://<IP>:5173`** (PRACTICE) at Break 2.
 | Failure | Signal | Do this |
 |---|---|---|
 | **LAN not up at 1:15** | Chip reads OFFLINE · PRACTICE on the ROUND URL | **Reorder, do not swap.** Run **P3.1 at 1:15–1:35** and **P3.2 at 1:35–1:51** on the PRACTICE build; take **Break 2 at 1:51–1:58**; run all of **Part 2 at 1:58–2:48**; run **P3.3 at 2:48–3:00**. Arithmetic: 75 (through Break 1) + 20 + 16 + 7 + 50 + 12 = **180**. The break stays roughly mid-class, the pitches still close the session, and you buy 43 extra minutes to fix the network. Slide order in §8 is unchanged; you present 32–38 before 22–31. **The two break slides then read backwards, so say this once at each break, out loud:** *"Ignore the URL printed on this slide — it is written for the normal running order and today we are running Part 3 first. At this break we **stay on PRACTICE**; at the next break **everybody moves to the ROUND URL**. The board is right, the slide is not."* |
-| **LAN dead for the whole session** | `curl` to `$IP:18623` refuses, or Wi-Fi client isolation blocks student→laptop | Run **offline Versus on the PRACTICE build**. Every student hosts their own room in their own tab. **The challenge dropdown does appear offline** — it lists nine items, the authored challenge plus all eight lessons (`LocalChallengeProvider.ts:33-42`), so you can name a pinned challenge and everyone can select it. You call start and stop on a stopwatch and scores are read aloud. Season table and both podiums still render (all client-side). **Crews and the class target are useless offline** — one human per room. **And never build an award on the seconds figure offline: it is a hardcoded zero** (`LocalMatchProvider.ts:165-175` stores `ZERO_METRICS` plus `sourceBlockCount` only). Blocks are real in both modes. |
+| **LAN dead for the whole session** | `curl` to `$IP:18623` refuses, or Wi-Fi client isolation blocks student→laptop | Run **offline Versus on the PRACTICE build**. Every student hosts their own room in their own tab. **The challenge dropdown does appear offline** — it lists nine items, the authored challenge plus all eight lessons (`LocalChallengeProvider.ts:33-42`), so you can name a pinned challenge and everyone can select it. You call start and stop on a stopwatch and scores are read aloud. Season table and both podiums still render (all client-side). **Crews and the class target are useless offline** — one human per room. **And never build an award on the seconds figure offline: it is a hardcoded zero** (`LocalMatchProvider.ts:269-279` stores `ZERO_METRICS` plus `sourceBlockCount` only). Blocks are real in both modes. |
 | **Backend reachable but everyone sees "Could not reach the server"** | CORS preflight returns no `access-control-allow-origin`, or no `access-control-allow-headers` | Either the IP changed / Vite moved port — re-read `$IP`, restart with corrected `HCR_CORS_ORIGIN`, always `--strictPort` — or **you are running a stale server binary** that predates the `X-HCR-Player-Utc-Offset-Minutes` allowlist entry (`hotaru_binding.rs:100-107`). Rebuild. See §1.1 row 1. |
 | **More than 24 in one room** | Roster reads 24 / 24; next student gets a submission rate-limit message | Two parallel rooms on the same pinned challenge. The season table is per-client and will not merge; announce two separate tables rather than pretending otherwise. |
 | **Someone starts a round early** | Joiners get "The session has already terminated" | Open a fresh room. Do not try to recover the old one, and do not release the next code until you are ready. |
