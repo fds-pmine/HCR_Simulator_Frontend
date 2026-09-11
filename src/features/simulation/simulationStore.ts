@@ -32,6 +32,14 @@ interface WorkbenchUiState {
   logOpen: boolean;
   showTarget: boolean;
   showCutterGrid: boolean;
+  /**
+   * Whether the round HUD is folded down to its clock.
+   *
+   * Kept here rather than in the HUD so it survives the round: the workbench
+   * unmounts between rounds, and a fold the player has to repeat every round
+   * is a fold they stop using. Same reason the panels' state lives here.
+   */
+  hudCollapsed: boolean;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   /**
@@ -45,6 +53,7 @@ interface WorkbenchUiState {
   toggleLog: () => void;
   toggleTarget: () => void;
   toggleCutterGrid: () => void;
+  toggleHud: () => void;
 }
 
 export const useWorkbenchStore = create<WorkbenchUiState>((set) => ({
@@ -56,6 +65,7 @@ export const useWorkbenchStore = create<WorkbenchUiState>((set) => ({
   logOpen: false,
   showTarget: true,
   showCutterGrid: true,
+  hudCollapsed: false,
   toggleLeftPanel: () =>
     set((state) => {
       const leftPanelOpen = !state.leftPanelOpen;
@@ -85,4 +95,5 @@ export const useWorkbenchStore = create<WorkbenchUiState>((set) => ({
     set((state) => ({ showTarget: !state.showTarget })),
   toggleCutterGrid: () =>
     set((state) => ({ showCutterGrid: !state.showCutterGrid })),
+  toggleHud: () => set((state) => ({ hudCollapsed: !state.hudCollapsed })),
 }));

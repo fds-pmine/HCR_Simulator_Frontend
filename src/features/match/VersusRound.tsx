@@ -316,18 +316,24 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
     // IR itself; offline there is no server, so this *is* the score — which is
     // exactly why an offline round is practice. `MatchSubmission.clientScore`.
     const clientScore = await runHeadless(engine, compiled);
-    await actions.submit(compiled.program, clientScore);
+    await actions.submit(compiled.program, { ...(clientScore ? { clientScore } : {}) });
   };
 
   /*
     A Cutter Grid entry.
 
-    Scored the same way and by the same engine, from the frozen plan the editor
-    has already produced. What travels to the room is the block count and the
-    score, not the lattice program: this path is offline-only
-    (`MatchSetup`), the offline room replays nothing, and inventing a wire shape
-    the backend has not opened yet (`08-CUTTER-GRID.md` §0 keeps V4 out of
-    submissions) would be a contract this side made up on its own.
+    What travels is the route — the lattice program — and never the plan the
+    browser just ran: online, the server holds the certified profile and plans
+    the motion itself, so the score comes from the server's own planner rather
+    than from a trajectory a client could shape. The local plan is still run
+    here for the same reason the servo path runs one: offline there is no
+    server, so the browser's score is the score, and online it is the preview
+    the player watched.
+
+    `program` goes up empty, carrying only the block count. That is the shape
+    the server expects of a Cutter Grid submission: there are no joint commands
+    to replay, and the blocks are the one part of the answer that is the
+    player's.
   */
   const handleSubmitCutterGrid = async (entry: CutterGridEntry) => {
     const clientScore = await runCutterGridHeadless(
@@ -337,7 +343,10 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
     );
     await actions.submit(
       { nodes: [], sourceBlockCount: entry.sourceBlockCount },
-      clientScore,
+      {
+        cutterGridV4: entry.program,
+        ...(clientScore ? { clientScore } : {}),
+      },
     );
   };
 
@@ -410,6 +419,7 @@ export function VersusRound({ identity, onExit }: VersusRoundProps) {
           </div>
         ),
         canSubmit: phase === 'running',
+        serverScored: matchProvider.kind === 'online',
         submitting: session.busy,
         ...(phase === 'running' &&
         isEndgame(remainingMs, session.state.config.durationMs)

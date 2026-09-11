@@ -240,31 +240,27 @@ export function MatchSetup({
             — the two are different exercises on the same challenge, so a mixed
             round would rank two things and publish one table.
 
-            Offline only, for now. The offline room plans and scores the route
-            in this browser, which is all a practice round ever needed; the
-            online path is closed until the backend opens V4 planning to
-            submissions (`08-CUTTER-GRID.md` §0), and offering a mode whose
-            submissions the server would refuse is worse than not offering it.
+            Both modes, online and off. A Cutter Grid round needs a certified
+            profile for the challenge it runs on, and neither side takes the
+            client's word for it: offline the room checks its own registry when
+            it opens, and online the server refuses to open a round it cannot
+            plan. So the control offers the mode and the refusal, when there is
+            one, arrives with the reason attached.
           */}
           <div className="segmented" role="group" aria-label={t('programmingMode')}>
             <span>{t('programmingMode')}</span>
-            {PROGRAMMING_MODES.map((mode) => {
-              const unavailable = mode === 'cutter-grid' && !practice;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  className={programmingMode === mode ? 'is-active' : ''}
-                  onClick={() => setProgrammingMode(mode)}
-                  aria-pressed={programmingMode === mode}
-                  disabled={unavailable}
-                  {...(unavailable ? { title: t('gridRoundOfflineOnly') } : {})}
-                  data-testid={`round-mode-${mode}`}
-                >
-                  {mode === 'servo' ? t('servoAnglesMode') : t('cutterGridMode')}
-                </button>
-              );
-            })}
+            {PROGRAMMING_MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={programmingMode === mode ? 'is-active' : ''}
+                onClick={() => setProgrammingMode(mode)}
+                aria-pressed={programmingMode === mode}
+                data-testid={`round-mode-${mode}`}
+              >
+                {mode === 'servo' ? t('servoAnglesMode') : t('cutterGridMode')}
+              </button>
+            ))}
           </div>
 
           {programmingMode === 'cutter-grid' ? (

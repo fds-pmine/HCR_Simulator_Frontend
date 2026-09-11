@@ -1,17 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Grid3x3,
   Infinity as InfinityIcon,
   LoaderCircle,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useServices } from '../../app/servicesContext';
-import type { ProgrammingMode } from '../blockly/programmingMode';
-import { SimulationWorkbench } from '../../components/layout/SimulationWorkbench';
+import {
+  PROGRAMMING_MODES,
+  type ProgrammingMode,
+} from '../blockly/programmingMode';
+import {
+  SimulationWorkbench,
+  type CutterGridEntry,
+} from '../../components/layout/SimulationWorkbench';
 import type { Challenge } from '../../types/domain';
 import type { NextItem, SessionSnapshot } from '../../types/session';
+import type { SessionSubmission } from '../../services/contracts';
 import type { CompiledProgram } from '../blockly/programTypes';
 import { SimulationEngine } from '../simulation/SimulationEngine';
-import { runHeadless } from '../simulation/headlessRun';
+import { runCutterGridHeadless, runHeadless } from '../simulation/headlessRun';
 import { withFreshCanvas } from '../blockly/blankCanvas';
 import { PracticePanel } from './PracticePanel';
 import { useLocalization } from '../preferences/localization';
@@ -61,10 +70,6 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
   const [sessionsRun, setSessionsRun] = useState(1);
   const [resumeIn, setResumeIn] = useState(0);
   const [programmingMode, setProgrammingMode] = useState<ProgrammingMode>('servo');
-
-  // Strict Mode invokes effects twice in development; without this the app
-  // would open two sessions and quietly halve the item budget.
-  const started = useRef(false);
 
   const advance = useCallback(
     async (sessionId: string) => {
@@ -120,13 +125,16 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     }
   }, [advance, programmingMode, sessionProvider]);
 
-  useEffect(() => {
-    if (started.current) {
-      return;
-    }
-    started.current = true;
-    void beginSession();
-  }, [beginSession]);
+  /*
+    Solo no longer opens itself.
+
+    A session is pinned to one editor and estimates one ability, so which
+    editor it is cannot be a default somebody discovers afterwards — and it was:
+    the mode switch lived on the *finished* screen, so the only way to practise
+    Cutter Grid was to sit through a Servo session first. One tap, before
+    anything is measured, is the honest place to ask.
+  */
+  const [chosen, setChosen] = useState(false);
 
   /*
     Endless practice.
@@ -172,21 +180,20 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     }
   }, [challenge, scoreProvider]);
 
-  const submit = useCallback(
-    async (compiled: CompiledProgram) => {
-      if (!engine || !challenge) {
-        return;
-      }
+  /**
+   * Hand a program over, then record the attempt it becomes.
+   *
+   * Shared by both editors because everything after the program differs only in
+   * what the program *is*: the ordering rule below, the running total, the
+   * ability update and the advance are the same work either way.
+   */
+  const enter = useCallback(
+    async (entry: Omit<SessionSubmission, 'submissionId'>) => {
       setBusy(true);
       try {
         if (!session || !item) {
           return;
         }
-        // Evaluated locally for immediate feedback. The score that moves the
-        // ability estimate is the server's own replay of this same IR — the
-        // client never reports one.
-        await runHeadless(engine, compiled);
-
         // Hand the program over *before* recording the attempt. `respond` reads
         // the score from a submission the server has already replayed, so
         // without this it has nothing to look up and practice stops on
@@ -194,9 +201,7 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
         const submissionId = `practice-${session.sessionId}-${attempted}`;
         await sessionProvider.submit(session.sessionId, {
           submissionId,
-          challengeId: item.challengeId,
-          challengeVersion: item.challengeVersion,
-          program: compiled.program,
+          ...entry,
         });
         setCompletedTotal((total) => total + 1);
         const outcome = await sessionProvider.respond(
@@ -229,15 +234,46 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
         setBusy(false);
       }
     },
-    [
-      advance,
-      attempted,
-      challenge,
-      engine,
-      item,
-      session,
-      sessionProvider,
-    ],
+    [advance, attempted, item, session, sessionProvider],
+  );
+
+  const submit = useCallback(
+    async (compiled: CompiledProgram) => {
+      if (!engine || !item) return;
+      // Evaluated locally for immediate feedback. The score that moves the
+      // ability estimate is the server's own replay of this same IR — the
+      // client never reports one.
+      await runHeadless(engine, compiled);
+      await enter({
+        challengeId: item.challengeId,
+        challengeVersion: item.challengeVersion,
+        program: compiled.program,
+      });
+    },
+    [engine, enter, item],
+  );
+
+  /**
+   * The same attempt, written on the lattice.
+   *
+   * The route travels and the plan does not. Online the server holds the
+   * certified profile and plans the motion itself, so the estimate moves on the
+   * server's own sweep rather than on a trajectory this browser produced;
+   * offline there is nothing to send to, and the run below is the score the
+   * learner sees either way.
+   */
+  const submitCutterGrid = useCallback(
+    async (entry: CutterGridEntry) => {
+      if (!engine || !item) return;
+      await runCutterGridHeadless(engine, entry.plan, entry.sourceBlockCount);
+      await enter({
+        challengeId: item.challengeId,
+        challengeVersion: item.challengeVersion,
+        program: { nodes: [], sourceBlockCount: entry.sourceBlockCount },
+        cutterGridV4: entry.program,
+      });
+    },
+    [engine, enter, item],
   );
 
   if (error) {
@@ -320,6 +356,41 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
     );
   }
 
+  if (!chosen) {
+    return (
+      <main className="bootstrap-screen practice-choice">
+        <p className="phase-kicker">{t('practice')}</p>
+        <h1>{t('whichEditor')}</h1>
+        <p>{t('sessionIsSingleMode')}</p>
+        <div className="practice-choice__modes">
+          {PROGRAMMING_MODES.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`big-button ${mode === 'servo' ? 'big-button--primary' : ''}`}
+              data-testid={`practice-mode-${mode}`}
+              onClick={() => {
+                setProgrammingMode(mode);
+                setChosen(true);
+                void beginSession(mode);
+              }}
+            >
+              {mode === 'servo' ? (
+                <SlidersHorizontal size={16} />
+              ) : (
+                <Grid3x3 size={16} />
+              )}
+              {t(mode === 'servo' ? 'servoAnglesMode' : 'cutterGridMode')}
+            </button>
+          ))}
+        </div>
+        <button className="ghost-button" type="button" onClick={onExit}>
+          {t('backToMenu')}
+        </button>
+      </main>
+    );
+  }
+
   if (!challenge || !engine) {
     return (
       <main className="bootstrap-screen">
@@ -355,7 +426,9 @@ export function PracticeRun({ onExit }: PracticeRunProps) {
         ),
         canSubmit: !busy,
         submitting: busy,
+        serverScored: sessionProvider.kind === 'adaptive',
         onSubmit: (compiled) => void submit(compiled),
+        onSubmitCutterGrid: (entry) => void submitCutterGrid(entry),
       }}
     />
   );

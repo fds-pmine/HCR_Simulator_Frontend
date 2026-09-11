@@ -369,6 +369,22 @@ input:focus-visible {
 }
 
 /*
+  The one question Solo asks before it measures anything: which editor. A
+  session is pinned to it, so it cannot be a default discovered afterwards.
+*/
+.practice-choice__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.practice-choice > p {
+  max-width: 46ch;
+}
+
+/*
   Endless practice: the pair of buttons on the finished screen, and the
   countdown that replaces them once the loop is running. `.bootstrap-screen >
   button` only reaches direct children, so these carry their own box.
@@ -2475,6 +2491,7 @@ input:focus-visible {
 }
 
 .hud__timer {
+  position: relative;
   display: grid;
   width: 178px;
   justify-items: center;
@@ -2562,6 +2579,34 @@ input:focus-visible {
       0 14px 40px var(--shadow-md),
       0 0 0 5px color-mix(in oklch, var(--danger) 16%, transparent);
   }
+}
+
+/*
+  The fold, on the one piece of the HUD that never folds.
+
+  `.hud` is click-through so the stage can be orbited underneath it; this is
+  the one thing in it that has to take a press.
+*/
+.hud__fold {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.hud__fold:hover {
+  background: var(--fill-1);
+  color: var(--ink);
 }
 
 .hud__roster {

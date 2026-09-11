@@ -521,8 +521,39 @@ raised from classroom use, delivered together on one branch. Every claim below i
       screen enters on the same second instead of on its own poll. An offline room grants those seconds;
       online they are the first seconds of the round, because only the server may move a deadline.
 
-Not done, and deliberately: no online Cutter Grid round, which needs either the V4 submission channel or a
-V2 plan this frontend no longer produces; and no server-side host, which would be a backend change.
+Not done, and deliberately: no server-side host, which would be a backend change.
+
+### Online Cutter Grid rounds, 2026-09-11
+
+The item left open above, authorized by the user the same day and implemented across both repositories.
+The blocker was never a missing feature: the server already scored Cutter Grid match entries, but only as
+`{program, plan}` with a **V2 ladder** trajectory, and this frontend plans **V4**. A V4 plan failed the
+`plannerVersion` check on arrival, fail-closed and correctly.
+
+Rather than teach the frontend to produce a V2 plan it no longer uses — which would have meant the player
+watching one motion and being scored on another — the backend's submission path was opened to V4:
+
+- `SubmissionCreate.cutterGridV4` carries the lattice program **only**. `HcrService::create_submission_for`
+  plans it with the server's registered `CutterGridProfileV4` and scores the result with
+  `hcr_sim::replay_planned_v4`. No trajectory is uploaded, so there is nothing to audit — the V2 channel's
+  whole apparatus of signature and waypoint checks exists because there is.
+- `create_match` refuses a Cutter Grid round this server cannot plan, and an unpinned round skips items it
+  has no Profile for. Declaring the mode in the catalog and holding a Profile are different facts.
+- Frontend: `MatchSubmission.cutterGridV4`, forwarded by `HttpMatchProvider`; the mode control is offered
+  online; and the workbench's hardcoded "Backend replay not yet supported" notice — untranslated, and false
+  from the moment this landed — now prints the localized sentence that matches who is scoring.
+
+Solo Practice followed the same day and needed no new channel: a session submission is the same
+`SubmissionCreate` with `sessionId` set, so opening the submission path opened Solo with it. What changed
+on this side is that Solo now *asks* which editor before it opens a session — the switch used to live on
+the finished screen, so the only way to practise Cutter Grid was to sit through a Servo session first — and
+that a Cutter Grid attempt can be entered at all: `PracticeRun` plans, scores and submits the route the way
+a round does. On the server, `start_session` builds its bank only from items it holds a Profile for.
+
+Limit worth stating: the server registers one V4 Profile, `neat-short-cap`, so that is the only challenge an
+online Cutter Grid round or session can currently use. The other eight live in
+`src/data/cutter-grid-profiles/` on this side; vendoring them into `crates/hcr/assets/` is what would open
+the rest, and is not done here.
 
 ## 4. 关键实现约定
 

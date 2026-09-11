@@ -65,7 +65,10 @@ Score Breakdown / Result
 
 The opening menu leads to Tutorial, Lessons, Solo Practice, and Versus.
 
-**Solo Practice** is an untimed workbench. Servo is the default, and the certified default challenge also supports Cutter Grid. Cutter Grid scores stay local and cannot be submitted to the backend yet.
+**Solo Practice** is an untimed workbench. It asks which editor before it starts, because a session
+measures one of them and cannot change halfway; finish one and you can start another in the other editor.
+Cutter Grid needs a challenge with a certified profile — offline every item has one, and online the server
+serves only the items it can plan.
 
 The **Lessons** section contains eight Servo challenges and five Cutter Grid lessons on fixed axes, distance, Repeat, swept overcuts, and blocked nodes.
 
@@ -80,10 +83,12 @@ people cannot race each other into a round or wipe a scoreboard the room is stil
 the room in — three seconds against the server's clock — so every screen begins together instead of on its
 own poll.
 
-A round is played in one editor, chosen when the room opens. Servo Angles is the default. Cutter Grid rounds
-work in offline rooms, which plan and score the route in the browser; online rounds stay in Servo Angles
-until the backend opens V4 planning to submissions
-([`../hcr-backend/docs/08-CUTTER-GRID.md`](../hcr-backend/docs/08-CUTTER-GRID.md) §0).
+A round is played in one editor, chosen when the room opens. Servo Angles is the default; Cutter Grid works
+both offline and online. Offline the browser plans and scores the route. Online the entry is the route
+alone — no trajectory travels with it — and the server plans it with its own certified profile and scores
+what its planner did ([`../hcr-backend/docs/08-CUTTER-GRID.md`](../hcr-backend/docs/08-CUTTER-GRID.md) §0).
+Either way the round needs a challenge with a certified profile, and a room that cannot be planned is
+refused when it is opened rather than at the starting gun.
 
 Rounds accumulate into a points table across the sitting, and **End the session** on the scoreboard closes it
 by crowning the leader of that table — the player who kept turning up and improving, which is not always the

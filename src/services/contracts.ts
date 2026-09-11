@@ -1,4 +1,5 @@
 import type { Program } from '../features/blockly/programTypes';
+import type { CutterGridProgramV1 } from '../features/cutter-grid/types';
 import type { ProgrammingMode } from '../features/blockly/programmingMode';
 import type {
   Challenge,
@@ -46,6 +47,18 @@ export interface MatchSubmission {
    * expansion is what the command cap applies to.
    */
   program: Program;
+  /**
+   * The lattice route, when the round is played in Cutter Grid.
+   *
+   * The program and nothing else. A Cutter Grid program is not its own answer
+   * the way a servo program is — the motion comes out of an IK search against a
+   * certified profile — but the profile and the search are the *server's*, so
+   * what travels is the route and the server plans it
+   * (`hcr-backend/docs/08-CUTTER-GRID.md`). `program` then carries an empty
+   * servo program, which is what the server expects and where the block count
+   * comes from.
+   */
+  cutterGridV4?: CutterGridProgramV1;
   /**
    * The score the browser computed for this program.
    *
@@ -128,6 +141,15 @@ export interface SessionSubmission {
   challengeVersion: number;
   /** Program IR, so the server's own `repeat` expansion is what the cap applies to. */
   program: Program;
+  /**
+   * The lattice route, in a Cutter Grid session.
+   *
+   * The same shape and the same rule as {@link MatchSubmission.cutterGridV4}:
+   * the program travels and the trajectory does not, because the server holds
+   * the certified profile and plans the motion itself. `program` then carries
+   * an empty servo program whose block count is the learner's.
+   */
+  cutterGridV4?: CutterGridProgramV1;
 }
 
 export interface SessionStartOptions {

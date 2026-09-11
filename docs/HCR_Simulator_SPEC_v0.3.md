@@ -730,6 +730,12 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 - Amended 2026-09-10: an offline Versus room may plan V4 **locally**, on the same terms — the plan and the
   score stay in the browser and the entry carries neither, so the prohibition above is unchanged for
   every path that leaves it. ArmDock still rejects V4.
+- Amended 2026-09-11: an **online** Versus round may be played in Cutter Grid, and the prohibition above is
+  still not what changed. What travels is `SubmissionCreate.cutterGridV4` — the lattice program, and
+  nothing else. No Profile, no roadmap, no trajectory and no client score leave the browser; the server
+  plans the route with the Profile it holds and scores its own sweep
+  (`hcr-backend/docs/08-CUTTER-GRID.md` §0). The local plan stays what it always was: the preview the
+  player watched. Session, Electron, firmware and ArmDock remain closed to V4.
 
 ### 15.4 版本化边界
 
@@ -742,6 +748,9 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 - Amended 2026-09-10: the wire is still unchanged. What changed is which editor an offline room may be
   opened in, and the one field that says so — `MatchConfig.programmingMode` — was already in the backend
   contract and is enforced there.
+- Amended 2026-09-11: the wire gains exactly one additive optional field, `SubmissionCreate.cutterGridV4`,
+  carrying `CutterGridProgramV1` and no trajectory. Servo Program IR, the V2 client-uploaded-trajectory
+  channel and every existing DTO are untouched: a servo submission is byte-identical to what it was.
 
 ### 15.5 启用门禁
 

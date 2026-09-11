@@ -139,6 +139,12 @@ export class HttpMatchProvider implements MatchProvider {
         challengeId: submission.challengeId,
         challengeVersion: submission.challengeVersion,
         program: submission.program,
+        // The route, when there is one. No trajectory travels with it: the
+        // server holds the certified profile and plans the motion itself, so
+        // there is nothing here for a patched client to shape.
+        ...(submission.cutterGridV4
+          ? { cutterGridV4: submission.cutterGridV4 }
+          : {}),
       },
       { ...this.headers(), ...researchHeaders() },
     );

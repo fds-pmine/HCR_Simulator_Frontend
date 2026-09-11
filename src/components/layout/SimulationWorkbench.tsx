@@ -77,6 +77,14 @@ export interface WorkbenchMatch {
   submitting: boolean;
   /** The round's closing stretch, which the submit control wears. */
   urgent?: boolean;
+  /**
+   * Whether a server owns the score, or this browser does.
+   *
+   * Says which of two true sentences to print under a Cutter Grid round. It
+   * used to print one of them unconditionally, in English, and that sentence
+   * became false the day the server started planning these routes itself.
+   */
+  serverScored?: boolean;
   onSubmit: (compiled: CompiledProgram) => void;
   /**
    * Enter a Cutter Grid program, which is not a {@link CompiledProgram}.
@@ -756,6 +764,17 @@ export function SimulationWorkbench({
           </button>
         ) : null}
 
+        {/*
+          The closing stretch, as an edge around the whole stage.
+
+          Rendered here rather than inside the HUD, where it used to be:
+          `.hud` is centred with a transform, and a transformed ancestor
+          becomes the containing block for a `position: fixed` child — so an
+          edge meant for the viewport was quietly sized to the HUD instead. It
+          read as a soft glow while the HUD was a tall column, and as a red box
+          around the clock the moment the HUD could be folded down to it.
+        */}
+        {match?.urgent ? <div className="endgame-edge" aria-hidden="true" /> : null}
         {match?.hud}
         {tutorial?.panel}
 
@@ -831,7 +850,7 @@ export function SimulationWorkbench({
         {programmingMode === 'cutter-grid' && match ? (
           <>
           <div className="backend-replay-notice" role="status">
-            Backend replay not yet supported. Scoring stays in this browser.
+            {t(match.serverScored ? 'serverReplayBody' : 'localScoreBody')}
           </div>
           {snapshot.status === 'planning' && planningProgress ? (
             <div className="planning-progress" aria-live="polite">

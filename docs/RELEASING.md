@@ -9,11 +9,11 @@ website, built by `.github/workflows/desktop.yml`.
 ```sh
 # 1. Bump the version. The tag and this number must agree — the pipeline checks
 #    and fails the run before spending twenty minutes building.
-npm version 0.4.1 --no-git-tag-version
-git commit -am "release: 0.4.1"
+npm version 0.4.2 --no-git-tag-version
+git commit -am "release: 0.4.2"
 
 # 2. Tag and push. The tag is what starts the build.
-git tag v0.4.1
+git tag v0.4.2
 git push origin main --tags
 ```
 

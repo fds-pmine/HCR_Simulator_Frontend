@@ -1,4 +1,4 @@
-import { Bot, Check, CircleDot, Clock3, EyeOff } from 'lucide-react';
+import { Bot, Check, ChevronDown, ChevronUp, CircleDot, Clock3, EyeOff } from 'lucide-react';
 import type { MatchState, MatchSubmissionAck } from '../../types/match';
 import { REJECTION_LABELS } from '../../types/match';
 import { isPracticeBot } from '../../services/local/LocalMatchProvider';
@@ -12,6 +12,7 @@ import {
 } from './countdown';
 import { initialsOf, type PlayerIdentity } from './identity';
 import { formatPlayerLocalTime, formatUtcOffset } from './playerTime';
+import { useWorkbenchStore } from '../simulation/simulationStore';
 import { useLocalization } from '../preferences/localization';
 
 interface MatchHudProps {
@@ -36,6 +37,16 @@ interface MatchHudProps {
  */
 export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) {
   const { t } = useLocalization();
+  /*
+    Folded, the HUD is its clock and nothing else.
+
+    Three chips and a roster stand over the middle of the stage for the whole
+    round, which is exactly where the head is. The clock is the part nobody can
+    play without; the roster, the relay prompt and the secrecy note are all
+    things you read once and then have to look past. So they fold, and the fold
+    outlives the round.
+  */
+  const { hudCollapsed, toggleHud } = useWorkbenchStore();
   const remainingMs = useRemainingMs(state.closesAt, offsetMs);
   const urgency = countdownUrgency(remainingMs, state.config.durationMs);
   const fraction = remainingFraction(remainingMs, state.config.durationMs);
@@ -49,19 +60,37 @@ export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) 
       : undefined;
 
   return (
-    <div className={`hud ${endgame ? 'is-endgame' : ''}`} data-endgame={endgame}>
+    <div
+      className={`hud ${endgame ? 'is-endgame' : ''} ${
+        hudCollapsed ? 'is-folded' : ''
+      }`}
+      data-endgame={endgame}
+    >
       {/*
-        A red edge around the whole stage, not a badge in a corner. The point of
-        the last thirty seconds is that everybody feels them at once, including
-        the person who is not looking at the clock.
+        The red edge around the whole stage — the point of the last thirty
+        seconds being that everybody feels them at once, including the person
+        not looking at the clock — is drawn by the workbench from the same
+        `urgent` flag the submit button wears. It cannot be drawn from here: the
+        HUD is centred with a transform, and that makes it the containing block
+        for the fixed-position edge, which then frames the HUD instead of the
+        stage.
       */}
-      {endgame ? <div className="endgame-edge" aria-hidden="true" /> : null}
       <div className={`hud__timer hud__timer--${urgency}`} data-testid="match-timer">
         <span>{urgency === 'closed' ? t('closed') : t('timeLeft')}</span>
         <strong>{formatCountdown(remainingMs)}</strong>
         <div className="hud__timer-track">
           <i style={{ transform: `scaleX(${fraction})` }} />
         </div>
+        <button
+          type="button"
+          className="hud__fold"
+          onClick={toggleHud}
+          aria-expanded={!hudCollapsed}
+          aria-label={t(hudCollapsed ? 'showRoundDetails' : 'hideRoundDetails')}
+          data-testid="hud-fold"
+        >
+          {hudCollapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+        </button>
       </div>
 
       {/*
@@ -69,7 +98,7 @@ export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) 
         keyboard. It is on the round's own clock so every machine in the room
         is told to change hands on the same second.
       */}
-      {relay ? (
+      {relay && !hudCollapsed ? (
         <p
           className={`hud__relay ${relay.swapInMs <= 5_000 ? 'is-due' : ''}`}
           data-testid="relay-leg"
@@ -79,6 +108,7 @@ export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) 
         </p>
       ) : null}
 
+      {hudCollapsed ? null : (
       <ul className="hud__roster" aria-label={t('players')}>
         {state.players.map((player) => {
           const localTime = formatPlayerLocalTime(player.utcOffsetMinutes);
@@ -108,11 +138,14 @@ export function MatchHud({ state, identity, offsetMs, lastAck }: MatchHudProps) 
           );
         })}
       </ul>
+      )}
 
-      <p className="hud__secrecy">
-        <EyeOff size={12} />
-        {t('scoresSealed')}
-      </p>
+      {hudCollapsed ? null : (
+        <p className="hud__secrecy">
+          <EyeOff size={12} />
+          {t('scoresSealed')}
+        </p>
+      )}
 
       {lastAck ? (
         <div

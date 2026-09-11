@@ -19,6 +19,10 @@ import { HttpMatchProvider } from '../../src/services/http/HttpMatchProvider';
 import { HttpSessionProvider } from '../../src/services/http/HttpSessionProvider';
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import { matchConfig } from '../../src/types/match';
+import {
+  CUTTER_GRID_COMPACT_PTP_PLANNER_VERSION,
+  type CutterGridProgramV1,
+} from '../../src/features/cutter-grid/types';
 import type { ScoreResult } from '../../src/types/domain';
 
 const BASE_URL = process.env.HCR_API_BASE_URL ?? 'http://localhost:18623';
@@ -36,6 +40,38 @@ beforeAll(async () => {
     reachable = false;
   }
 });
+
+/**
+ * The certified Cutter Grid route for the shipped challenge, as lattice IR.
+ *
+ * The same nine moves the Grid tutorial teaches and the server's own Profile
+ * carries as its reference program — so the expected score is not a number
+ * chosen here, it is what a perfect cut is worth.
+ */
+const CERTIFIED_ROUTE: CutterGridProgramV1 = {
+  kind: 'cutter-grid',
+  version: 1,
+  plannerVersion: CUTTER_GRID_COMPACT_PTP_PLANNER_VERSION,
+  nodes: (
+    [
+      ['left', 3],
+      ['up', 6],
+      ['up', 2],
+      ['forward', 1],
+      ['up', 1],
+      ['forward', 1],
+      ['up', 1],
+      ['forward', 6],
+      ['forward', 1],
+    ] as const
+  ).map(([direction, distance], index) => ({
+    type: 'move' as const,
+    direction,
+    distance,
+    sourceBlockId: `route-${index}`,
+  })),
+  sourceBlockCount: 9,
+};
 
 /** The challenge's shipped starter workspace, as Program IR. */
 const STARTER_PROGRAM = {
@@ -260,6 +296,72 @@ describe('live competitive round', () => {
     expect(late.accepted).toBe(false);
     expect(late.rejectedReason).toBe('after-deadline');
   }, 20_000);
+
+  /**
+   * A Cutter Grid round, played against the real planner.
+   *
+   * The client sends the route and nothing else: no profile, no roadmap, no
+   * trajectory, not even the plan the browser ran for the preview. Everything
+   * the score turns on is produced on the server — which is exactly what the
+   * unit tests cannot show, because there the server is a `fetch` stub.
+   */
+  it('plays a Cutter Grid round the server plans and scores', async ({ skip }) => {
+    if (!reachable) skip();
+
+    const alice = provider('u-live-grid', 'Alice');
+    const created = await alice.createMatch(
+      matchConfig({
+        durationMs: 3_000,
+        minSubmitIntervalMs: 0,
+        programmingMode: 'cutter-grid',
+        challengeRef: { challengeId: SHIPPED, version: 1 },
+      }),
+    );
+    await alice.joinMatch(created.matchId);
+    await alice.startMatch(created.matchId);
+
+    const ack = await alice.submit(created.matchId, {
+      submissionId: `live-grid-${Date.now()}`,
+      challengeId: SHIPPED,
+      challengeVersion: 1,
+      // Empty: a Cutter Grid entry has no joint commands to replay, and the
+      // block count is the one part of it that is the player's.
+      program: { nodes: [], sourceBlockCount: CERTIFIED_ROUTE.sourceBlockCount },
+      cutterGridV4: CERTIFIED_ROUTE,
+    });
+    expect(ack.accepted).toBe(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 3_400));
+    await alice.getMatch(created.matchId);
+
+    const results = await alice.getResults(created.matchId);
+    // The table says which task it ranks; a Cutter Grid score is not a servo one.
+    expect(results.programmingMode).toBe('cutter-grid');
+    // The certified route removes exactly the target and nothing else. The
+    // server planned the motion that did it.
+    expect(results.rows[0]?.completionScore).toBeCloseTo(100, 6);
+    expect(results.rows[0]?.metrics.sourceBlockCount).toBe(9);
+    // Expanded by the server, from the route it was given.
+    expect(results.rows[0]?.metrics.executedCommandCount).toBeGreaterThan(0);
+  }, 30_000);
+
+  it('refuses a Cutter Grid round on a challenge the server cannot plan', async ({
+    skip,
+  }) => {
+    if (!reachable) skip();
+
+    // A lesson challenge: the catalog advertises Cutter Grid for it, because
+    // its profile ships with the frontend — and the server holds no profile of
+    // its own, so it refuses the room rather than the submissions.
+    await expect(
+      provider('u-live-grid-2', 'Alice').createMatch(
+        matchConfig({
+          programmingMode: 'cutter-grid',
+          challengeRef: { challengeId: 'lesson-1-first-cut', version: 1 },
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'PROGRAM_INVALID' });
+  }, 15_000);
 
   it('estimates a clock offset small enough for a countdown to be honest', async ({
     skip,

@@ -10,6 +10,7 @@ import {
   type MatchSubmissionAck,
 } from '../../types/match';
 import type { Program } from '../blockly/programTypes';
+import type { CutterGridProgramV1 } from '../cutter-grid/types';
 import type { PlayerIdentity } from './identity';
 import {
   currentUtcOffsetMinutes,
@@ -63,11 +64,19 @@ export interface MatchSession {
   busy: boolean;
 }
 
+/** What travels with a program, beyond the program. */
+export interface MatchEntry {
+  /** Read only by the offline provider, which has no server to replay against. */
+  clientScore?: ScoreResult;
+  /** The lattice route, when the round is played in Cutter Grid. */
+  cutterGridV4?: CutterGridProgramV1;
+}
+
 export interface MatchActions {
   host: (config: Partial<MatchConfig>) => Promise<void>;
   join: (code: string) => Promise<void>;
   start: () => Promise<void>;
-  submit: (program: Program, clientScore?: ScoreResult) => Promise<void>;
+  submit: (program: Program, entry?: MatchEntry) => Promise<void>;
   /** Reopen the finished round on a new challenge, keeping the room. */
   rematch: () => Promise<void>;
   /** Replace the room's crew assignment. Lobby only. */
@@ -234,7 +243,7 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
   }, [matchId, matchProvider]);
 
   const submit = useCallback(
-    async (program: Program, clientScore?: ScoreResult) => {
+    async (program: Program, entry: MatchEntry = {}) => {
       const pinned = challengeRef.current;
       if (!matchId || !pinned) return;
       setBusy(true);
@@ -244,7 +253,8 @@ export function useMatch(identity: PlayerIdentity): [MatchSession, MatchActions]
           challengeId: pinned.challenge.id,
           challengeVersion: pinned.version,
           program,
-          ...(clientScore ? { clientScore } : {}),
+          ...(entry.clientScore ? { clientScore: entry.clientScore } : {}),
+          ...(entry.cutterGridV4 ? { cutterGridV4: entry.cutterGridV4 } : {}),
         });
         setLastAck(ack);
         // Refresh at once so the roster's "submitted" tick does not wait out a

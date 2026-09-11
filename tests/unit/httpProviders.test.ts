@@ -5,6 +5,7 @@ import { ApiClient, HcrApiError } from '../../src/services/http/apiClient';
 import { HttpChallengeProvider } from '../../src/services/http/HttpChallengeProvider';
 import { HttpScoreProvider } from '../../src/services/http/HttpScoreProvider';
 import { HttpSessionProvider } from '../../src/services/http/HttpSessionProvider';
+import { HttpMatchProvider } from '../../src/services/http/HttpMatchProvider';
 import { readBackendConfig } from '../../src/services/http/config';
 import type { ScoreInput } from '../../src/types/domain';
 
@@ -253,5 +254,67 @@ describe('HttpSessionProvider', () => {
       programmingMode: 'servo',
       initialTheta: 0.25,
     });
+  });
+});
+
+describe('HttpMatchProvider', () => {
+  const ACK = { submissionId: 'sub-1', accepted: true, serverReceivedAt: 1 };
+
+  it('sends a servo entry exactly as it did before Cutter Grid rounds existed', async () => {
+    const { client, fetchImpl } = clientReturning(ACK);
+
+    await new HttpMatchProvider(client).submit('ABC234', {
+      submissionId: 'sub-1',
+      challengeId: 'neat-short-cap',
+      challengeVersion: 1,
+      program: { nodes: [], sourceBlockCount: 3 },
+      clientScore: {
+        completionScore: 90,
+        efficiencyScore: 50,
+        timeScore: 50,
+        programCost: 3,
+        finalScore: 80,
+      },
+    });
+
+    const body = JSON.parse(String(initOf(fetchImpl).body));
+    expect(body.cutterGridV4).toBeUndefined();
+    // Never the client's own score: the server replays and uses its own.
+    expect(body.clientScore).toBeUndefined();
+  });
+
+  it('sends the lattice route, and no trajectory, for a Cutter Grid entry', async () => {
+    const { client, fetchImpl } = clientReturning(ACK);
+    const route = {
+      kind: 'cutter-grid' as const,
+      version: 1 as const,
+      plannerVersion: 'cutter-grid-compact-ptp-v4',
+      nodes: [
+        {
+          type: 'move' as const,
+          direction: 'up' as const,
+          distance: 2,
+          sourceBlockId: 'b1',
+        },
+      ],
+      sourceBlockCount: 1,
+    };
+
+    await new HttpMatchProvider(client).submit('ABC234', {
+      submissionId: 'sub-2',
+      challengeId: 'neat-short-cap',
+      challengeVersion: 1,
+      // Empty, carrying only the block count: there are no joint commands to
+      // replay in a Cutter Grid entry.
+      program: { nodes: [], sourceBlockCount: 1 },
+      cutterGridV4: route,
+    });
+
+    const body = JSON.parse(String(initOf(fetchImpl).body));
+    expect(body.cutterGridV4).toEqual(route);
+    expect(body.program).toEqual({ nodes: [], sourceBlockCount: 1 });
+    // The motion is the server's to work out. Nothing here shapes it.
+    expect(body.plan).toBeUndefined();
+    expect(body.cutterGrid).toBeUndefined();
   });
 });

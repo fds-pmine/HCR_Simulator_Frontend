@@ -191,8 +191,23 @@ Automated: `tests/unit/versusFlow.test.tsx`, `tests/unit/versusSeason.test.ts`,
       workbench offers no switch, and a route can be planned, tested and entered.
 - [x] Opening a Cutter Grid room on a Challenge with no certified Profile is refused at creation
       rather than at T0. An unpinned Cutter Grid room considers only Challenges that support the mode.
-- [x] Online rounds keep the Cutter Grid option disabled while `08-CUTTER-GRID.md` §0 keeps V4 out of
-      submissions.
+- [x] Online rounds offer Cutter Grid too, as of 2026-09-11: the entry is the lattice program alone
+      (`SubmissionCreate.cutterGridV4`), the server plans it with its own certified Profile and scores its
+      own sweep, and a round it cannot plan is refused when the room is opened. Verified live against
+      `cargo run -p hcr --features hotaru --example serve`: a certified route submitted from the browser
+      came back ranked 100.0 on the server's own standings.
+- [x] A Cutter Grid entry carries no trajectory and no client score. Pinned at
+      `tests/unit/httpProviders.test.ts`; the backend refuses a submission carrying both Cutter Grid
+      shapes (`crates/hcr/tests/cutter_modes.rs`).
+- [x] The workbench's Cutter Grid round notice states who computes the score, in the player's language.
+      It was hardcoded English and said the backend could not replay, which stopped being true.
+- [x] The closing stretch's red edge frames the stage rather than the HUD. `.hud` is centred with a
+      transform, which made it the containing block for the `position: fixed` edge; folding the HUD down to
+      its clock turned that into a red box around the clock. Drawn by the workbench now, from the same
+      `urgent` flag the submit button wears.
+- [x] Solo Practice asks which editor before opening a session, and a Cutter Grid session can be submitted
+      into: the route travels, the trajectory does not, and online the server plans and scores it. An
+      adaptive Cutter Grid session is built only from items this server holds a Profile for.
 
 ### Manual scenario F: an endless session, end to end
 
@@ -203,6 +218,15 @@ Automated: `tests/unit/versusFlow.test.tsx`, `tests/unit/versusSeason.test.ts`,
 4. On the scoreboard, press End the session and confirm the champion is the points leader, which need
    not be the winner of the last round.
 5. Press Next round from the champion screen and confirm the room reopens and the loop resumes.
+
+### Manual scenario H: a Cutter Grid practice session
+
+1. Open Solo Practice and confirm it asks which editor before anything is measured.
+2. Pick Cutter Grid; confirm the workbench opens in it with no mode switch, and that the notice under the
+   dock names who computes the score — this browser offline, the server online.
+3. Build a route, press Test, then Submit; confirm the attempt is recorded and the next item is served.
+4. Online, confirm every item served can actually be planned: a session must not offer an item whose
+   submissions would fail.
 
 ### Manual scenario G: a Cutter Grid round
 

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../../src/app/providers';
 import type { AppServices } from '../../src/app/servicesContext';
 import { VersusRound } from '../../src/features/match/VersusRound';
@@ -7,6 +7,8 @@ import { MatchSetup } from '../../src/features/match/MatchSetup';
 import { cutterGridAvailableForChallenge } from '../../src/features/cutter-grid/profileRegistry';
 import { MatchScoreboard } from '../../src/features/match/MatchScoreboard';
 import { SessionChampion } from '../../src/features/match/SessionChampion';
+import { MatchHud } from '../../src/features/match/MatchHud';
+import { useWorkbenchStore } from '../../src/features/simulation/simulationStore';
 import { matchConfig } from '../../src/types/match';
 import { defaultChallengeDefinition } from '../../src/data/challenges/defaultChallenge';
 import { recordRound } from '../../src/features/match/season';
@@ -133,12 +135,13 @@ describe('the editor a round is played in', () => {
     expect(getByTestId('round-mode-cutter-grid')).toBeEnabled();
   });
 
-  it('keeps an online round in Servo Angles', () => {
-    // Closed until the backend opens V4 planning to submissions
-    // (`08-CUTTER-GRID.md` §0). A mode whose entries the server would refuse is
-    // worse than no mode at all.
+  it('offers Cutter Grid online as well, where the server plans the route', () => {
+    // The client does not decide whether a round can be planned: offline the
+    // room checks its own profile registry, online the server refuses to open
+    // one it cannot plan. Both refusals arrive with a reason, which is better
+    // than a control that is dark for everybody.
     const { getByTestId } = setup('online');
-    expect(getByTestId('round-mode-cutter-grid')).toBeDisabled();
+    expect(getByTestId('round-mode-cutter-grid')).toBeEnabled();
     expect(getByTestId('round-mode-servo')).toBeEnabled();
   });
 
@@ -398,5 +401,84 @@ describe('the champion of a session', () => {
     champion({ onAnotherRound });
     fireEvent.click(screen.getByTestId('champion-another-round'));
     expect(onAnotherRound).toHaveBeenCalledOnce();
+  });
+});
+
+describe('the round HUD', () => {
+  const state = {
+    matchId: 'ABC234',
+    phase: 'running' as const,
+    config: { ...DEFAULT_MATCH_CONFIG, relaySwapMs: 30_000 },
+    opensAt: Date.now(),
+    closesAt: Date.now() + 120_000,
+    serverTime: Date.now(),
+    players: [
+      { playerId: 'u-test', displayName: 'Tester', connected: true, submitted: false },
+      { playerId: 'rival', displayName: 'Razor181', connected: true, submitted: true },
+    ],
+  };
+
+  const hud = () =>
+    render(
+      <AppProviders services={stubbedServices()}>
+        <MatchHud state={state} identity={IDENTITY} offsetMs={0} />
+      </AppProviders>,
+    );
+
+  afterEach(() => {
+    // Module-level store: the fold outlives a round on purpose, so a test that
+    // folds it has to put it back.
+    if (useWorkbenchStore.getState().hudCollapsed) {
+      useWorkbenchStore.getState().toggleHud();
+    }
+  });
+
+  it('folds down to the clock and back', () => {
+    const { getByTestId, queryByLabelText, queryByText } = hud();
+
+    // Expanded: the roster, the relay prompt and the secrecy note all stand
+    // over the middle of the stage, which is where the head is.
+    expect(queryByLabelText('Players')).toBeInTheDocument();
+    expect(queryByText(/Scores are sealed/i)).toBeInTheDocument();
+    expect(getByTestId('relay-leg')).toBeInTheDocument();
+
+    fireEvent.click(getByTestId('hud-fold'));
+
+    // Folded: the clock, and nothing else.
+    expect(getByTestId('match-timer')).toBeInTheDocument();
+    expect(queryByLabelText('Players')).not.toBeInTheDocument();
+    expect(queryByText(/Scores are sealed/i)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-testid="relay-leg"]')).toBeNull();
+
+    fireEvent.click(getByTestId('hud-fold'));
+    expect(queryByLabelText('Players')).toBeInTheDocument();
+  });
+
+  it('draws no stage-wide edge of its own', () => {
+    // `.hud` is centred with a transform, and a transformed ancestor becomes
+    // the containing block for a `position: fixed` child — so the closing
+    // stretch's edge, drawn from in here, framed the HUD instead of the stage.
+    // It read as a glow while the HUD was a tall column and as a red box
+    // around the clock as soon as the HUD could be folded down to one.
+    const { container } = hud();
+    expect(container.querySelector('.endgame-edge')).toBeNull();
+  });
+
+  it('still answers a submission while folded', () => {
+    // The acknowledgement is the reply to a button the player just pressed, not
+    // one of the three things that stand there all round.
+    useWorkbenchStore.getState().toggleHud();
+    render(
+      <AppProviders services={stubbedServices()}>
+        <MatchHud
+          state={state}
+          identity={IDENTITY}
+          offsetMs={0}
+          lastAck={{ submissionId: 's', accepted: true, serverReceivedAt: 1 }}
+        />
+      </AppProviders>,
+    );
+
+    expect(screen.getByTestId('match-ack')).toBeInTheDocument();
   });
 });
