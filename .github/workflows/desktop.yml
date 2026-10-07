@@ -6,6 +6,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: desktop-${{ github.ref }}
   cancel-in-progress: false
@@ -75,16 +78,32 @@ jobs:
 
       - name: Build installers
         env:
-          # No Developer ID certificate is configured, so tell electron-builder
-          # not to go looking for one. Left on, it finds whatever happens to be
-          # in the runner keychain and fails late, or signs with something
-          # meaningless. See the note in docs/RELEASING.md about what unsigned
-          # means for the people downloading this.
+          # macOS uses free ad-hoc signing through build.mac.sign; no Apple
+          # account, certificate, or notarization credentials are required.
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          # electron-builder reads this to attach release notes and upload; we
-          # publish explicitly in the release job instead, so it stays unset.
+          # Publishing belongs to the release job below.
           GH_TOKEN: ''
         run: npm run app:build
+
+      - name: Verify macOS ad-hoc signatures
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(release/mac*/"HCR Simulator.app")
+          if [[ ${#apps[@]} -ne 2 ]]; then
+            echo "::error::Expected ad-hoc signed x64 and arm64 app bundles."
+            exit 1
+          fi
+          for app in "${apps[@]}"; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            signature="$(codesign --display --verbose=4 "$app" 2>&1)"
+            if [[ "$signature" != *"Signature=adhoc"* || "$signature" != *"Identifier=rs.hcr.simulator"* ]]; then
+              echo "::error::$app must have an ad-hoc signature with the application identifier."
+              exit 1
+            fi
+          done
 
       # The build can "succeed" having produced nothing if a target silently
       # drops out. `if-no-files-found: error` is what turns that into a red run.

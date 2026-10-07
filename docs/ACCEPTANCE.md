@@ -107,6 +107,16 @@
 - [ ] 性能：Rust 及端到端 `Right 2` P95 ≤3s、全局回归 P95 ≤10s、玩家动画 ≤5s；Practice 保持 1× 默认速度。
 - [ ] 回归确认 Servo、V2 只读兼容、Session、Match、Versus、Electron、固件和 ArmDock 行为不变，且无构建产物进入提交。
 
+## macOS 免费 ad-hoc 签名 CI
+
+- [x] 标签与手动构建均使用免费 ad-hoc 签名，不要求 Apple 账号、付费会员或 secrets。
+- [x] 主应用与嵌套组件由内向外签名，使用 Hardened Runtime、Electron entitlements 和本地网络用途说明；关闭公证与时间戳。
+- [x] 上传前要求两个架构的应用通过完整签名、ad-hoc 类型及应用标识检查。
+- [x] 记录用户首次允许打开、授予本地网络权限与可选本地重新签名步骤，说明 ad-hoc 不提供 Apple 公证且权限身份可能随更新变化。
+- [x] 本地验证 workflow YAML、Bash、自定义 hook、entitlements plist 与配置 schema；实际 arm64 包通过完整签名与 Electron 可执行文件的 Node 模式启动检查，用户重新签名命令保留 JIT/框架加载权限并通过相同检查。打包验证使用本地 Electron 33.4.11，未验证 GitHub 下载流程或 x64 安装包。
+- [ ] 在 GitHub 运行免费签名构建，验证 x64 与 arm64 artifacts。
+- [ ] 安装新构建，授予 Local Network 权限并在 ARM 面板重试 Test；不能把签名检查当作连接故障已修复的证据。
+
 ## 自动化质量门
 
 - [x] `npm run typecheck`

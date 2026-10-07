@@ -30,6 +30,7 @@
     "electron:preview": "npm run build:desktop && electron .",
     "build:desktop": "cross-env VITE_HCR_API_BASE_URL=https://api.hcr.rs npm run build",
     "app:build": "npm run build:desktop && electron-builder --publish never",
+    "app:sign:mac": "node tools/sign-macos-adhoc.cjs",
     "lessons:fixture": "vitest run --config lesson-challenges.config.ts",
     "lessons:profiles": "vitest run --config lesson-grid-profiles.config.ts"
   },
@@ -73,7 +74,14 @@
           ]
         }
       ],
-      "category": "public.app-category.education"
+      "category": "public.app-category.education",
+      "type": "distribution",
+      "hardenedRuntime": true,
+      "sign": "./tools/sign-macos-adhoc.cjs",
+      "notarize": false,
+      "extendInfo": {
+        "NSLocalNetworkUsageDescription": "HCR Simulator connects to your robot arm on the local network to check its status and control its servos."
+      }
     },
     "win": {
       "target": [
@@ -128,6 +136,7 @@
     "publish": null
   },
   "devDependencies": {
+    "@electron/osx-sign": "1.3.1",
     "@eslint/js": "^9.39.2",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",

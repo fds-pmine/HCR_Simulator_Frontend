@@ -767,6 +767,13 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
 - Tutorial 选择页另提供 `Grid → Servo Angles` 过渡展示：在同一个真实 Workbench 中先建立 Grid Move、查看坐标/安全规划，再切换 Servo 建立绝对关节命令并返回 Grid 验证两套 Workspace 隔离。新建硬件关节积木的命令值必须初始化为固件 Home 90°；Inspector 必须以舵机轴 X/Y/Z/B/E 显示实时仿真角度，并在命令执行时同步变化，Electron ARM 面板必须另外显示设备实际回报。Challenge 安全姿态独立用于带头模仿真，不得用静态 Home 值伪装实时遥测。
 - 教程与课程必须使用 Challenge 安全初始角度及认证 Profile；不得把硬件 Home 90° 当作 Challenge 入场姿态，也不得向 Servo/后端提交链路泄漏 Cutter Grid Program。
 
+## macOS 桌面分发签名（2026-10-07）
+
+- GitHub Actions 的标签与手动构建使用免费 ad-hoc 签名，不要求付费开发者账号、Apple 证书或 Actions secrets；手动流程只上传 artifacts，不发布 Release。
+- 使用 electron-builder 25.1.8 的自定义签名 hook，完整签名主应用与嵌套 Electron 组件；保留 Hardened Runtime 与 Electron entitlements，关闭公证和签名时间戳。上传前必须验证两个架构的完整签名及应用标识。
+- macOS 配置包含 `NSLocalNetworkUsageDescription`。用户首次打开可能需要在 Privacy & Security 中手动允许，并另行授予 Local Network 权限；ad-hoc 签名不提供 Developer ID 身份或 Apple 公证，升级后的权限身份稳定性不能保证。
+- 提供用户在自己的 Mac 上免费重新签名的可选脚本与说明。签名不证明已经修复 `EHOSTUNREACH`，实际连接恢复必须另行验收。步骤见 `docs/RELEASING.md`。
+
 ## 15. 未来扩展 / 仍未决定
 
 以下内容不影响首版实现，不得在首版中提前固化：

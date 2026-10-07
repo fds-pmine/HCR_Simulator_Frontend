@@ -555,6 +555,15 @@ online Cutter Grid round or session can currently use. The other eight live in
 `src/data/cutter-grid-profiles/` on this side; vendoring them into `crates/hcr/assets/` is what would open
 the rest, and is not done here.
 
+### macOS 免费 ad-hoc 签名 CI，2026-10-07
+
+- [x] 将 macOS 标签与手动构建改为免费 ad-hoc 签名，移除 Apple 凭据要求与付费公证流程。
+- [x] 添加 electron-builder 25.1.8 的自定义签名 hook，保留 Electron entitlements 与 Hardened Runtime；提供用户本地重新签名命令。
+- [x] 在上传前检查 x64 与 arm64 的完整签名、ad-hoc 类型及应用标识。
+- [x] 添加本地网络用途说明，记录首次打开、Local Network 授权与 ad-hoc 权限身份限制。
+- [x] 本地验证配置 schema、workflow YAML/Bash、签名脚本与 entitlements plist；使用本地 Electron 33.4.11 成功打包 arm64 应用，并通过完整签名、用途说明、Electron 可执行文件的 Node 模式启动及本地重新签名后的相同检查。
+- [ ] 在 GitHub 执行免费签名的手动构建并验证两个架构的新安装包。当前只修改仓库配置，不执行部署或发布。
+
 ## 4. 关键实现约定
 
 ### 仿真与 React
