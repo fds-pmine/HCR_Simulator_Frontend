@@ -189,6 +189,7 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
 
   const handleSend = () => {
     setEndpoints([]);
+    setUnsupported([]);
 
     if (mode === 'cutter-grid') {
       void guard(async () => {
@@ -232,17 +233,27 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
       return;
     }
 
-    const compiled = compile();
-    if (!compiled) {
-      return;
-    }
-    const plan = buildArmPlan(challenge, compiled.runtimeCommands);
-    setUnsupported(plan.unsupported);
-    if (plan.steps.length === 0) {
-      setError('This program has nothing the arm can perform.');
-      return;
-    }
-    void guard(() => send(plan.steps));
+    void guard(async () => {
+      const compiled = compile();
+      if (!compiled) {
+        return;
+      }
+      const plan = buildArmPlan(challenge, compiled.runtimeCommands);
+      setUnsupported(plan.unsupported);
+      if (plan.unsupported.length > 0) {
+        setError('This program uses joints the physical arm cannot perform. Nothing was sent.');
+        return;
+      }
+      if (plan.collision) {
+        setError(`${plan.collision.partLabel} would contact the head while moving ${plan.collision.jointId}. Nothing was sent.`);
+        return;
+      }
+      if (plan.steps.length === 0) {
+        setError('This program has nothing the arm can perform.');
+        return;
+      }
+      await send(plan.steps);
+    });
   };
 
   const handleAbort = () => void guard(async () => {
@@ -346,7 +357,6 @@ export function ArmDock({ challenge, mode, compile, cutterPlan }: ArmDockProps) 
               type="button"
               className="control-button"
               onClick={handleAbort}
-              disabled={!running}
             >
               <Square size={13} fill="currentColor" />
               {t('stop')}

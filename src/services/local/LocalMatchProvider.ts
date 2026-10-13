@@ -415,7 +415,7 @@ export class LocalMatchProvider implements MatchProvider {
     }
 
     for (const player of room.players.values()) {
-      const crew = crews[player.playerId];
+      const crew = Object.hasOwn(crews, player.playerId) ? crews[player.playerId] : undefined;
       if (crew === undefined) {
         delete player.crew;
       } else {

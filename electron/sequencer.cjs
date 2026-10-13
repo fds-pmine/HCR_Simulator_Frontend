@@ -34,6 +34,7 @@ const MAX_STEPS = 512
 const MAX_STEP_MS = 60_000
 
 let active
+let parking
 
 /** Reject a plan whole rather than discover a bad step halfway through it. */
 function validatePlan(plan) {
@@ -92,6 +93,10 @@ function validatePlan(plan) {
 
 function sleep(ms, signal) {
   return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new Error('aborted'))
+      return
+    }
     if (ms <= 0) {
       resolve()
       return
@@ -115,12 +120,14 @@ function sleep(ms, signal) {
  * throws, because stopping is a normal outcome and not a failure.
  */
 async function run(plan, onProgress) {
-  if (active) {
+  if (active || parking) {
     throw new Error('The arm is already running a program.')
   }
   const steps = validatePlan(plan)
   const controller = new AbortController()
   active = controller
+  let finish
+  controller.finished = new Promise((resolve) => { finish = resolve })
 
   let completed = 0
   try {
@@ -147,6 +154,7 @@ async function run(plan, onProgress) {
     throw error
   } finally {
     active = undefined
+    finish()
   }
 }
 
@@ -156,7 +164,7 @@ function abort() {
 }
 
 function isRunning() {
-  return Boolean(active)
+  return Boolean(active || parking)
 }
 
 /**
@@ -166,13 +174,19 @@ function isRunning() {
  * arm is already unreachable there is nothing useful left to do, and throwing
  * here would only block shutdown.
  */
-async function shutdown() {
+function shutdown() {
+  if (parking) return parking
+  const running = active
   abort()
-  try {
-    await arm.home()
-  } catch {
-    // Unreachable arm on the way out; nothing to recover.
-  }
+  parking = (async () => {
+    await running?.finished
+    try {
+      await arm.home()
+    } catch {
+      // Unreachable arm on the way out; nothing to recover.
+    }
+  })().finally(() => { parking = undefined })
+  return parking
 }
 
 module.exports = { run, abort, isRunning, shutdown, validatePlan, MAX_STEPS }

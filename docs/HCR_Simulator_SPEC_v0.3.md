@@ -1,85 +1,85 @@
-# HCR Simulator 前端 Demo 技术设计说明（v0.3）
+# HCR Simulator Frontend Demo Technical Design Specification (v0.3)
 
-> 用途：作为首个可执行 Demo 的产品定义、技术契约、实现边界与验收依据。
+> Purpose: product definition, technical contracts, implementation boundaries, and acceptance criteria for the first executable Demo.
 >
-> 状态：**当前生效的文档基线**。v0.2 保留用于历史追溯；如两者冲突，以 v0.3 为准。
+> Status: **the currently effective documentation baseline**. v0.2 is retained for historical traceability; v0.3 takes precedence in case of conflict.
 >
-> 当前仓库阶段：**Servo 主闭环、五关节与头部防穿模、Cutter Grid 首版 Phase 0–5，以及紧凑同步 PTP V4 Phase 1–6 均已完成验收**。V2 全局多分支 IK 与 V3 限 jerk 计划保留为 V4 取代前的历史记录。
+> Current repository stage: **the Servo core execution loop, five joints and head penetration prevention, Cutter Grid first-release Phases 0–5, and compact synchronized PTP V4 Phases 1–6 have all passed acceptance**. The V2 global multibranch IK and V3 jerk-limited plans are retained as historical records predating their replacement by V4.
 >
-> 依据：v0.2、2026-07-30 计划模式确认结果及后续范围说明。
+> Basis: v0.2, the decisions confirmed in plan mode on 2026-07-30, and subsequent scope clarifications.
 
 ---
 
-## 1. 一句话定义
+## 1. One-sentence definition
 
-HCR Simulator 是一个纯前端可运行的 Web 3D 编程 Demo：用户通过 Blockly 编排真实舵机语义的绝对关节角度指令，驱动 R3F / Three.js 中的程序化五关节机械臂；机械臂末端扫过 Hair Voxel 时完成剪除，整套机械装置由确定性几何约束阻止进入头部；系统基于目标发型 Voxel IoU、程序效率和确定性估算时间计算加权得分。
+HCR Simulator is a Web 3D programming Demo that runs entirely in the frontend: users arrange absolute joint-angle commands with real servo semantics in Blockly to drive a procedural five-joint robot arm in R3F / Three.js; the end effector removes Hair Voxels as it sweeps through them, deterministic geometric constraints prevent the entire mechanism from entering the head, and the system computes a weighted score from target-hairstyle Voxel IoU, program efficiency, and deterministically estimated time.
 
-## 2. 目标、观众与成功标准
+## 2. Goals, audience, and success criteria
 
-### 2.1 目标观众
+### 2.1 Target audience
 
-首版面向内部研发和产品团队，用于验证：
+The first release serves internal engineering and product teams to validate:
 
-- Blockly → Program IR → Runtime Command 的编程链路；
-- 关节命令 → 正向运动学 → 程序化机械臂运动；
-- 末端扫掠检测 → Hair Voxel 状态删除；
-- 当前发型 → Target Hairstyle → 独立评分服务；
-- 可暂停、单步和观察的确定性执行闭环；
-- Local Provider 可在未来被 HTTP Provider 替换。
+- The Blockly → Program IR → Runtime Command programming pipeline;
+- Joint commands → forward kinematics → procedural robot-arm motion;
+- End-effector sweep detection → Hair Voxel state removal;
+- Current hairstyle → Target Hairstyle → independent scoring service;
+- A deterministic execution loop that supports pausing, stepping, and observation;
+- The ability to replace the Local Provider with an HTTP Provider in the future.
 
-### 2.2 成功标准
+### 2.2 Success criteria
 
-- 无后端、无网络、无真实硬件时可以完成完整流程。
-- 预置示例程序能够稳定剪除 voxel，并在自然结束后获得不低于 80 的 Completion Score。
-- 相同 Challenge 和程序在不同设备上产生相同的命令数、估算时间和得分。
-- Blockly、仿真、3D、voxel、评分和数据 Provider 边界清楚，可分别测试。
-- Chrome / Edge 在 1280×720 与 1920×1080 下可完成核心操作。
+- The complete workflow runs without a backend, network, or real hardware.
+- The preset example program reliably removes voxels and achieves a Completion Score of at least 80 after natural completion.
+- The same Challenge and program produce the same command count, estimated duration, and score on different devices.
+- Blockly, simulation, 3D, voxels, scoring, and data Providers have clear boundaries and can be tested independently.
+- Core operations are usable in Chrome / Edge at 1280×720 and 1920×1080.
 
-## 3. 首版范围
+## 3. First-release scope
 
-### 3.1 必须实现
+### 3.1 Required implementation
 
-- React + TypeScript + Vite 单页应用。
-- React Three Fiber、Three.js 与 OrbitControls。
-- 一个本地 `Neat Short Haircut` Challenge，发型流程为 `Thick Cap Initial Hairstyle → Symmetric Neat Crop`。
-- 程序化头部、Hair Voxel 和五关节机械臂。
-- 头部不可穿透几何约束、最后安全姿态回退和碰撞错误定位。
-- Blockly 绝对角度、Wait 和 Repeat 积木。
-- Program IR 编译、校验、循环展开和顺序执行。
-- Run、Pause、Resume、Step、Stop 和 Reset。
-- 当前执行积木高亮、关节/末端状态、指标和事件日志。
-- 连续末端扫掠接触检测与 Hair Voxel 删除。
-- Completion、Efficiency、Time 与 Final Score。
-- ChallengeProvider、ScoreProvider 及 Local 实现。
-- Vitest 核心单元测试与 Playwright 关键 E2E。
-- 运行时用户可见文案统一使用英文，包括 Challenge 数据、Blockly、工作台、日志、错误与无障碍标签。
-- 可选 `Cutter Grid` 前端模式：玩家以固定世界轴的六方向和整数格距控制末端球，系统在执行前使用确定性 IK 生成冻结同步五关节轨迹。
+- A React + TypeScript + Vite single-page application.
+- React Three Fiber, Three.js, and OrbitControls.
+- One local `Neat Short Haircut` Challenge with the hairstyle progression `Thick Cap Initial Hairstyle → Symmetric Neat Crop`.
+- A procedural head, Hair Voxels, and five-joint robot arm.
+- Geometric head penetration prevention, rollback to the last safe pose, and collision-error localization.
+- Blockly absolute-angle, Wait, and Repeat blocks.
+- Program IR compilation, validation, loop expansion, and sequential execution.
+- Run, Pause, Resume, Step, Stop, and Reset.
+- Highlighting of the executing block, joint/end-effector state, metrics, and event logs.
+- Continuous end-effector swept-contact detection and Hair Voxel removal.
+- Completion, Efficiency, Time, and Final Score.
+- ChallengeProvider, ScoreProvider, and Local implementations.
+- Core Vitest unit tests and key Playwright E2E tests.
+- All user-visible runtime text in English, including Challenge data, Blockly, the workbench, logs, errors, and accessibility labels.
+- An optional `Cutter Grid` frontend mode: players control the end-effector sphere in six directions along fixed world axes with integer grid distances; before execution, the system uses deterministic IK to generate a frozen synchronized five-joint trajectory.
 
-### 3.2 明确不做
+### 3.2 Explicit exclusions
 
-- 账户、数据库、工作区持久化、导入导出，以及除 Cutter Grid V4 Practice 规划接口外的后端功能。
-- HTTP API 的真实调用或网络作为运行前提。
-- ESP、真实舵机、MQTT、PWM、WebSerial、WebBluetooth。
-- 通用任意 Cartesian Move、运行时 IK 或 Servo 模式中的多个舵机并发运动。Cutter Grid 只允许本文第 15 节定义的固定轴单格移动、编译期 IK 和冻结同步轨迹。
-- 相对角度、条件、传感器、变量或自定义函数积木。
-- 物理引擎、碰撞反弹/摩擦/滑动、机械臂自碰撞、真实发丝或剪刀开合。
-- 外部 GLB / FBX 机械臂和头发资产。
-- 多 Challenge、多人竞赛、手机专项适配或生产部署。
+- Accounts, databases, workspace persistence, import/export, and backend features other than the Cutter Grid V4 Practice planning endpoint.
+- Actual HTTP API calls or networking as a runtime prerequisite.
+- ESP, real servos, MQTT, PWM, WebSerial, or WebBluetooth.
+- General arbitrary Cartesian Move, runtime IK, or concurrent movement of multiple servos in Servo mode. Cutter Grid allows only the fixed-axis single-cell movement, compile-time IK, and frozen synchronized trajectories defined in Section 15.
+- Relative-angle, conditional, sensor, variable, or custom-function blocks.
+- A physics engine, collision bounce/friction/sliding, robot-arm self-collision, realistic hair strands, or scissor opening/closing.
+- External GLB / FBX robot-arm or hair assets.
+- Multiple Challenges, multiplayer competitions, dedicated mobile support, or production deployment.
 
-## 4. 技术栈与分层
+## 4. Technology stack and layers
 
-### 4.1 技术栈
+### 4.1 Technology stack
 
-| 层级 | 技术 | 职责 |
+| Layer | Technology | Responsibility |
 |---|---|---|
-| 应用 | React + TypeScript | 页面、组件、Provider 注入和低频状态 |
-| 构建 | Vite | 开发服务器、生产构建和环境配置 |
-| 3D | R3F + Three.js + Drei | 场景、相机、灯光、模型和 OrbitControls |
-| 可视化编程 | Blockly | 工作区、自定义积木和结构化序列化 |
-| 低频状态 | Zustand | 运行状态、Hair Set、指标、日志和 UI 开关 |
-| 测试 | Vitest + Playwright | 领域单测、编译测试和主闭环 E2E |
+| Application | React + TypeScript | Pages, components, Provider injection, and low-frequency state |
+| Build | Vite | Development server, production builds, and environment configuration |
+| 3D | R3F + Three.js + Drei | Scene, camera, lights, models, and OrbitControls |
+| Visual programming | Blockly | Workspace, custom blocks, and structured serialization |
+| Low-frequency state | Zustand | Execution status, Hair Set, metrics, logs, and UI toggles |
+| Testing | Vitest + Playwright | Domain unit tests, compilation tests, and E2E tests for the core execution loop |
 
-### 4.2 数据流
+### 4.2 Data flow
 
 ```text
 React Workbench
@@ -104,18 +104,18 @@ React Workbench
              ScoreProvider
 ```
 
-### 4.3 强制边界
+### 4.3 Mandatory boundaries
 
-- Blockly 只能产生 Program IR，不得直接操作 Mesh、Robot Controller、Hair State 或评分。
-- 3D 组件只读取仿真状态并渲染，不得实现评分和业务规则。
-- UI 控件调用仿真引擎公开方法，不得直接修改关节 ref 或删除 voxel。
-- 关节插值和末端位置等 60 FPS 高频数据保留在引擎/控制器实例中；React/Zustand 只接收低频快照和离散事件。
-- Challenge 与 Score 必须通过接口注入；组件不得直接导入 Local Provider 内部数据。
-- 所有角度、速度、尺寸、限制、颜色语义和评分参数集中定义，组件内不得散落 magic numbers。
+- Blockly may produce only Program IR; it must not directly manipulate Mesh, Robot Controller, Hair State, or scoring.
+- 3D components only read simulation state and render it; they must not implement scoring or business rules.
+- UI controls call the simulation engine's public methods; they must not directly change joint refs or remove voxels.
+- High-frequency data at 60 FPS, such as joint interpolation and end-effector positions, remain in engine/controller instances; React/Zustand receive only low-frequency snapshots and discrete events.
+- Challenge and Score must be injected through interfaces; components must not directly import internal Local Provider data.
+- All angles, speeds, dimensions, limits, color semantics, and scoring parameters are defined centrally; components must not contain scattered magic numbers.
 
-## 5. 领域模型与序列化边界
+## 5. Domain model and serialization boundaries
 
-### 5.1 通用类型
+### 5.1 Common types
 
 ```ts
 export type JointId = string;
@@ -134,9 +134,9 @@ export interface VoxelCoord {
 }
 ```
 
-`VoxelKey` 由整数网格坐标以 `x,y,z` 形式生成。生产和测试代码必须共用同一组 `coordToKey` / `keyToCoord` 纯函数。
+`VoxelKey` is generated from integer grid coordinates in `x,y,z` form. Production and test code must share the same `coordToKey` / `keyToCoord` pure functions.
 
-### 5.2 机械臂配置
+### 5.2 Robot-arm configuration
 
 ```ts
 export interface JointConfig {
@@ -145,7 +145,7 @@ export interface JointConfig {
   axis: Axis;
   minAngleDeg: number;
   maxAngleDeg: number;
-  /** Home、Challenge 与 Reset 共用的初始命令；有 servo 映射时固定为 90°。 */
+  /** Initial command shared by Home, Challenge, and Reset; fixed at 90° when a servo mapping exists. */
   initialAngleDeg: number;
   speedDegPerSec: number;
 }
@@ -172,9 +172,9 @@ export interface RobotState {
 }
 ```
 
-UI 必须由 `JointConfig[]` 动态产生关节名称、角度范围和指标行，不允许假定数组长度。`JointConfig.name` 是英文运行时显示文案，内部 ID 与显示名必须保持分离。
+The UI must dynamically generate joint names, angle ranges, and metric rows from `JointConfig[]`; it must not assume the array length. `JointConfig.name` is English runtime display text; internal IDs and display names must remain separate.
 
-### 5.3 可序列化 Challenge Definition
+### 5.3 Serializable Challenge Definition
 
 ```ts
 export interface HairstyleDefinition {
@@ -205,9 +205,9 @@ export interface ChallengeDefinition {
 }
 ```
 
-### 5.4 运行时 Challenge
+### 5.4 Runtime Challenge
 
-Local Challenge Provider 负责校验 Definition，并将坐标数组规范化为运行时集合：
+The Local Challenge Provider validates the Definition and normalizes coordinate arrays into runtime sets:
 
 ```ts
 export interface HairstyleTarget {
@@ -223,35 +223,35 @@ export interface Challenge
 }
 ```
 
-Provider 必须返回独立集合，避免调用方修改共享数据。Reset 从 Challenge 的初始集合创建新 `Set`。
+The Provider must return independent sets so that callers cannot modify shared data. Reset creates a new `Set` from the Challenge's initial set.
 
-## 6. 默认 Challenge
+## 6. Default Challenge
 
-默认运行时显示名称固定如下；这些英文字符串属于 Challenge 的用户可见数据契约：
+The default runtime display names are fixed as follows; these English strings are part of the Challenge's user-visible data contract:
 
-| 对象 | 英文显示名 |
+| Object | English display name |
 |---|---|
 | Challenge | `Neat Short Haircut` |
-| 初始发型 | `Thick Cap Initial Hairstyle` |
-| 目标发型 | `Neat Crown Trim` |
+| Initial hairstyle | `Thick Cap Initial Hairstyle` |
+| Target hairstyle | `Neat Crown Trim` |
 
-### 6.1 机械臂
+### 6.1 Robot arm
 
-| ID | 显示名 | 舵机轴 | 命令范围 | 统一初始/Home | 速度 |
+| ID | Display name | Servo axis | Command range | Shared initial/Home | Speed |
 |---|---|---|---:|---:|---:|
 | `baseYaw` | `Base Yaw` | X | 30°～150° | 90° | 60°/s |
-| `shoulderRoll` | `Shoulder Roll` | 无（仅仿真） | -45°～45° | 0° | 45°/s |
+| `shoulderRoll` | `Shoulder Roll` | None (simulation only) | -45°～45° | 0° | 45°/s |
 | `shoulder` | `Shoulder` | Y | 30°～150° | 90° | 45°/s |
 | `elbow` | `Elbow` | Z | 17.5°～162.5° | 90° | 60°/s |
 | `wrist` | `Wrist` | B | 0°～180° | 90° | 75°/s |
 
-固件的 E 轴不参与首版剪刀开合仿真，范围为 45°～100°，初始/Home 同样为 90°。Challenge、Reset、Lesson 与 Electron 连接都从同一 X/Y/Z/B/E 全 90° 状态开始；安全几何姿态由舵机 offset 校准，不得使用第二套隐藏起点。Inspector 的 Servo Angles 面板必须把当前仿真关节实时映射为 X/Y/Z/B 的绝对舵机角度；E 在首版明确显示为 parked 90°。Electron ARM 面板则显示设备实际回报。
+The firmware's E axis is not included in first-release scissor opening/closing simulation; its range is 45°～100° and its initial/Home value is also 90°. Challenge, Reset, Lesson, and Electron connections all start from the same X/Y/Z/B/E state with every axis at 90°; the safe geometric pose is calibrated through servo offsets, and a second hidden starting pose is forbidden. The Inspector's Servo Angles panel must map the current simulated joints to absolute X/Y/Z/B servo angles in real time; E is explicitly displayed as parked 90° in the first release. The Electron ARM panel displays the device's actual reported values.
 
-首版关节按 `baseYaw → shoulderRoll → shoulder → elbow → wrist` 顺序构成嵌套链。完整旋转顺序为 `Ry(baseYaw) × Rx(shoulderRoll) × Rz(shoulder/elbow/wrist)`；`shoulderRoll = 0°` 时与原四关节平面姿态兼容。所有命令一次只驱动一个关节。
+The first-release joints form a nested chain in the order `baseYaw → shoulderRoll → shoulder → elbow → wrist`. The complete rotation order is `Ry(baseYaw) × Rx(shoulderRoll) × Rz(shoulder/elbow/wrist)`; `shoulderRoll = 0°` is compatible with the original four-joint planar pose. All commands drive only one joint at a time.
 
-推荐默认几何参数：
+Recommended default geometry parameters:
 
-| 参数 | 值 |
+| Parameter | Value |
 |---|---:|
 | Shoulder Height | 0.40 |
 | Upper Arm Length | 1.05 |
@@ -263,38 +263,38 @@ Provider 必须返回独立集合，避免调用方修改共享数据。Reset �
 | Tool Shaft Collision Radius | 0.075 |
 | Head Clearance | 0.02 |
 
-这些值属于 Challenge 配置，而不是机械臂组件常量。实现阶段允许为满足示例程序验收而微调几何位置，但必须同步本文件、Challenge 数据和测试。
+These values belong to Challenge configuration rather than robot-arm component constants. During implementation, geometry positions may be adjusted slightly to satisfy example-program acceptance, but this file, Challenge data, and tests must be updated together.
 
-### 6.2 头部与发型
+### 6.2 Head and hairstyle
 
-- 头部使用不可剪的圆角低多边形几何体，视觉与 Hair Voxel 分离。
-- Voxel Size 默认 0.16。
-- 目标短发由确定性纯函数生成，整体左右对称且非空。
-- 初始厚帽型必须严格包含全部 Target Voxel，并额外包含可由示例程序扫过的外层/边缘 voxel。
-- 禁止随机生成；相同配置必须得到相同坐标顺序和集合。
-- 生成器测试必须断言 `target ⊂ initial`、无重复坐标、左右对称及固定 voxel 数量。
+- The head uses uncuttable rounded low-poly geometry, with visuals separate from Hair Voxels.
+- Default Voxel Size is 0.16.
+- The target short hairstyle is generated by a deterministic pure function, is bilaterally symmetric overall, and is nonempty.
+- The initial thick-cap hairstyle must strictly contain all Target Voxels, plus outer/edge voxels that the example program can sweep through.
+- Random generation is forbidden; identical configuration must produce the same coordinate order and set.
+- Generator tests must assert `target ⊂ initial`, no duplicate coordinates, bilateral symmetry, and fixed voxel counts.
 
-### 6.3 示例程序
+### 6.3 Example program
 
-- 首次加载时反序列化一个可编辑的 Blockly Workspace。
-- 程序使用绝对关节角度，可包含 Wait 与 Repeat 以验证嵌套 IR。
-- 程序至少包含一条非零 `shoulderRoll` 命令，并在全路径头部安全校验下自然结束。
-- 程序自然结束后 Completion Score 必须不低于 80。
-- 示例程序应保留可优化空间，不要求 100 分。
-- 示例工作区属于 Challenge 数据，不写在 BlocklyEditor 组件中。
-- 当前校准程序包含 5 个源积木/原子命令，`shoulderRoll = 15°`，参考程序成本为 6.25，参考时间为 5645ms。
+- Deserialize an editable Blockly Workspace on first load.
+- The program uses absolute joint angles and may include Wait and Repeat to validate nested IR.
+- The program includes at least one nonzero `shoulderRoll` command and completes naturally with head-safety validation over its entire path.
+- The Completion Score after natural program completion must be at least 80.
+- The example program should leave room for optimization; a score of 100 is not required.
+- The example workspace belongs to Challenge data and is not embedded in the BlocklyEditor component.
+- The current calibrated program contains 5 source blocks/atomic commands, uses `shoulderRoll = 15°`, and has a reference program cost of 6.25 and reference time of 5645ms.
 
-## 7. Blockly 与 Program IR
+## 7. Blockly and Program IR
 
-### 7.1 允许的积木
+### 7.1 Allowed blocks
 
-| 类型 | UI 语义 | 编译结果 | 限制 |
+| Type | UI semantics | Compilation result | Constraints |
 |---|---|---|---|
-| `set-joint-angle` | 英文积木：将所选 Joint 设置到绝对 Angle | Robot Command | Joint 来自 Challenge，Angle 必须在范围内 |
-| `wait` | 英文积木：等待指定毫秒 | Robot Command | 0～5000ms |
-| `repeat` | 英文积木：重复内部语句 | Program Node | 1～20 次 |
+| `set-joint-angle` | English block: set the selected Joint to an absolute Angle | Robot Command | Joint comes from the Challenge; Angle must be within range |
+| `wait` | English block: wait for the specified milliseconds | Robot Command | 0～5000ms |
+| `repeat` | English block: repeat the contained statements | Program Node | 1～20 times |
 
-Blockly 积木字段、工具箱分类和 tooltip 均使用英文；Blockly 内置的 shadow number 不计入 Source Block Count。
+Blockly block fields, toolbox categories, and tooltips all use English; Blockly's built-in shadow numbers do not count toward Source Block Count.
 
 ### 7.2 Program IR
 
@@ -327,22 +327,22 @@ export interface Program {
 }
 ```
 
-不使用 Blockly JavaScript Generator，不通过 `eval` 或动态代码执行运行程序。
+Do not use the Blockly JavaScript Generator, `eval`, or dynamic code execution to run programs.
 
-### 7.3 编译规则
+### 7.3 Compilation rules
 
-- 工作区必须恰好包含一个启用的顶层程序栈。
-- 空工作区、多个顶层栈、未知/禁用的积木类型和空 Repeat Body 均为编译错误。
-- Joint ID 必须存在于当前 Challenge，角度不得被静默 clamp。
-- Wait、Repeat 字段必须为有限数值并满足约束。
-- Repeat 在运行前展开为 Runtime Command 列表；展开后上限为 500。
-- `sourceBlockCount` 统计全部启用、非 shadow 源积木，包括 Repeat。
-- `executedCommandCount` 等于展开后原子命令数量，Repeat 本身不计入。
-- Runtime Command 保留原始 `sourceBlockId`，用于高亮和日志定位。
+- The workspace must contain exactly one enabled top-level program stack.
+- Empty workspaces, multiple top-level stacks, unknown/disabled block types, and empty Repeat Bodies are compilation errors.
+- Joint IDs must exist in the current Challenge; angles must not be silently clamped.
+- Wait and Repeat fields must be finite numbers satisfying their constraints.
+- Repeat is expanded into a Runtime Command list before execution; the expanded limit is 500.
+- `sourceBlockCount` counts all enabled, non-shadow source blocks, including Repeat.
+- `executedCommandCount` equals the expanded number of atomic commands; Repeat itself is not counted.
+- Runtime Commands retain the original `sourceBlockId` for highlighting and log localization.
 
-## 8. 仿真引擎与运行状态机
+## 8. Simulation engine and execution state machine
 
-### 8.1 状态
+### 8.1 States
 
 ```ts
 export type SimulationStatus =
@@ -355,33 +355,33 @@ export type SimulationStatus =
   | 'error';
 ```
 
-### 8.2 控制语义
+### 8.2 Control semantics
 
-| 操作 | 允许状态 | 行为 |
+| Operation | Allowed states | Behavior |
 |---|---|---|
-| Run | idle/completed/stopped/error | 重置仿真、重新编译、从第一条命令连续执行 |
-| Pause | running | 冻结当前命令进度和仿真时间 |
-| Resume | paused | 从冻结位置继续 |
-| Step | idle/paused | idle 时先重置和编译；完整执行一条原子命令后回到 paused |
-| Stop | running/paused | 停止执行并保留当前现场，不生成正式成绩 |
-| Reset | 非 loading | 恢复初始机械臂、头发、指标与日志，保留 Blockly 内容 |
+| Run | idle/completed/stopped/error | Reset simulation, recompile, and execute continuously from the first command |
+| Pause | running | Freeze current command progress and simulation time |
+| Resume | paused | Continue from the frozen position |
+| Step | idle/paused | Reset and compile first when idle; fully execute one atomic command, then return to paused |
+| Stop | running/paused | Stop execution and retain the current state without generating an official score |
+| Reset | Any except loading | Restore the initial arm, hair, metrics, and logs while retaining Blockly content |
 
-运行和暂停期间 Blockly 只读。程序自然结束后状态变为 completed，并调用 Score Provider。到达目标发型不提前结束程序；后续命令仍可能产生误剪。
+Blockly is read-only while running or paused. Natural program completion changes the status to completed and calls the Score Provider. Reaching the target hairstyle does not end the program early; subsequent commands may still remove hair incorrectly.
 
-### 8.3 关节命令
+### 8.3 Joint commands
 
-- 关节角度按 `speedDegPerSec` 线性插值，不使用缓动。
-- 命令时长为 `abs(targetAngle - currentAngle) / speedDegPerSec`。
-- 相同目标角度的命令时长为 0，但仍计入 Executed Command Count 和日志。
-- Wait 不移动机械臂，也不触发静止接触检测。
-- 高频插值由引擎的 `tick(deltaMs)` 推进；Pause 时不调用有效时间推进。
-- 每个活动关节按最多 0.5° 子步校验头部安全约束；首次碰撞后执行 12 次二分搜索并提交最后安全角度。
-- 碰撞命令不计入 Executed Command Count，后续命令不再执行，状态进入 `error` 且不生成正式成绩。
-- 碰撞错误保留 Hair、关节、临时指标和当前源积木定位；Reset 或重新 Run 恢复 Challenge 初始安全姿态。
+- Joint angles use linear interpolation at `speedDegPerSec`, without easing.
+- Command duration is `abs(targetAngle - currentAngle) / speedDegPerSec`.
+- A command whose target equals the current angle has duration 0, but still counts toward Executed Command Count and is logged.
+- Wait does not move the robot arm or trigger stationary contact detection.
+- The engine's `tick(deltaMs)` advances high-frequency interpolation; Pause does not advance effective time.
+- Head-safety constraints are checked in substeps of at most 0.5° for each active joint; after the first collision, perform 12 binary-search iterations and commit the last safe angle.
+- A colliding command does not count toward Executed Command Count; subsequent commands are not executed, the status becomes `error`, and no official score is generated.
+- Collision errors retain Hair, joints, provisional metrics, and the current source-block location; Reset or a new Run restores the Challenge's initial safe pose.
 
-### 8.4 确定性估算时间
+### 8.4 Deterministically estimated duration
 
-在执行前从 Challenge 初始关节状态顺序模拟全部 Runtime Commands：
+Before execution, simulate all Runtime Commands sequentially from the Challenge's initial joint state:
 
 ```text
 SetJointDurationMs =
@@ -393,50 +393,50 @@ EstimatedDurationMs =
   Σ SetJointDurationMs + Σ WaitDurationMs
 ```
 
-该值用于 Time Score。真实墙钟、帧率、暂停和单步停留时间不计入。
+This value is used for Time Score. Actual wall-clock time, frame rate, pauses, and time spent stopped during stepping are excluded.
 
-## 9. 运动学、接触与 Hair State
+## 9. Kinematics, contact, and Hair State
 
-### 9.1 正向运动学
+### 9.1 Forward kinematics
 
-- 世界坐标使用 Y Up。
-- Base Yaw 绕 Y 轴，Shoulder Roll 绕局部 X 轴，Shoulder / Elbow / Wrist 绕各自局部 Z 轴。
-- 旋转链固定为 `Ry(baseYaw) × Rx(shoulderRoll) × Rz(shoulder) × Rz(elbow) × Rz(wrist)`，后续关节使用其父级累计旋转。
-- 每个关节变换顺序必须与 R3F 嵌套 Group 一致。
-- 提供纯函数 `computeRobotPose(config, jointAngles)`，返回各关节和末端世界坐标，供控制器、碰撞与测试共用。
-- 禁止从 Three.js Scene Graph 反向读取位置作为唯一业务事实。
+- World coordinates use Y Up.
+- Base Yaw rotates around Y, Shoulder Roll around local X, and Shoulder / Elbow / Wrist around their respective local Z axes.
+- The rotation chain is fixed as `Ry(baseYaw) × Rx(shoulderRoll) × Rz(shoulder) × Rz(elbow) × Rz(wrist)`; subsequent joints use their parent's accumulated rotation.
+- Each joint's transform order must match the nested R3F Groups.
+- Provide the pure function `computeRobotPose(config, jointAngles)`, returning world coordinates for each joint and the end effector, shared by controllers, collision checks, and tests.
+- Reading positions back from the Three.js Scene Graph as the sole source of domain truth is forbidden.
 
-### 9.2 头部防穿模
+### 9.2 Head penetration prevention
 
-- 头部逻辑碰撞体为 `headCenter/headScale` 定义的不可穿透椭球，Hair Voxel 可剪除，Target Ghost 不参与碰撞。
-- 底座、上臂、前臂和工具杆使用线段加半径的胶囊近似；关节与末端使用退化线段表示的球体。
-- 检测时将胶囊线段转换到“部件半径 + Head Clearance”扩张后的椭球单位空间，计算线段到原点的最近距离。
-- Challenge 加载时必须验证初始姿态安全；非法初始配置由 Provider 拒绝。
-- 不实现反弹、摩擦、滑动、自动绕障、机械臂自碰撞或刚体动力学。
+- The head's logical collider is an impenetrable ellipsoid defined by `headCenter/headScale`; Hair Voxels are removable, and Target Ghost does not participate in collision.
+- The base, upper arm, forearm, and tool shaft use capsule approximations consisting of a segment plus a radius; joints and the end effector use spheres represented by degenerate segments.
+- During detection, transform the capsule segment into the unit space of the ellipsoid expanded by “part radius + Head Clearance” and compute the closest distance from the segment to the origin.
+- The initial pose must be validated for safety when loading a Challenge; the Provider rejects invalid initial configurations.
+- Do not implement bounce, friction, sliding, automatic obstacle avoidance, robot-arm self-collision, or rigid-body dynamics.
 
-### 9.3 连续扫掠接触
+### 9.3 Continuous swept contact
 
-每次有效运动 tick：
+For each effective motion tick:
 
-1. 保存上一个末端世界位置；
-2. 推进关节角度；
-3. 计算新的末端世界位置；
-4. 将两点构成线段；
-5. 对当前 Hair Set 做球体沿线段的扫掠重叠；
-6. 一次性删除全部命中 voxel，并记录一次碰撞事件。
+1. Save the previous end-effector world position;
+2. Advance the joint angles;
+3. Compute the new end-effector world position;
+4. Form a segment between the two points;
+5. Test the current Hair Set for overlap with a sphere swept along that segment;
+6. Remove all hit voxels at once and record one collision event.
 
-Sphere 与 Voxel AABB 的重叠应使用确定性几何函数。静止初始姿态、Wait 和纯相机操作不剪发。已经删除的 voxel 不重复计数或记录。
+Sphere–Voxel AABB overlap should use deterministic geometric functions. The stationary initial pose, Wait, and camera-only operations do not cut hair. Removed voxels are not counted or logged again.
 
 ### 9.4 Hair State
 
-- 运行时 Hair State 为 `Set<VoxelKey>`。
-- 删除操作返回新集合或由 Store 的受控 action 完成。
-- 渲染层根据 Hair Set 显示当前 voxel；目标预览使用独立的只读集合。
-- 目标预览为半透明冷色，不参与碰撞、当前 voxel 计数或评分输入。
+- Runtime Hair State is a `Set<VoxelKey>`.
+- Removal returns a new set or is performed through a controlled Store action.
+- The rendering layer displays current voxels from the Hair Set; the target preview uses a separate read-only set.
+- The target preview is translucent and cool-colored; it is excluded from collision, current voxel counts, and scoring input.
 
-## 10. 评分契约
+## 10. Scoring contract
 
-### 10.1 类型
+### 10.1 Types
 
 ```ts
 export interface ProgramMetrics {
@@ -472,7 +472,7 @@ export interface ScoreInput {
 }
 ```
 
-### 10.2 公式
+### 10.2 Formulas
 
 ```text
 CompletionScore =
@@ -494,18 +494,18 @@ FinalScore =
   + 0.15 × TimeScore
 ```
 
-默认 `commandWeight = 0.25`。参考成本和参考时间在示例程序校准后固化到 Challenge。
+The default is `commandWeight = 0.25`. Reference cost and reference time are fixed in the Challenge after calibrating the example program.
 
-### 10.3 边界规则
+### 10.3 Boundary rules
 
-- 所有分项和 Final Score clamp 到 0～100。
-- 内部保留完整精度，界面显示一位小数。
-- `Target` 和 `Result` 同为空时 Completion 为 100；只有一方为空时为 0。
-- ProgramCost 或 EstimatedDuration 为 0 时，相应分项为 100；空程序仍在编译阶段被拒绝。
-- Score Provider 必须校验权重和约等于 1，非法配置返回可解释错误。
-- Stop 不调用正式评分；右侧面板可显示带“临时”标识的实时 Completion。
+- Clamp all component scores and Final Score to 0～100.
+- Retain full precision internally; display one decimal place in the UI.
+- Completion is 100 when both `Target` and `Result` are empty, and 0 when only one is empty.
+- When ProgramCost or EstimatedDuration is 0, the corresponding component score is 100; empty programs are still rejected during compilation.
+- The Score Provider must validate that the weights sum to approximately 1 and return an explanatory error for invalid configuration.
+- Stop does not invoke official scoring; the right panel may show real-time Completion marked “provisional”.
 
-## 11. Provider 边界
+## 11. Provider boundaries
 
 ```ts
 export interface ChallengeSummary {
@@ -524,9 +524,9 @@ export interface ScoreProvider {
 }
 ```
 
-首版只提供 `LocalChallengeProvider` 和 `LocalScoreProvider`。应用组合根负责注入 Provider；其他组件只依赖接口。未来可以增加 HTTP 实现，但本版本不创建网络请求。
+The first release provides only `LocalChallengeProvider` and `LocalScoreProvider`. The application composition root injects Providers; other components depend only on interfaces. HTTP implementations may be added later, but this version creates no network requests.
 
-预留但不实现的 API 方向：
+Reserved API directions, not implemented:
 
 ```text
 GET  /api/challenges
@@ -535,104 +535,104 @@ POST /api/score
 POST /api/simulations
 ```
 
-## 12. 工作台与交互
+## 12. Workbench and interaction
 
-### 12.1 布局
+### 12.1 Layout
 
-- 单页、全视口、深色技术工作台。
-- 顶栏：产品名、当前 Challenge 和连接状态“LOCAL”。
-- 中心：3D Canvas，占据第一视觉层级。
-- 左侧：默认展开、约 400～440px 的 Blockly 可折叠面板。
-- 右侧：约 300～340px 的 Challenge、关节、指标和结果面板。
-- 底部：Run / Pause / Resume / Step / Stop / Reset 工具栏。
-- 日志为底部可展开抽屉，默认展示最近事件摘要。
-- 所有按钮、面板标题、状态、指标、tooltip、空状态和 `aria-label` / `title` 等无障碍文案使用英文；类型、API、内部 ID 和序列化字段不因翻译改变。
+- A single-page, full-viewport, dark technical workbench.
+- Top bar: product name, current Challenge, and connection status “LOCAL”.
+- Center: 3D Canvas with the highest visual prominence.
+- Left: a collapsible Blockly panel, approximately 400～440px wide and expanded by default.
+- Right: a Challenge, joint, metrics, and results panel, approximately 300～340px wide.
+- Bottom: Run / Pause / Resume / Step / Stop / Reset toolbar.
+- Logs use an expandable bottom drawer, displaying a recent-event summary by default.
+- All buttons, panel titles, statuses, metrics, tooltips, empty states, and accessibility text such as `aria-label` / `title` use English; translation does not change types, APIs, internal IDs, or serialized fields.
 
-1280×720 下允许面板覆盖 Canvas 边缘，但不得遮挡核心运行控制。小于目标宽度时可折叠右侧面板，不承诺手机可用性。
+At 1280×720, panels may overlay Canvas edges but must not obscure the core execution controls. Below the target width, the right panel may collapse; mobile usability is not promised.
 
-### 12.2 3D 场景
+### 12.2 3D scene
 
-- 程序化机械臂使用工业灰/蓝；活动关节使用强调色。
-- 当前 Hair 使用暖色不透明方块；Target Ghost 使用冷色半透明方块。
-- 末端工具和碰撞范围应可辨识，但不显示真实剪刀。
-- 提供环境光、方向光、地面网格与柔和阴影。
-- OrbitControls 支持旋转、缩放和平移，并设置合理距离和极角限制。
+- The procedural robot arm uses industrial gray/blue; active joints use an accent color.
+- Current Hair uses warm-colored opaque cubes; Target Ghost uses cool-colored translucent cubes.
+- The end-effector tool and collision range should be distinguishable, without displaying real scissors.
+- Provide ambient light, directional light, a ground grid, and soft shadows.
+- OrbitControls supports rotation, zoom, and pan, with reasonable distance and polar-angle limits.
 
-### 12.3 信息与结果
+### 12.3 Information and results
 
-右侧至少显示：
+The right panel displays at least:
 
-- 当前状态；
-- 五个关节的当前角度；
-- 末端 X/Y/Z；
-- 当前/初始/目标 voxel 数量；
-- Source Block Count；
-- Executed Command Count；
-- Estimated Duration；
-- Completion / Efficiency / Time / Final Score。
+- Current status;
+- Current angles of all five joints;
+- End-effector X/Y/Z;
+- Current/initial/target voxel counts;
+- Source Block Count;
+- Executed Command Count;
+- Estimated Duration;
+- Completion / Efficiency / Time / Final Score.
 
-程序未完成时正式成绩区域显示占位；Stop 后不得把临时指标伪装成最终成绩。
+The official score area shows placeholders before program completion; after Stop, provisional metrics must not be presented as final scores.
 
-## 13. 日志与错误
+## 13. Logs and errors
 
-### 13.1 日志事件
+### 13.1 Log events
 
-日志至少覆盖：
+Logs cover at least:
 
-- Challenge 加载与 Reset；
-- 编译成功/失败；
-- Run、Pause、Resume、Step、Stop；
-- 每条 Runtime Command 开始和结束；
-- 碰撞删除数量；
-- 程序完成和评分结果；
-- Provider、WebGL 或引擎错误。
+- Challenge loading and Reset;
+- Compilation success/failure;
+- Run, Pause, Resume, Step, Stop;
+- Start and end of each Runtime Command;
+- Number of voxels removed through collision;
+- Program completion and scoring results;
+- Provider, WebGL, or engine errors.
 
-日志使用递增序号或仿真时间，不使用墙钟作为确定性排序依据。为避免无限增长，只保留最近 200 条。
-所有用户可见日志消息使用英文，稳定的状态值、部件 ID 和 Source Block ID 可作为技术标识保留。
+Logs use incrementing sequence numbers or simulation time, rather than wall-clock time, for deterministic ordering. Retain only the latest 200 entries to avoid unbounded growth.
+All user-visible log messages use English; stable state values, part IDs, and Source Block IDs may remain as technical identifiers.
 
-### 13.2 用户可见错误
+### 13.2 User-visible errors
 
-- Challenge 加载失败：展示错误面板和重试按钮。
-- WebGL 不可用：展示浏览器能力说明，不渲染空白 Canvas。
-- 编译失败：保留工作区，在面板展示错误并尽可能选择/高亮相关积木。
-- 运行时错误：状态进入 error，保留现场，允许 Reset 或重新 Run。
-- 头部碰撞：日志包含碰撞部件、活动关节、安全角度和源积木；Blockly 保持高亮并恢复编辑。
-- 非法 Challenge 配置：由 Local Provider 拒绝并报告字段位置。
+- Challenge loading failure: show an error panel and retry button.
+- WebGL unavailable: explain browser capabilities instead of rendering a blank Canvas.
+- Compilation failure: retain the workspace, show the error in the panel, and select/highlight the relevant block where possible.
+- Runtime error: enter the error state, retain the current state, and allow Reset or a new Run.
+- Head collision: log the colliding part, active joint, safe angle, and source block; retain the Blockly highlight and restore editing.
+- Invalid Challenge configuration: the Local Provider rejects it and reports the field location.
 
-上述错误标题、说明、重试/恢复操作和 WebGL 降级文案均使用英文；不得只翻译正常流程而保留中文错误或无障碍文本。
+All error titles, explanations, retry/recovery actions, and WebGL fallback text above use English; translating only the normal workflow while leaving Chinese errors or accessibility text is forbidden.
 
-## 14. 测试与验收
+## 14. Testing and acceptance
 
 ### 14.1 Vitest
 
-- Voxel key 转换和发型生成器不变量。
-- IoU、效率、时间和最终评分边界。
-- 五关节正向运动学的已知姿态，并验证 `shoulderRoll = 0°` 的兼容姿态与非零三维侧摆。
-- 扩张椭球的外部、相切、穿入、胶囊穿越、关节球与安全间距。
-- 大帧/小帧的碰撞安全边界、命令不完成、无正式评分和 Reset 恢复。
-- Sphere Sweep 与 Voxel AABB 的命中、不命中、端点和多命中。
-- Blockly 编译、Source Block Count、嵌套 Repeat 和 500 命令上限。
-- 角度、Wait、Repeat、空程序和多顶层程序校验。
-- 时间估算对关节状态的顺序更新。
-- Local Challenge / Score Provider 的正常和失败路径。
-- 仿真状态机的 Run、Pause、Step、Stop、Reset 和 Complete。
+- Voxel key conversion and hairstyle-generator invariants.
+- IoU, efficiency, time, and final-score boundaries.
+- Known five-joint forward-kinematics poses, verifying the compatible pose at `shoulderRoll = 0°` and nonzero three-dimensional lateral tilt.
+- Outside, tangent, and penetrating cases for the expanded ellipsoid, capsule crossings, joint spheres, and safety clearances.
+- Collision-safety boundaries for large/small frames, noncompletion of colliding commands, absence of official scoring, and Reset recovery.
+- Sphere Sweep–Voxel AABB hits, misses, endpoints, and multiple hits.
+- Blockly compilation, Source Block Count, nested Repeat, and the 500-command limit.
+- Angle, Wait, Repeat, empty-program, and multiple-top-level-program validation.
+- Sequential joint-state updates during time estimation.
+- Normal and failure paths for Local Challenge / Score Providers.
+- Simulation state-machine Run, Pause, Step, Stop, Reset, and Complete.
 
 ### 14.2 Playwright
 
-关键闭环：
+Key execution loop:
 
-1. 页面加载一个本地 Challenge 和预置 Workspace；
-2. Canvas、机械臂、Hair Voxel 和核心控制存在；
-3. Run 自动重置并锁定 Blockly；
-4. Pause 冻结指标，Step 完成一条命令，Resume 继续；
-5. 程序结束后 voxel 数减少、状态为 completed；
-6. 第五关节在 Blockly 与 Inspector 中可见，安全示例 Completion Score ≥80，四项成绩可见且为有限数；
-7. Reset 恢复初始 voxel/关节并清除正式结果；
-8. 故意碰头的程序停在安全姿态、进入 error、定位源积木且不显示正式成绩；
-9. 空程序或非法数据能显示错误且不开始执行。
-10. Challenge/发型/关节名称、Blockly、工作台、日志、错误和无障碍标签均显示英文，且关键术语与本规格一致。
+1. The page loads a local Challenge and preset Workspace;
+2. Canvas, robot arm, Hair Voxels, and core controls are present;
+3. Run automatically resets and locks Blockly;
+4. Pause freezes metrics, Step completes one command, and Resume continues;
+5. Voxel count decreases after program completion and the status is completed;
+6. The fifth joint is visible in Blockly and Inspector, the safe example achieves Completion Score ≥80, and all four scores are visible and finite;
+7. Reset restores initial voxels/joints and clears official results;
+8. A program deliberately targeting the head stops at a safe pose, enters error, locates the source block, and displays no official score;
+9. Empty programs or invalid data display errors without starting execution.
+10. Challenge/hairstyle/joint names, Blockly, the workbench, logs, errors, and accessibility labels all display English, with key terms matching this specification.
 
-### 14.3 质量门
+### 14.3 Quality gates
 
 ```text
 npm run typecheck
@@ -642,14 +642,14 @@ npm run build
 npm run test:e2e
 ```
 
-人工验收见 `docs/ACCEPTANCE.md`。
+See `docs/ACCEPTANCE.md` for manual acceptance.
 
-## 15. Cutter Grid 可选控制模式
+## 15. Optional Cutter Grid control mode
 
-### 15.1 范围和隔离
+### 15.1 Scope and isolation
 
-- 模式 ID 为 `cutter-grid`，显示名为 `Cutter Grid`；`servo` 始终为默认模式。
-- 首阶段只在 Practice 和专属 Lessons 开放。Versus、后端 Session/Program 提交、远端评分和 Electron Arm Bridge 保持 Servo-only。
+- The mode ID is `cutter-grid` and the display name is `Cutter Grid`; `servo` remains the default mode.
+- The initial phase opens only Practice and dedicated Lessons. Versus, backend Session/Program submission, remote scoring, and the Electron Arm Bridge remain Servo-only.
 - Amended 2026-09-10: an **offline** Versus room may be opened in `cutter-grid`. The round declares one
   editor for everybody (`MatchConfig.programmingMode`, mirroring `hcr_contract::round::MatchConfig`), the
   room refuses to open on a Challenge with no certified Profile, and the browser plans and scores the
@@ -657,76 +657,76 @@ npm run test:e2e
   remote scoring and the Electron Arm Bridge stay Servo-only until the backend opens V4 planning to
   submissions (`hcr-backend/docs/08-CUTTER-GRID.md` §0). A round is never mixed-mode, because Servo and
   Cutter Grid are different exercises on the same Challenge and §15.1 forbids comparing their scores.
-- Servo 与 Cutter Grid 使用独立内存 Workspace；只允许在 `idle` 切换，切换时重置仿真但保留两侧积木内容。
-- Cutter Grid 共享默认 Challenge 的初始 Hair、12 个目标剪除 voxel 及现有评分配置，但不与 Servo 分数作公平性比较。
-- 未匹配已认证 Profile 的 Challenge 必须保持 Servo-only。
+- Servo and Cutter Grid use separate in-memory Workspaces; switching is allowed only in `idle`, resets simulation, and retains both sets of blocks.
+- Cutter Grid shares the default Challenge's initial Hair, 12 target voxels to remove, and existing scoring configuration, but its scores are not compared with Servo scores for fairness.
+- Challenges without a matching certified Profile must remain Servo-only.
 
-### 15.2 坐标和 Blockly
+### 15.2 Coordinates and Blockly
 
-- 网格格距等于 `voxelConfig.size`；边界为初始 Hair 坐标包围盒每轴扩展两格，并包含认证起点。
-- 固定映射为 Right `+X`、Left `-X`、Up `+Y`、Down `-Y`、Forward `-Z`、Backward `+Z`，不随相机或工具姿态变化。
-- 六个 Move 积木分别接受 `1–12` 的整数距离。展开仍按单格移动与 Wait 计算 500 上限和命令成本，但 V4 规划器把一个可见 Move N 合并为一个连续叶子动作；Wait、Repeat 分别沿用 `0–5000ms`、`1–20` 限制。
-- 剪发器始终启用，沿实际末端轨迹以现有 `toolRadius = 0.12` 删除全部接触 Hair；系统不绕发、不白名单删除，也不静默缩短移动。
-- V4 的 Step 每次执行一个展开后的可见 Move 或 Wait；Move N 一次连续完成 N 格，仍对 `executedCommandCount` 贡献 N。V3 的逐格 Step 仅作历史回归基线。
+- Grid spacing equals `voxelConfig.size`; bounds extend the initial Hair coordinate bounding box by two cells along each axis and include the certified starting point.
+- The fixed mapping is Right `+X`, Left `-X`, Up `+Y`, Down `-Y`, Forward `-Z`, and Backward `+Z`; it does not change with the camera or tool orientation.
+- Each of the six Move blocks accepts an integer distance of `1–12`. Expansion still counts single-cell moves and Wait toward the 500 limit and command cost, but the V4 planner merges one visible Move N into a continuous leaf action; Wait and Repeat retain their respective `0–5000ms` and `1–20` limits.
+- The cutter is always enabled, removing all contacted Hair along the actual end-effector trajectory using the existing `toolRadius = 0.12`; the system neither avoids hair nor removes only whitelisted voxels, and it does not silently shorten moves.
+- V4 Step executes one expanded visible Move or Wait at a time; Move N continuously completes N cells in one action and still contributes N to `executedCommandCount`. V3 single-cell Step remains only a historical regression baseline.
 
-### 15.3 入场、规划和轨迹
+### 15.3 Entry, planning, and trajectories
 
-- 从 Servo 初始姿态进入最近的、已认证零头发接触格心；当前首选 Hair lattice 为 `(0,-5,8)`。入场使用 `positioning` 状态，不剪发、不计时、不计分。
-- Run/Test/Step 前进入 `planning`，在可取消 Web Worker 中对整段程序求解。相同规范化输入只生成一个冻结计划，三个入口不得分别求解或运行时重新规划。
-- V4 只把认证入口和每个可见 Move 的最终格心作为 IK 硬目标；终点误差不大于 `voxelSize/16`。末端中间路径允许是已认证的曲线，不再要求逐格世界轴直线。
-- 每个 Move 默认生成一条、最多两条同步五关节 PTP primitive。直接 PTP 碰头时只允许一个认证避障构型；无法压缩到两条 primitive 时整段计划失败。
-- 任一关节限位、IK、头部碰撞、动态限制、工作空间或接触认证失败都在执行前定位首个来源积木并拒绝整段程序；不得执行可行前缀。
+- Move from the initial Servo pose to the nearest certified cell center with zero hair contact; the current preferred Hair lattice point is `(0,-5,8)`. Entry uses the `positioning` state and does not cut hair or count toward time or score.
+- Before Run/Test/Step, enter `planning` and solve the entire program in a cancellable Web Worker. Identical normalized input produces only one frozen plan; the three entry points must not solve separately or replan at runtime.
+- V4 treats only the certified entry and the final cell center of each visible Move as hard IK targets; endpoint error must not exceed `voxelSize/16`. Intermediate end-effector paths may be certified curves; per-cell straight lines along world axes are no longer required.
+- Each Move generates one synchronized five-joint PTP primitive by default, with at most two. If a direct PTP collides with the head, only one certified obstacle-avoidance configuration is allowed; the entire plan fails if it cannot be compressed to two primitives.
+- Any failure in joint limits, IK, head collision, dynamic limits, workspace, or contact certification locates the first source block and rejects the entire program before execution; executing a feasible prefix is forbidden.
 
-### 15.3.1 全局多分支 IK 修复（V2，V4 的历史基线）
+### 15.3.1 Global multibranch IK repair (V2, historical baseline for V4)
 
-V4 继续要求入口和整段程序共同选择连续无碰撞构型链，但以可见 Move 终点层、较小的固定候选预算和紧凑 PTP 边替代 V2 的逐格 Cartesian 分层、`24 → 96 → 384` 默认枚举及密集边认证。本节仅保留 V2 已知错误分支和历史 fixture 的解释。
+V4 continues to require the entry and entire program to jointly select a continuous collision-free configuration chain, but replaces V2 per-cell Cartesian layers, default `24 → 96 → 384` enumeration, and dense edge certification with visible Move endpoint layers, a smaller fixed candidate budget, and compact PTP edges. This section is retained only to explain V2's known incorrect branches and historical fixtures.
 
-- 首版 `cutter-grid-dls-v1` 的单一前序构型贪心和静态 `reachable` 节点预筛选已知会错误拒绝 `Up 6 → Left 2 → Forward 3`：末端在 `(-2,6,-3)` 的第三个四分层有无碰撞低 Wrist 解，但高 Wrist 局部分支会提前走入死路。静态存在 IK 解不再等价于从任何入场姿态、沿任何程序路径均可达。
-- 新版本为 `cutter-grid-ladder-v2`。它在 Worker 内为每个 Cartesian 分层保留多组无碰撞 IK 候选，并以程序兼容的认证入口作为图第 0 层，在全段路径上选择连续构型链；不得接入 ROS、MoveIt、Tesseract、后端或任意外部规划服务。
-- V2 必须用 `24 → 96 → 384` 的确定性 Halton seed 累计枚举，候选按 `0.01` 归一化关节距离去重，每层以确定性最远点采样最多保留 128 个。内部候选不量化，实际执行计划在最终验证后才量化。
-- V2 不得以固定归一化关节跳变阈值删除分支。相邻候选只由真实平滑插值的关节限位、头部碰撞、末端轴向路径偏差和采样连续性判定；转向、Wait 和程序端点的切线为零。
-- V2 Profile 保存最多 32 个安全原点构型及各自认证的零接触入场轨迹。Run、Test 与 idle 下首次 Step 把所有入口和完整玩家路径一并规划；入场属于冻结计划且不剪发、不计命令、不计玩家耗时或成绩。
-- V2 区分静态 `Safe IK known` / `No safe IK found` 与当前 `Program connected` / `Program disconnected`。候选不存在、入口不兼容、连续边不存在与有限搜索预算耗尽必须分别报告，搜索耗尽不得表述为物理不可达。
+- The initial `cutter-grid-dls-v1` greedy selection of a single predecessor configuration and static `reachable` node prefilter are known to incorrectly reject `Up 6 → Left 2 → Forward 3`: at the third quarter-layer of the end-effector path at `(-2,6,-3)`, a collision-free low-Wrist solution exists, but the local high-Wrist branch reaches a dead end earlier. The static existence of an IK solution no longer implies reachability from every entry pose along every program path.
+- The new version is `cutter-grid-ladder-v2`. In the Worker it retains multiple collision-free IK candidates for each Cartesian layer and uses program-compatible certified entries as graph layer 0, selecting a continuous configuration chain across the entire path; ROS, MoveIt, Tesseract, backend, or any external planning service must not be integrated.
+- V2 must cumulatively enumerate deterministic Halton seeds at `24 → 96 → 384`, deduplicate candidates by `0.01` normalized joint distance, and retain at most 128 per layer using deterministic farthest-point sampling. Internal candidates are not quantized; the actual execution plan is quantized only after final validation.
+- V2 must not remove branches using a fixed normalized joint-jump threshold. Adjacent candidates are assessed only by joint limits, head collision, end-effector axial path deviation, and sampling continuity under actual smooth interpolation; tangents are zero at turns, Wait, and program endpoints.
+- The V2 Profile stores up to 32 safe origin configurations and their respective certified zero-contact entry trajectories. Run, Test, and the first Step from idle jointly plan all entries and the full player path; entry belongs to the frozen plan and does not cut hair or count toward commands, player duration, or score.
+- V2 distinguishes static `Safe IK known` / `No safe IK found` from current `Program connected` / `Program disconnected`. Missing candidates, incompatible entries, missing continuous edges, and exhaustion of the finite search budget must be reported separately; search exhaustion must not be described as physical unreachability.
 
-### 15.3.2 限 jerk 运动稳定试验（V3，历史基线）
+### 15.3.2 Jerk-limited motion stability experiment (V3, historical baseline)
 
-V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请求、逐格 5ms 认证和原有精确接触集约束已被 V4 取代。保留本节仅用于解释既有 fixture、Ruckig Spike 与回归证据；不得把本节的直线、逐格停车或密集 waypoint 条款作为 V4 实现要求。
+V4 has replaced V3's fixed Cartesian tube, per-cell pause-safe checkpoints, `1.25x` speed request, per-cell 5ms certification, and original exact-contact-set constraint. This section is retained only to explain existing fixtures, the Ruckig Spike, and regression evidence; its straight-line, per-cell-stop, and dense-waypoint provisions must not be treated as V4 implementation requirements.
 
-- V3 保持 V2 已选定的无碰撞 IK 构型链和玩家指定 Cartesian 轴向路径；重定时、平滑或渲染播放不得重新选择 IK 分支、缩短距离、抄近路或改变扫掠接触集合。
-- V3 先在前端以纯领域函数完成确定性试验。所有规划输入、输出、诊断、签名和误差必须可序列化且不依赖 DOM、Worker 或渲染时钟；经前端回归验证后，同一领域契约迁移到 Rust `hcr_sim`，由后端成为最终路径规划权威。
-- V3 Worker 在不影响冻结计划、签名或候选顺序的前提下，版本化报告 V2 图搜索以及 `geometric-smoothing`、`time-parameterization`、`jerk-smoothing`、`playback-validation` 阶段。前四个阶段以 Cartesian 层计数，后四个阶段以真实运动段（系统入场加玩家 Move）计数，使 UI 能定位不稳定发生在哪一类计算中。
-- V3 Profile 为每个关节增加显式仿真速度、加速度与 jerk 硬上限；缺少任一限制时 fail closed。当前前端试验保留 `1.25x` 速度请求，但将加速度/jerk 限制为额定速度的 `1250x`/`200000x`，以避免短单格在少于约五个 `60Hz` 渲染帧内突变；这些值、实际比例和完整轨迹签名均可复核。V3 计划保存连续内部角度、全局 C2 五次几何样条的 knot `q/v/a`、动态限制签名、实际速度比例、可按绝对时间采样的段参数、pause-safe 原子检查点和完整轨迹签名。系统零接触入场与玩家段使用同一 V3 动态限制和时间律，不得以 V2 插值回放。
-- 每个原子移动边界、逻辑转角、Wait 两侧、入场起止和程序终点必须为 pause-safe checkpoint，具有零速度和零加速度。这样 Run/Test 连续回放以及 Step 的停留/恢复均不产生速度或加速度阶跃。
-- 固定关节几何路径先经过速度/加速度受限的确定性重定时，再以本地逐段 state-to-state jerk 平滑生成 C2 轨迹。平滑后必须按不超过 `5ms`、`0.5°` 和 `voxelSize/16` 的联合分辨率重新验证关节限制、头部碰撞、Cartesian 管道和接触集合；任一失败均 fail closed。
-- 全局最小 jerk 五次样条若在既有安全 knot 间发生关节限位 overshoot，必须保持相同 knot 序列并切换到签名可见的确定性单调 C2 约束解；不得放宽限位、缩短玩家路径或退回 V2 C1 插值。若该约束解仍不能通过 Cartesian、碰撞或接触审计，规划继续失败关闭。
-- 仅允许本地实现或在 Worker 中固定版本的本地 WASM 调用。禁止 Ruckig Community intermediate-waypoint 云 API、ROS、MoveIt、Tesseract 或任何外部路径规划服务。
-- 当前本地 WASM 可行性门禁固定 Ruckig Community `v0.19.4`（MIT）与 Emscripten `4.0.20`，只暴露五关节离线 state-to-state `q/v/a` ABI，构建时排除 cloud client，并以 Chromium/Edge Worker 的端点和本地请求测试审计。它只是独立 Spike，未完成固定路径的连续边界状态、完整碰撞/接触回归前不得接入运行时规划。
-- 前端纯领域预备层已在固定 C2 几何上执行保守的 TOPP-RA 风格速度/加速度前向/后向可达传播，并输出确定性 path speed 及 `q/v/a` 边界；原子起止保持零速度/零加速度。它不改变几何或接触，并且在与本地 Ruckig、完整验证器接通前不是运行时轨迹来源。
-- 前端纯领域 Ruckig 分段编排已把相邻 TOPP-RA 边界作为完全共享的 state-to-state `q/v/a` 输入，以 `5ms` 或更密采样验证端点与动态限制；失败只增加同一段的最小时长（`1.1x`，累计不超过 `50x`）。调用方必须注入本地空间认证，逐段复验关节限位、头部、固定 Cartesian 管道、`0.5°`/`voxelSize/16` 联合采样和零接触/允许接触集，并在完整 Move 结束后聚合且精确比对冻结接触集合；空间失败不得被时长扩展重试掩盖。它在 Worker 资产加载、活动运行轨迹和端到端回放认证完成前不是运行时轨迹来源。
-- 动画提速是规划输入而非渲染时钟倍率：默认请求 `1.25x`，实际速度、加速度和 jerk 分别受 V3 硬上限 clamp，实际时长和比例写入计划并参与计分/签名。禁止把每帧 `delta` 或冻结轨迹时钟直接相乘。
-- 渲染以单调的绝对计划时间采样冻结轨迹；隐藏页、暂停和调试时冻结计划时间，恢复时不追赶墙钟。接触、评分与原子动作事件由计划扫掠区间驱动，不依赖某个中间渲染帧是否出现。
-- V3 前端在每个实际播放 rAF 后以有界、只读的诊断环记录渲染时间、计划时间、阶段/单格、入口分支、解析的五关节 `q/v/a/j`、控制器关节/末端跟踪误差及帧间隔。长帧阈值为 `50ms`；诊断副本不参与 Worker、轨迹签名、碰撞或评分，Inspector 默认折叠显示其摘要。
+- V3 preserves V2's selected collision-free IK configuration chain and the player's specified Cartesian axial path; retiming, smoothing, and rendered playback must not reselect IK branches, shorten distances, take shortcuts, or alter the swept-contact set.
+- V3 first performs deterministic frontend experiments using pure domain functions. All planning inputs, outputs, diagnostics, signatures, and errors must be serializable and independent of the DOM, Worker, or render clock; after frontend regression validation, the same domain contract migrates to Rust `hcr_sim`, making the backend the final path-planning authority.
+- Without affecting frozen plans, signatures, or candidate ordering, the V3 Worker reports versioned V2 graph-search stages and the `geometric-smoothing`, `time-parameterization`, `jerk-smoothing`, and `playback-validation` stages. The first four stages count Cartesian layers; the latter four count actual motion segments (system entry plus player Moves), allowing the UI to locate the type of computation in which instability occurs.
+- The V3 Profile adds explicit simulation speed, acceleration, and jerk hard limits for each joint; a missing limit fails closed. The current frontend experiment retains the `1.25x` speed request but limits acceleration/jerk to `1250x`/`200000x` the rated speed to prevent abrupt short-cell motion within fewer than approximately five `60Hz` render frames; these values, actual ratios, and complete trajectory signatures are reviewable. V3 plans store continuous internal angles, knot `q/v/a` of a global C2 quintic geometric spline, a dynamic-limit signature, actual speed ratio, segment parameters sampleable at absolute time, pause-safe atomic checkpoints, and a complete trajectory signature. System zero-contact entry and player segments use the same V3 dynamic limits and time law; playback with V2 interpolation is forbidden.
+- Every atomic-move boundary, logical corner, both sides of Wait, entry start/end, and program endpoint must be a pause-safe checkpoint with zero velocity and zero acceleration. This prevents velocity or acceleration steps during continuous Run/Test playback and Step stops/resumes.
+- The fixed joint geometric path first undergoes deterministic velocity/acceleration-limited retiming, followed by local segment-by-segment state-to-state jerk smoothing to generate a C2 trajectory. After smoothing, joint limits, head collision, the Cartesian tube, and contact sets must be revalidated at a combined resolution no coarser than `5ms`, `0.5°`, and `voxelSize/16`; any failure fails closed.
+- If the global minimum-jerk quintic spline overshoots joint limits between existing safe knots, preserve the same knot sequence and switch to a deterministic monotone C2 constrained solution visible in the signature; relaxing limits, shortening the player's path, or reverting to V2 C1 interpolation is forbidden. If that constrained solution still fails Cartesian, collision, or contact audits, planning continues to fail closed.
+- Only local implementations or pinned-version local WASM calls in the Worker are allowed. The Ruckig Community intermediate-waypoint cloud API, ROS, MoveIt, Tesseract, and any external path-planning service are forbidden.
+- The current local WASM feasibility gate pins Ruckig Community `v0.19.4` (MIT) and Emscripten `4.0.20`, exposes only a five-joint offline state-to-state `q/v/a` ABI, excludes the cloud client from the build, and audits endpoints and local requests through Chromium/Edge Worker tests. It is an independent Spike only and must not enter runtime planning before continuous boundary states on the fixed path and full collision/contact regression are complete.
+- The frontend pure-domain preparation layer already performs conservative TOPP-RA-style velocity/acceleration forward/backward reachability propagation on fixed C2 geometry and outputs deterministic path speed and `q/v/a` boundaries; atomic starts and ends retain zero velocity/zero acceleration. It changes neither geometry nor contact and is not a runtime trajectory source until connected to local Ruckig and the full validator.
+- The frontend pure-domain Ruckig segment orchestrator already uses adjacent TOPP-RA boundaries as fully shared state-to-state `q/v/a` inputs and validates endpoints and dynamic limits with sampling at `5ms` or finer; on failure it increases only the same segment's minimum duration (`1.1x`, cumulatively no more than `50x`). The caller must inject local spatial certification to revalidate joint limits, the head, the fixed Cartesian tube, combined `0.5°`/`voxelSize/16` sampling, and zero-contact/allowed-contact sets for each segment, then aggregate and exactly compare the frozen contact set after the full Move; spatial failures must not be hidden by duration-extension retries. It is not a runtime trajectory source until Worker asset loading, the active runtime trajectory, and end-to-end playback certification are complete.
+- Animation speedup is a planning input rather than a render-clock multiplier: the default request is `1.25x`, actual speed, acceleration, and jerk are separately clamped to V3 hard limits, and actual duration and ratios are written into the plan and participate in scoring/signatures. Directly multiplying per-frame `delta` or the frozen trajectory clock is forbidden.
+- Rendering samples the frozen trajectory using monotonic absolute plan time; hidden pages, pauses, and debugging freeze plan time, and resuming does not catch up to wall-clock time. Contact, scoring, and atomic-action events are driven by planned sweep intervals, independent of whether any intermediate render frame occurs.
+- After each actual playback rAF, the V3 frontend records render time, plan time, stage/cell, entry branch, analytic five-joint `q/v/a/j`, controller joint/end-effector tracking errors, and frame intervals in a bounded read-only diagnostic ring. The long-frame threshold is `50ms`; diagnostic copies do not participate in the Worker, trajectory signatures, collision, or scoring, and Inspector shows their summary collapsed by default.
 
-### 15.3.3 紧凑同步 PTP（V4，前端已实现并完成验收）
+### 15.3.3 Compact synchronized PTP (V4, implemented and accepted in the frontend)
 
-- V4 版本为 `cutter-grid-compact-ptp-v4`。它在 Worker 中只为认证入口和每个可见 Move 终点建立全局多分支 IK 图；Wait 不创建 IK 层。候选首轮使用固定入口/前态/中位/12 个 Halton seed、最多 12 个候选，首个断开层扩展为累计 48 个 seed、最多 24 个候选。
-- 相邻端点层固定按最近 4 条、最近 8 条、全部候选边的顺序验证。完整程序共同选择入口和构型链，不能按 Move 贪心锁定错误 Wrist 分支。
-- 每条直接边使用同步五次 PTP：`q(u)=q0+(q1-q0)(10u³-15u⁴+6u⁵)`。五关节共享时间参数，默认动态请求为额定 `1.0x`，并受 Profile 速度、加速度、jerk 硬上限及每 primitive `160ms` 最短时长限制。
-- 直接边碰撞时，V4 查询 Profile V4 内固定 256 个 Halton 节点、每节点最多 8 条安全边的关节空间 roadmap。搜索结果必须 shortcut 到至多一个内部构型，因此每个 Move 最多两条 PTP primitive；超出预算返回 `motion-primitive-budget-exhausted`。
-- V4 按实际末端曲线和 `toolRadius=0.12` 生成扫掠接触事件与剪发结果。旧直线路径的接触集合不再是硬约束；执行前必须展示预计曲线和预计剪发集合。
-- 认证采样只在 Worker 内进行：普通区域最大关节变化/末端位移分别为 `1°`/`voxelSize/8`，接近头部时收紧为 `0.25°`/`voxelSize/16`，并以保守连杆运动上界证明区间净空。无法证明时 fail closed。
-- `CutterTrajectoryPlanV4` 只序列化入口、分组 actions、每 action 的 1–2 条 analytic primitive、边界 `q/v/a`、认证接触事件、真实结果、诊断与签名；密集认证样本不得传给主线程或作为硬件指令。
-- Step 每次完成一个可见 Move 或 Wait。Run、Test、Step 以单调绝对计划时间回放同一 V4 计划；隐藏页和暂停冻结计划时间，恢复时不追赶墙钟。
-- 当前 Cutter Grid 仍只在 Practice 与 Lessons 本地评分。ArmDock 必须拒绝 V4：现有固件不能本地执行同步五次轨迹且没有完整五关节映射。未来硬件协议为 `CutterArmMotionProgramV1`，一次批量包含每 Move 1–2 条 `sync-ptp` 和 Wait，禁止浏览器或 Electron 高频姿态流。
+- The V4 version is `cutter-grid-compact-ptp-v4`. In the Worker, it builds a global multibranch IK graph only for certified entries and each visible Move endpoint; Wait creates no IK layer. The first candidate round uses fixed entry/previous-state/midpoint/12 Halton seeds and at most 12 candidates; the first disconnected layer expands to a cumulative 48 seeds and at most 24 candidates.
+- Adjacent endpoint layers are validated in the fixed order of the nearest 4, nearest 8, then all candidate edges. The full program jointly selects the entry and configuration chain; greedy per-Move selection must not lock in the wrong Wrist branch.
+- Each direct edge uses synchronized quintic PTP: `q(u)=q0+(q1-q0)(10u³-15u⁴+6u⁵)`. All five joints share the time parameter; the default dynamic request is rated `1.0x`, subject to Profile speed, acceleration, and jerk hard limits and a minimum duration of `160ms` per primitive.
+- When a direct edge collides, V4 queries the joint-space roadmap in Profile V4 with a fixed 256 Halton nodes and at most 8 safe edges per node. Search results must be shortcut to at most one internal configuration, so each Move has at most two PTP primitives; exceeding the budget returns `motion-primitive-budget-exhausted`.
+- V4 generates swept-contact events and haircut results from the actual end-effector curve and `toolRadius=0.12`. The old straight-path contact set is no longer a hard constraint; the expected curve and expected cut set must be displayed before execution.
+- Certification sampling occurs only in the Worker: maximum joint change/end-effector displacement are `1°`/`voxelSize/8` in ordinary regions, tightened to `0.25°`/`voxelSize/16` near the head, with conservative link-motion upper bounds proving interval clearance. Fail closed when clearance cannot be proved.
+- `CutterTrajectoryPlanV4` serializes only entry, grouped actions, 1–2 analytic primitives per action, boundary `q/v/a`, certified contact events, actual results, diagnostics, and signatures; dense certification samples must not be sent to the main thread or used as hardware instructions.
+- Step completes one visible Move or Wait at a time. Run, Test, and Step replay the same V4 plan using monotonic absolute plan time; hidden pages and pauses freeze plan time, and resuming does not catch up to wall-clock time.
+- Cutter Grid currently still scores locally only in Practice and Lessons. ArmDock must reject V4: existing firmware cannot execute synchronized quintic trajectories locally and lacks a complete five-joint mapping. The future hardware protocol is `CutterArmMotionProgramV1`, containing 1–2 `sync-ptp` primitives per Move and Wait in a single batch; high-frequency pose streaming from the browser or Electron is forbidden.
 
-### 15.3.4 Rust 迁移边界
+### 15.3.4 Rust migration boundaries
 
-- Rust V4 规划迁移使用独立的 `POST /api/v1/cutter-grid/plans` 契约。请求只含 `challengeId`、`challengeVersion` 和 `CutterGridProgramV4`；服务端按 Challenge 签名选择自己持有的认证 `CutterGridProfileV4`，客户端不得上传 Profile、roadmap、IK 候选或轨迹。响应为 `CutterGridPlanResponseV1`，必须标明 `hcr-sim-rust`、构建标识、Profile 签名与计划耗时；耗时和实现来源不参与轨迹签名。
-- `hcr_sim` 只在 `std + planner` feature 下包含纯领域 V4 规划器，固件/no_std 不包含它。现有 V2“客户端上传轨迹、后端审计”协议保持只读兼容，不扩展；Servo Program IR 和既有 V2 DTO 不变。
-- 在线 Practice 默认优先调用 Rust，显式离线模式直接调用 TypeScript Worker。仅网络错误、30 秒客户端等待超时、HTTP 429 或 5xx 可以回退 Worker；400/404/422、版本或签名不匹配、以及畸形成功响应必须 fail closed。Provider 返回 `rust-backend` 或 `typescript-fallback` 供 Inspector 显示，但不得进入计划签名。
-- Run、Test、Step 必须重放同一冻结 V4 计划；编辑工作区、切换模式或 Challenge 时取消旧请求。远程规划显示同一 `planning` 状态，不增加 SSE、轮询或以墙钟改变搜索结果。
-- 前端与 Rust 必须共享版本化 JSON fixture：输入 Challenge、V4 Profile、Program、动态限制；成功向量输出紧凑 primitive、接触事件、真实结果、诊断和各自稳定签名，失败向量输出结构化错误。密集认证样本可不写入 fixture，但两端必须重建并匹配规定的语义和摘要容差。
-- 首期 Cutter Grid 仍只本地评分：不得发送评分、Session、Match 或 Program IR，Versus 与 ArmDock 继续拒绝 V4。UI 只消费可序列化计划并作绝对时间显示；不得以浏览器特有状态修补或改变规划结果。
+- Rust V4 planning migration uses a separate `POST /api/v1/cutter-grid/plans` contract. Requests contain only `challengeId`, `challengeVersion`, and `CutterGridProgramV4`; the server selects its own certified `CutterGridProfileV4` by Challenge signature, and clients must not upload Profiles, roadmaps, IK candidates, or trajectories. The response is `CutterGridPlanResponseV1` and must identify `hcr-sim-rust`, the build identifier, Profile signature, and planning duration; duration and implementation source do not participate in trajectory signatures.
+- `hcr_sim` includes the pure-domain V4 planner only under the `std + planner` feature; firmware/no_std does not include it. The existing V2 “client uploads trajectory, backend audits” protocol retains read-only compatibility without extension; Servo Program IR and existing V2 DTOs remain unchanged.
+- Online Practice prefers Rust by default; explicit offline mode calls the TypeScript Worker directly. Only network errors, the 30-second client wait timeout, HTTP 429, or 5xx may fall back to the Worker; 400/404/422, version or signature mismatches, and malformed success responses must fail closed. The Provider returns `rust-backend` or `typescript-fallback` for Inspector display, but this must not enter plan signatures.
+- Run, Test, and Step must replay the same frozen V4 plan; editing the workspace or switching mode or Challenge cancels old requests. Remote planning displays the same `planning` state, without adding SSE or polling or changing search results according to wall-clock time.
+- The frontend and Rust must share versioned JSON fixtures: inputs are Challenge, V4 Profile, Program, and dynamic limits; successful vectors output compact primitives, contact events, actual results, diagnostics, and their respective stable signatures, while failure vectors output structured errors. Dense certification samples may be omitted from fixtures, but both implementations must reconstruct and match the specified semantics and summary tolerances.
+- Initial Cutter Grid scoring remains local only: scores, Session, Match, and Program IR must not be sent; Versus and ArmDock continue to reject V4. The UI consumes only serializable plans and displays them using absolute time; browser-specific state must not patch or change planning results.
 - Amended 2026-09-10: an offline Versus room may plan V4 **locally**, on the same terms — the plan and the
   score stay in the browser and the entry carries neither, so the prohibition above is unchanged for
   every path that leaves it. ArmDock still rejects V4.
@@ -737,14 +737,14 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
   (`hcr-backend/docs/08-CUTTER-GRID.md` §0). The local plan stays what it always was: the preview the
   player watched. Session, Electron, firmware and ArmDock remain closed to V4.
 
-### 15.4 版本化边界
+### 15.4 Versioned boundaries
 
-- `CutterGridProgramV1` 是独立、可序列化的玩家 IR，包含 `plannerVersion`、方向、距离、Wait/Repeat 和 `sourceBlockId`；它不扩展或伪装当前后端 Servo Program IR。
-- `CutterGridProfileV1` 的完整签名覆盖关节顺序/范围/初始值/速度/Servo 映射、机械臂和碰撞尺寸、voxel/head 几何、完整初始/目标 Hair、刀头半径、Profile 与规划器版本。
-- `CutterTrajectoryPlanV1` 保存单格同步 waypoints、每关节同步速度、逻辑坐标、预计剪发集合、预计时间和稳定轨迹签名；角度量化到 `0.1°`，时间使用整数毫秒，速度以六位小数稳定序列化，集合稳定排序。执行器以冻结的角度和速度作 Hermite 回放，不在运行时重新规划。
-- 内部 IK waypoint 不计玩家命令数；预计时间按冻结同步轨迹加 Wait 计算。Cutter Grid 完成后只使用本地评分器。
-- 过渡期内 V1 Profile、V1 轨迹和 V1 签名不得被 V2 Worker 接受；V2 运行资产必须使用独立 `CutterGridProfileV2`、`CutterTrajectoryPlanV2`、入口 ID 和覆盖入场的稳定签名。Servo Program IR、后端 wire schema、Session/Match、Versus 和 ArmDock 不变。
-- V4 运行资产必须使用独立 `CutterGridProfileV4`、`CutterTrajectoryPlanV4`、紧凑 primitive、实际接触事件和 V4 签名。V1–V3 Cutter Grid 计划和签名对 V4 fail closed；Servo Program IR、后端 wire schema、Session/Match 和 Versus 不变，ArmDock 对 V4 保持禁用。
+- `CutterGridProgramV1` is a separate serializable player IR containing `plannerVersion`, direction, distance, Wait/Repeat, and `sourceBlockId`; it neither extends nor impersonates the current backend Servo Program IR.
+- The full `CutterGridProfileV1` signature covers joint order/ranges/initial values/speeds/Servo mappings, robot-arm and collision dimensions, voxel/head geometry, complete initial/target Hair, cutter radius, and Profile and planner versions.
+- `CutterTrajectoryPlanV1` stores single-cell synchronized waypoints, per-joint synchronized velocities, logical coordinates, expected cut set, estimated duration, and a stable trajectory signature; angles are quantized to `0.1°`, time uses integer milliseconds, velocities are stably serialized to six decimal places, and sets are stably sorted. The executor uses frozen angles and velocities for Hermite playback and does not replan at runtime.
+- Internal IK waypoints do not count toward player command counts; estimated time is computed from the frozen synchronized trajectory plus Wait. Cutter Grid uses only the local scorer after completion.
+- During transition, the V2 Worker must not accept V1 Profiles, V1 trajectories, or V1 signatures; V2 runtime assets must use separate `CutterGridProfileV2`, `CutterTrajectoryPlanV2`, entry IDs, and stable signatures covering entry. Servo Program IR, backend wire schema, Session/Match, Versus, and ArmDock remain unchanged.
+- V4 runtime assets must use separate `CutterGridProfileV4`, `CutterTrajectoryPlanV4`, compact primitives, actual contact events, and V4 signatures. V4 fails closed for V1–V3 Cutter Grid plans and signatures; Servo Program IR, backend wire schema, Session/Match, and Versus remain unchanged, and ArmDock remains disabled for V4.
 - Amended 2026-09-10: the wire is still unchanged. What changed is which editor an offline room may be
   opened in, and the one field that says so — `MatchConfig.programmingMode` — was already in the backend
   contract and is enforced there.
@@ -752,39 +752,55 @@ V3 的固定 Cartesian 管道、逐格 pause-safe checkpoint、`1.25x` 速度请
   carrying `CutterGridProgramV1` and no trajectory. Servo Program IR, the V2 client-uploaded-trajectory
   channel and every existing DTO are untouched: a servo submission is byte-identical to what it was.
 
-### 15.5 启用门禁
+### 15.5 Enablement gates
 
-- Phase 0 几何审计只证明有限网格、`0.12` 接触半径、六方向安全边及 12 个目标覆盖不存在直接矛盾；其 `trajectoryCertification` 必须保持 `pending-planner`。
-- 只有后续规划器生成认证起点、零接触入场、可达节点/边和参考程序，并证明参考程序精确剪除 12 个目标、无附带删除且 Completion 为 100，入口才可启用。
-- 任一门禁失败时停止启用，不修改共享 Challenge、刀头半径或安全余量换取通过。
+- The Phase 0 geometry audit proves only that the finite grid, `0.12` contact radius, safe edges in six directions, and coverage of 12 targets contain no direct contradiction; its `trajectoryCertification` must remain `pending-planner`.
+- The entry may be enabled only after a subsequent planner generates a certified starting point, zero-contact entry, reachable nodes/edges, and a reference program, and proves that the reference program removes exactly the 12 targets with no collateral removal and Completion of 100.
+- If any gate fails, stop enablement; do not modify the shared Challenge, cutter radius, or safety margin to obtain a pass.
 
-### 15.6 教程与课程
+### 15.6 Tutorials and lessons
 
-- 首页 Tutorial 入口先提供 Cutter Grid 与 Servo Angles 两条独立路线；首次使用推荐 Cutter Grid，但不得移除原 Servo 教程。
-- Cutter Grid 教程固定使用当前认证参考路径 `Left 3 → Up 6 → Up 2 → Forward 1 → Up 1 → Forward 1 → Up 1 → Forward 6 → Forward 1`，从空 Workspace 分八步讲解固定世界轴、连接顺序、安全网格、完整规划和 Test 评分。步骤完成状态必须读取真实 Cutter Grid IR 与仿真 Score，不复制规划或评分逻辑。
-- Cutter Grid Lessons 共十课，每课至少二十个 section：固定轴、距离、Repeat、实际扫掠、阻塞节点、相反方向、Waypoint Wait、路径顺序、同向移动压缩和认证完整剪发。每课分节覆盖概念、规则、安全、预测、搭建、观察、变式、Debug、独立挑战和总结，保持 Cutter Grid-only、本地规划/评分，并提供课内前后导航及连续下一课入口。
-- Servo Angles Lessons 共八课，每课至少二十个 section；前十九节覆盖绝对角度、起始姿态、关节职责、碰撞、预测、搭建、Step/Test、证据读取和 Debug，第 20 节为真实评分 checkpoint。只有 Completion 达到 100 才显示下一课；题目 Target 仍由已验证解法实际运行生成，不改为手写答案。
-- Tutorial 选择页另提供 `Grid → Servo Angles` 过渡展示：在同一个真实 Workbench 中先建立 Grid Move、查看坐标/安全规划，再切换 Servo 建立绝对关节命令并返回 Grid 验证两套 Workspace 隔离。新建硬件关节积木的命令值必须初始化为固件 Home 90°；Inspector 必须以舵机轴 X/Y/Z/B/E 显示实时仿真角度，并在命令执行时同步变化，Electron ARM 面板必须另外显示设备实际回报。Challenge 安全姿态独立用于带头模仿真，不得用静态 Home 值伪装实时遥测。
-- 教程与课程必须使用 Challenge 安全初始角度及认证 Profile；不得把硬件 Home 90° 当作 Challenge 入场姿态，也不得向 Servo/后端提交链路泄漏 Cutter Grid Program。
+- The home-page Tutorial entry first offers separate Cutter Grid and Servo Angles routes; Cutter Grid is recommended for first-time users, but the original Servo tutorial must not be removed.
+- The Cutter Grid tutorial uses the current certified reference path `Left 3 → Up 6 → Up 2 → Forward 1 → Up 1 → Forward 1 → Up 1 → Forward 6 → Forward 1`, explaining fixed world axes, connection order, the safe grid, full planning, and Test scoring in eight steps from an empty Workspace. Step completion must read actual Cutter Grid IR and simulation Score rather than duplicating planning or scoring logic.
+- Cutter Grid Lessons comprises ten lessons, each with at least twenty sections: fixed axes, distances, Repeat, actual sweeps, blocked nodes, opposite directions, Waypoint Wait, path order, same-direction move compression, and certified complete haircuts. Each lesson has sections covering concepts, rules, safety, prediction, construction, observation, variations, Debug, independent challenges, and recap; it remains Cutter Grid-only with local planning/scoring and provides previous/next navigation within lessons and a continuous next-lesson entry.
+- Servo Angles Lessons comprises eight lessons, each with at least twenty sections; the first nineteen cover absolute angles, starting pose, joint responsibilities, collisions, prediction, construction, Step/Test, reading evidence, and Debug, while section 20 is an actual scoring checkpoint. The next lesson appears only when Completion reaches 100; problem Targets continue to be generated by executing verified solutions, rather than replaced with handwritten answers.
+- The Tutorial selection page also offers a `Grid → Servo Angles` transition demonstration: in the same actual Workbench, first build a Grid Move and inspect coordinates/safe planning, then switch to Servo, build an absolute joint command, and return to Grid to verify that the two Workspaces are isolated. Newly created hardware-joint blocks must initialize command values to firmware Home 90°; Inspector must display real-time simulated angles by servo axes X/Y/Z/B/E and update them during command execution, while the Electron ARM panel separately displays actual device reports. The Challenge safe pose is used separately for simulation with the head model; static Home values must not be presented as live telemetry.
+- Tutorials and lessons must use Challenge safe initial angles and certified Profiles; hardware Home 90° must not be treated as the Challenge entry pose, and Cutter Grid Programs must not leak into Servo/backend submission paths.
 
-## macOS 桌面分发签名（2026-10-07）
+## macOS desktop distribution signing (2026-10-07)
 
-- GitHub Actions 的标签与手动构建使用免费 ad-hoc 签名，不要求付费开发者账号、Apple 证书或 Actions secrets；手动流程只上传 artifacts，不发布 Release。
-- 使用 electron-builder 25.1.8 的自定义签名 hook，完整签名主应用与嵌套 Electron 组件；保留 Hardened Runtime 与 Electron entitlements，关闭公证和签名时间戳。上传前必须验证两个架构的完整签名及应用标识。
-- macOS 配置包含 `NSLocalNetworkUsageDescription`。用户首次打开可能需要在 Privacy & Security 中手动允许，并另行授予 Local Network 权限；ad-hoc 签名不提供 Developer ID 身份或 Apple 公证，升级后的权限身份稳定性不能保证。
-- 提供用户在自己的 Mac 上免费重新签名的可选脚本与说明。签名不证明已经修复 `EHOSTUNREACH`，实际连接恢复必须另行验收。步骤见 `docs/RELEASING.md`。
+- GitHub Actions tag and manual builds use free ad-hoc signing, requiring no paid developer account, Apple certificates, or Actions secrets; the manual workflow uploads artifacts only and does not publish a Release.
+- Use electron-builder's custom signing hook to fully sign the main application and nested Electron components; retain Hardened Runtime and Electron entitlements, and disable notarization and signing timestamps. The current security fix pins 26.15.3; full signatures and application identifiers for both architectures must be verified before upload.
+- The macOS configuration includes `NSLocalNetworkUsageDescription`. On first launch, users may need to allow the application manually in Privacy & Security and separately grant Local Network permission; ad-hoc signing provides neither a Developer ID identity nor Apple notarization, and permission-identity stability after upgrades is not guaranteed.
+- Provide an optional script and instructions for users to re-sign for free on their own Macs. Signing does not prove `EHOSTUNREACH` is fixed; actual connection recovery requires separate acceptance. See `docs/RELEASING.md` for the steps.
 
-## 15. 未来扩展 / 仍未决定
+## Proposed audit security remediation contract (2026-10-13)
 
-以下内容不影响首版实现，不得在首版中提前固化：
+This section describes the uncommitted security proposal prepared before the user's Human-Led clarification. It remains subject to human-authored structure and load-bearing logic, review, and acceptance; it is not a ratified change to the existing contract. It does not authorize deployment, V2/V3 migration, runtime IK, or V4 hardware execution.
 
-- 正式机械臂型号、真实舵机误差与加速度；
-- 相对角度、并发关节、传感器和高级 Blockly；
-- Target Hairstyle 的正式创作工具与题库格式；
-- 最终竞赛评分权重、最优程序和难度公式；
-- 多 Challenge、双人竞赛和 CAT / Dynamic QBank；
-- 后端正式协议、鉴权与数据存储；
-- 真实 ESP / MQTT 接入；
-- 物理引擎、碰撞响应、机械臂自碰撞和更大规模 voxel 优化。
+Governance status: the user specified **Human-Led**. This repository has no `GOVERNANCE.md`, `POLICY.md`, or `CONTRIBUTING.md`, so recorded scope ownership and independent reviewers remain unverified. Formal FDS Update Reports and QA records must be handwritten in ink without AI assistance. This technical proposal does not draft or complete those forms, establish approval, or authorize a commit or merge.
 
-这些能力只能通过新增配置、接口实现或版本化协议扩展，不得破坏首版 Program IR、Provider 和 Score Result 的既有语义。
+- Servo `buildArmPlan` must replay the complete program through the existing `ProgramExecutor`, `RobotController`, and head constraints using the one-decimal angles actually sent to firmware. An initial-pose collision throws `ArmError`; a collision during the sweep returns `steps: []` with optional `collision: BlockedHeadCollision`. Unknown joints or joints without a servo mapping also reject the entire plan; commands must never be silently removed. A rejected plan must not reach IPC. Geometry checks do not replace hardware calibration or prove that moving from an unknown physical pose to firmware Home is safe.
+- Electron may open only valid HTTPS URLs externally and must handle OS launch failures. Packaged builds ignore `ELECTRON_START_URL`. Explicitly enable the renderer sandbox, allow only one application instance to own arm control, disable the RunAsNode, Node environment option, and Node CLI inspection fuses, and load application code only from asar. Deny browser permissions by default; allow `clipboard-sanitized-write` only for the trusted main page to copy room codes. Deny subframe permissions, clipboard reads, and device permissions.
+- Arm HTTP requests have a three-second absolute deadline covering the complete response and must reject truncated responses. Addresses use canonical decimal IPv4; errors must not echo LAN response bodies. Address changes, Home, and another Send are forbidden while running or parking. Reload or renderer loss stops subsequent commands, and Stop remains callable after the UI remounts. Window close and application quit wait for in-flight requests before attempting Home. An unreachable network prevents any guarantee that the physical arm has stopped.
+- On shared devices, withdrawing research participation clears player identity. The menu's New player action clears identity and consent and displays the participation choice again. If persisting withdrawal fails, the current tab still treats participation as declined and attempts to remove the old persisted grant. Data settings initialize from saved language and UTC offset choices; first-time participation is handled separately from existing choices. Automatic session expiry remains a future extension/TBD.
+- Crew maps must not read inherited properties. IDs such as `__proto__`, `constructor`, and `toString` must not cause render errors. A root error boundary provides recovery to the menu without displaying exception stacks.
+- Challenge validation rejects non-finite servo offsets, invalid directions, non-finite centers, and a `headScale` that is not a positive three-dimensional vector. Geometry constraints fail closed on invalid values. Remote V4 plans and their total positioning/player durations must not exceed `Number.MAX_SAFE_INTEGER` milliseconds. Path previews use at most 256 sampling intervals per primitive; this bound does not certify physical motion duration. Valid Wait 0 commands and obstacle-avoidance plans with two primitives per Move remain compatible.
+- HTTP Match route entry points validate six-character `[A-Z2-9]` room codes to prevent `.`/`..` path normalization. Remove public build-time token configuration; credentials must not be stored in `VITE_*`. Public player IDs and client-side host flags do not provide server authorization. Credential and host-permission protocols still require validation and implementation across repositories.
+- CI defaults to `contents: read`, checkout does not persist credentials, external Actions are pinned to commit SHAs, and the npm lockfile uses official registry URLs and integrity hashes. Pin the desktop runtime to Electron 44.7.0. Cross-platform installation, signing, and actual sandbox/fuse behavior require separate human verification; web E2E does not replace it.
+- Versus seals other players' scores and standings. Test/Inspector may show the player's own local preview score; the server determines official results. Classroom LAN access uses a static build/preview server and does not expose the Vite development server.
+
+## 15. Future extensions / still undecided
+
+The following do not affect the first-release implementation and must not be prematurely finalized in the first release:
+
+- Final robot-arm model, actual servo errors, and acceleration;
+- Relative angles, concurrent joints, sensors, and advanced Blockly;
+- Official Target Hairstyle authoring tools and question-bank format;
+- Final competition scoring weights, optimal programs, and difficulty formulas;
+- Multiple Challenges, two-player competition, and CAT / Dynamic QBank;
+- Official backend protocols, authentication/authorization, and data storage;
+- Real ESP / MQTT integration;
+- A physics engine, collision response, robot-arm self-collision, and larger-scale voxel optimization.
+
+These capabilities may be extended only through new configuration, interface implementations, or versioned protocols; they must not break the existing semantics of first-release Program IR, Providers, or Score Result.

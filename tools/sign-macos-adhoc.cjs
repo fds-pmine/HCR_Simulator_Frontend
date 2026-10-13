@@ -1,8 +1,8 @@
 const path = require('node:path');
 const { signAsync } = require('@electron/osx-sign');
 
-// electron-builder 25 supports custom signing hooks, but does not interpret
-// mac.identity = "-" as ad-hoc signing. Keep its per-file Electron entitlements.
+// Keep the explicit ad-hoc identity and per-file Electron entitlements when
+// signing through electron-builder's custom hook or the local CLI.
 async function sign(options) {
   if (process.platform !== 'darwin' || options.platform === 'mas') {
     throw new Error('Ad-hoc signing requires macOS and a direct-download app.');

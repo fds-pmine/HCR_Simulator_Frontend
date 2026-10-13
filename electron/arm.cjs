@@ -133,7 +133,7 @@ function parseAddress(input) {
     )
   }
 
-  return { host: match[1], port }
+  return { host: octets.join('.'), port }
 }
 
 /** RFC 1918 private space, loopback, and RFC 3927 link-local. */
@@ -190,8 +190,10 @@ function request(routePath) {
         path: routePath,
         agent: false,
         timeout: REQUEST_TIMEOUT_MS,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       },
       (res) => {
+        res.on('error', () => reject(new Error('Arm connection closed before the reply completed.')))
         const chunks = []
         let size = 0
         res.on('data', (chunk) => {
@@ -208,13 +210,13 @@ function request(routePath) {
         res.on('end', () => {
           const body = Buffer.concat(chunks).toString('utf8')
           if (res.statusCode !== 200) {
-            reject(new Error(`Arm returned ${res.statusCode}: ${body.trim()}`))
+            reject(new Error(`Arm returned HTTP ${res.statusCode}.`))
             return
           }
           try {
             resolve(JSON.parse(body))
           } catch {
-            reject(new Error(`Arm sent a reply that is not JSON: ${body.slice(0, 120)}`))
+            reject(new Error('Arm sent a reply that is not JSON.'))
           }
         })
       },
@@ -239,7 +241,7 @@ function request(routePath) {
 async function health() {
   const body = await request('/health')
   if (body.status !== 'ok') {
-    throw new Error(`Arm reports status "${body.status}".`)
+    throw new Error('Arm did not report a healthy status.')
   }
   return { runtime: String(body.runtime ?? 'unknown') }
 }

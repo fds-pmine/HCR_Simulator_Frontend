@@ -1,3 +1,5 @@
+import { clearIdentity } from '../match/identity';
+
 export interface ResearchPreferences {
   /** Required participation signal for the study client. */
   programAndScores: boolean;
@@ -15,8 +17,10 @@ const DEFAULT_PREFERENCES: ResearchPreferences = {
   utcOffset: false,
   decided: false,
 };
+let unpersistedPreferences: ResearchPreferences | undefined;
 
 export function loadResearchPreferences(): ResearchPreferences {
+  if (unpersistedPreferences) return unpersistedPreferences;
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PREFERENCES;
@@ -42,14 +46,33 @@ export function saveResearchPreferences(
     utcOffset: preferences.utcOffset === true,
     decided: preferences.decided === true,
   };
+  if (!normalized.programAndScores) {
+    clearIdentity();
+    try {
+      globalThis.localStorage?.removeItem(STORAGE_KEY);
+    } catch {
+      // The current-tab choice below still applies if storage is inaccessible.
+    }
+  }
   try {
     globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    unpersistedPreferences = undefined;
   } catch {
-    // Storage can be unavailable in private/restricted contexts. Default-off
-    // semantics remain intact; the choice simply cannot survive a reload.
+    unpersistedPreferences = normalized;
   }
   globalThis.dispatchEvent?.(new Event('hcr:research-preferences-changed'));
   return normalized;
+}
+
+export function resetResearchParticipation(): void {
+  clearIdentity();
+  try {
+    globalThis.localStorage?.removeItem(STORAGE_KEY);
+    unpersistedPreferences = undefined;
+  } catch {
+    unpersistedPreferences = DEFAULT_PREFERENCES;
+  }
+  globalThis.dispatchEvent?.(new Event('hcr:research-preferences-changed'));
 }
 
 /** Whole-hour/minute offset only; never an IANA zone or inferred location. */

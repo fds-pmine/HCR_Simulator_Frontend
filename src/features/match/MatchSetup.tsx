@@ -420,7 +420,7 @@ export function MatchSetup({
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              if (code.trim()) {
+              if (/^[A-Z2-9]{6}$/.test(code)) {
                 onJoin(code);
               }
             }}
@@ -433,7 +433,7 @@ export function MatchSetup({
               // entry as capitals while sending it verbatim is the one
               // combination that produces a mystifying "no such room".
               onChange={(event) =>
-                setCode(event.target.value.toUpperCase().slice(0, 6))
+                setCode(event.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6))
               }
               placeholder={t('roomCode')}
               aria-label={t('roomCodeLabel')}
@@ -443,7 +443,7 @@ export function MatchSetup({
             <button
               className="big-button"
               type="submit"
-              disabled={busy || !code.trim()}
+              disabled={busy || code.length !== 6}
             >
               {t('joinRoom')}
             </button>

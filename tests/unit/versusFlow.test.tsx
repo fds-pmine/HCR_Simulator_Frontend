@@ -103,7 +103,7 @@ describe('versus flow', () => {
     renderVersus();
 
     fireEvent.change(screen.getByLabelText('Room code'), {
-      target: { value: 'ZZZZ' },
+      target: { value: 'ZZZZZZ' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Join Room/ }));
 

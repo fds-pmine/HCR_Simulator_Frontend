@@ -160,7 +160,6 @@ export class CutterGridPlannerProvider {
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
-            ...(config.token ? { Authorization: `Bearer ${config.token}` } : {}),
           },
           body: JSON.stringify({
             challengeId: challenge.id,
@@ -330,7 +329,7 @@ function assertPlanShape(
   let estimatedDurationMs = 0;
   for (const action of plan.actions) {
     if (action.type === 'wait') {
-      if (!positiveFinite(action.durationMs)) throw invalidValues();
+      if (!Number.isFinite(action.durationMs) || action.durationMs < 0) throw invalidValues();
       estimatedDurationMs += action.durationMs;
       continue;
     }
@@ -354,13 +353,17 @@ function assertPlanShape(
     estimatedDurationMs += actionDurationMs;
   }
 
-  if (!approximately(plan.estimatedDurationMs, estimatedDurationMs)) throw invalidValues();
+  // Bound the playback clock without imposing a new limit on slow certified motion.
+  if (!approximately(plan.estimatedDurationMs, estimatedDurationMs) ||
+    estimatedDurationMs + positioning.durationMs > Number.MAX_SAFE_INTEGER) throw invalidValues();
   assertVoxelKeys(plan.expectedResultVoxels);
   const expectedResult = [...challenge.initialHair.voxels]
     .filter((key) => !cutVoxels.has(key))
     .sort();
   if (!sameStrings([...plan.expectedResultVoxels].sort(), expectedResult)) throw invalidValues();
-  assertDiagnostics(plan, plan.actions.filter((action) => action.type === 'move').length);
+  const primitiveCount = plan.actions.reduce((count, action) =>
+    count + (action.type === 'move' ? action.primitives.length : 0), 0);
+  assertDiagnostics(plan, primitiveCount);
   if (!isSignature(plan.trajectorySignature) || !isSignature(plan.positioning.trajectorySignature)) {
     throw invalidValues();
   }
@@ -381,6 +384,7 @@ function assertPrimitive(
     candidate.kind !== 'sync-ptp' ||
     candidate.interpolation !== 'synchronized-quintic' ||
     !positiveFinite(candidate.durationMs) ||
+    candidate.durationMs > Number.MAX_SAFE_INTEGER ||
     !candidate.start ||
     !candidate.end
   ) throw invalidValues();
@@ -457,7 +461,7 @@ function assertVoxelKeys(values: unknown): asserts values is string[] {
   ) throw invalidValues();
 }
 
-function assertDiagnostics(plan: CutterTrajectoryPlanV4, moveCount: number): void {
+function assertDiagnostics(plan: CutterTrajectoryPlanV4, primitiveCount: number): void {
   const diagnostics = plan.diagnostics;
   const integerFields = [
     diagnostics.endpointLayerCount,
@@ -480,7 +484,7 @@ function assertDiagnostics(plan: CutterTrajectoryPlanV4, moveCount: number): voi
   if (
     !Array.isArray(diagnostics.candidateCounts) ||
     diagnostics.endpointLayerCount !== diagnostics.candidateCounts.length ||
-    diagnostics.directPrimitiveCount + diagnostics.detourPrimitiveCount !== moveCount ||
+    diagnostics.directPrimitiveCount + diagnostics.detourPrimitiveCount !== primitiveCount ||
     integerFields.some((value) => !Number.isSafeInteger(value) || value < 0) ||
     finiteFields.some((value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0) ||
     diagnostics.requestedSpeedScale !== plan.motionLimits.requestedSpeedScale ||

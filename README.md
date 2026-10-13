@@ -8,7 +8,7 @@ HCR Simulator is a browser-based 3D programming environment for a virtual five-j
 > HCR backend in `../hcr-backend`, but it still works entirely offline when no backend is configured. See
 > [Game modes](#game-modes).
 
-> **Documentation policy:** This README is the public English entry point. Under the repository policy, the canonical specification, implementation plan, engineering notes, and acceptance criteria remain in Chinese.
+> **Documentation policy:** This README is the public English entry point. The canonical specification, implementation plan, engineering notes, and acceptance criteria are maintained in English.
 
 ## Documentation
 
@@ -73,8 +73,9 @@ serves only the items it can plan.
 The **Lessons** section contains eight Servo challenges and five Cutter Grid lessons on fixed axes, distance, Repeat, swept overcuts, and blocked nodes.
 
 **Versus Round** gives everyone in the room the *same* challenge at the *same* time, with one fixed submission
-window. The closest result to the target wins. Scores stay hidden from every player, including the person
-who submitted them, until the round closes. You can submit more than once. Only your best attempt counts.
+window. The closest result to the target wins. Other players' scores and standings stay hidden until the
+round closes; Test and the Inspector show your own local preview score. You can submit more than once.
+Only your best attempt counts; the server determines the official result.
 The complete rules and their rationale are in
 [`../hcr-backend/docs/06-MULTIPLAYER.md`](../hcr-backend/docs/06-MULTIPLAYER.md).
 
@@ -140,8 +141,9 @@ HCR_BIND=0.0.0.0:18623 \
 HCR_CORS_ORIGIN=http://<your-ip>:5173,http://localhost:5173 \
 cargo run -p hcr --features hotaru --bin hcr-server
 
-# terminal 2: the app, also on the network
-VITE_HCR_API_BASE_URL=http://<your-ip>:18623 npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
+# terminal 2: build static assets, then serve them on the classroom network
+VITE_HCR_API_BASE_URL=http://<your-ip>:18623 npm run build
+npm run preview -- --host 0.0.0.0 --port 5173 --strictPort
 ```
 
 `HCR_CORS_ORIGIN` is an exact-string allowlist, so the origin students type has to appear on it verbatim —

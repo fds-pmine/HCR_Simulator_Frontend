@@ -11,7 +11,11 @@ import type {
   CutterTrajectoryWaypointV1,
 } from '../cutter-grid/types';
 import { solveCutterGridIk } from '../cutter-grid/ik';
+import { ProgramExecutor } from '../simulation/programExecutor';
+import { RobotController } from './RobotController';
+import { findRobotHeadCollision, type BlockedHeadCollision } from './headCollision';
 import { computeRobotPose, createInitialJointAngles } from './kinematics';
+import { assertServoRange } from './servoMapping';
 
 /**
  * The renderer's view of the physical arm.
@@ -137,6 +141,8 @@ export interface UnsupportedJoint {
 export interface ArmPlan {
   steps: ArmStep[];
   unsupported: UnsupportedJoint[];
+  /** Any refusal leaves `steps` empty, including the opening Home. */
+  collision?: BlockedHeadCollision;
 }
 
 /**
@@ -175,21 +181,26 @@ export function buildArmPlan(
   const unsupported = new Map<JointId, UnsupportedJoint>();
 
   for (const joint of challenge.robotConfig.joints) {
+    assertServoRange(joint);
     angles[joint.id] = joint.initialAngleDeg;
   }
 
-  for (const command of commands) {
+  // Match arm.formatAngle: safety must check what firmware receives.
+  const hardwareCommands = commands.map((command) => command.type === 'wait'
+    ? command
+    : { ...command, angleDeg: Number(command.angleDeg.toFixed(1)) });
+  for (const command of hardwareCommands) {
     if (command.type === 'wait') {
       steps.push({ type: 'wait', durationMs: command.durationMs });
       continue;
     }
 
     const joint = joints.get(command.jointId);
-    if (!joint) {
-      continue;
-    }
-    if (!joint.servo) {
-      unsupported.set(joint.id, { jointId: joint.id, name: joint.name });
+    if (!joint?.servo) {
+      unsupported.set(command.jointId, {
+        jointId: command.jointId,
+        name: joint?.name ?? command.jointId,
+      });
       continue;
     }
 
@@ -204,7 +215,23 @@ export function buildArmPlan(
     });
   }
 
-  return { steps, unsupported: [...unsupported.values()] };
+  if (unsupported.size > 0) {
+    return { steps: [], unsupported: [...unsupported.values()] };
+  }
+
+  const constrain = (pose: ReturnType<typeof computeRobotPose>) =>
+    findRobotHeadCollision(pose, challenge.voxelConfig, challenge.robotConfig.geometry);
+  const controller = new RobotController(challenge.robotConfig, constrain);
+  const initialCollision = constrain(controller.getPose());
+  if (initialCollision) {
+    throw new ArmError(`Firmware Home collides with the simulated head: ${initialCollision.partLabel}. Nothing was sent.`);
+  }
+  const executor = new ProgramExecutor(controller);
+  executor.load(hardwareCommands);
+  const { blockedCollision } = executor.advance(Number.MAX_VALUE);
+  return blockedCollision
+    ? { steps: [], unsupported: [], collision: blockedCollision }
+    : { steps, unsupported: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -257,8 +284,8 @@ export interface CutterArmFidelity {
 /**
  * Why the arm cannot perform a trajectory at all.
  *
- * Distinct from `unsupported` on a servo plan, which reports commands that were
- * *skipped*. Here the missing joint is used by the planner on every waypoint, so
+ * Like `unsupported` on a servo plan, the whole plan is refused. Here the
+ * missing joint is used by the planner on every waypoint, so
  * there is nothing to skip and nothing partial to send.
  */
 export interface CutterArmRefusal {

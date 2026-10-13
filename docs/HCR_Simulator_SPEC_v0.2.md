@@ -1,81 +1,81 @@
-# HCR Simulator 前端 Demo 技术设计说明（v0.2）
+# HCR Simulator Frontend Demo Technical Design Specification (v0.2)
 
-> 用途：统一团队成员认知，并作为 Codex / AI 编程代理的项目上下文、实现边界与验收依据。
+> Purpose: align the team's understanding and serve as project context, implementation boundaries, and acceptance criteria for Codex / AI coding agents.
 >
-> 状态：**当前前端 Demo 基线**。本文固化已确认方向；尚未确定的细节统一标记为 **TBD**，实现时不得擅自写死。
+> Status: **Current frontend Demo baseline**. This document records confirmed directions; unconfirmed details are consistently marked **TBD** and must not be arbitrarily hardcoded during implementation.
 >
-> 依据：2026-07-29 项目会议 + 当前团队进一步对齐结果。
+> Basis: the 2026-07-29 project meeting + subsequent team alignment.
 
 ---
 
-## 1. 当前已确认的项目基线
+## 1. Currently Confirmed Project Baseline
 
-本版本以以下 7 点为当前确定方案：
+This version takes the following 7 points as the currently confirmed approach:
 
-1. **前端技术架构**：React + TypeScript + React Three Fiber (R3F) + Three.js + Blockly。
-2. **头部/头发建模**：采用“像素化 / 方块化 / voxel”方案，整体视觉与数据结构接近 Minecraft 式方块模型。
-3. **机械臂操作逻辑**：大方向采用真实舵机 / 关节控制逻辑；具体舵机数量、角度范围、Block 形式、速度与控制细则仍为 TBD。
-4. **剪发判定**：暂不考虑剪刀开关。机械臂末端执行器与“头发 voxel”发生有效接触时，即视为该 voxel 被剪掉/删除。
-5. **评分 / Difficulty**：由目标发型完成度、程序效率、完成时间三项组成，优先级依次降低，并通过可配置权重求加权平均分。
-6. **当前阶段只实现前端可执行 Demo**：不要求后端参与运行；但代码必须预留清晰的后端接口层，避免未来接入时重构核心逻辑。
-7. **当前阶段不接真实 ESP / 舵机硬件**：只模拟虚拟机械臂。真实硬件接入属于未来扩展。
+1. **Frontend technical architecture**: React + TypeScript + React Three Fiber (R3F) + Three.js + Blockly.
+2. **Head/hair modeling**: use a “pixelated / block / voxel” approach, with overall visuals and data structures resembling Minecraft-style block models.
+3. **Robot arm control logic**: broadly follow real servo / joint control logic; the specific number of servos, angle ranges, Block forms, speeds, and control details remain TBD.
+4. **Hair-cut detection**: do not consider opening or closing scissors for now. Valid contact between the robot arm's end effector and a “hair voxel” means that voxel is cut/deleted.
+5. **Scoring / Difficulty**: use target hairstyle completion, program efficiency, and completion time, in descending priority, and calculate a weighted average using configurable weights.
+6. **This stage implements only an executable frontend Demo**: no backend is required at runtime; however, the code must retain a clear backend interface layer to avoid restructuring core logic when integrating it later.
+7. **This stage does not connect real ESP / servo hardware**: simulate only a virtual robot arm. Real hardware integration is a future extension.
 
 ---
 
-## 2. 当前阶段目标与非目标
+## 2. Goals and Non-Goals for This Stage
 
-### 2.1 当前目标
+### 2.1 Current Goals
 
-当前目标是完成一个可在浏览器独立运行的 HCR Simulator 前端 Demo，至少能够展示以下闭环：
+The current goal is an HCR Simulator frontend Demo that runs independently in a browser and demonstrates at least this complete flow:
 
 ```text
-选择 / 加载本地 Challenge
+Select / load a local Challenge
         ↓
-Blockly 编排舵机控制程序
+Compose a servo control program in Blockly
         ↓
 Program IR / Command List
         ↓
-虚拟机械臂按关节指令运动
+Virtual robot arm moves according to joint commands
         ↓
-末端执行器触碰 Hair Voxel
+End effector touches a Hair Voxel
         ↓
-Hair Voxel 被删除
+Hair Voxel is deleted
         ↓
-与 Target Hairstyle 比较
+Compare with Target Hairstyle
         ↓
-计算完成度 / 程序效率 / 时间
+Calculate completion / program efficiency / time
         ↓
-输出最终加权得分
+Output the final weighted score
 ```
 
-### 2.2 当前明确不做
+### 2.2 Explicit Current Exclusions
 
-- 不接后端真实接口；
-- 不接 MQTT；
-- 不接 ESP / 真实舵机；
-- 不实现真实发丝模拟；
-- 不实现真实剪刀开合；
-- 不追求高精度软体 / 毛发物理；
-- 不强制实现逆运动学 IK；
-- 不提前绑定具体机械臂型号与自由度；
-- 不提前绑定最终竞赛规则、最终评分权重或 CAT 动态题库。
+- No integration with actual backend interfaces;
+- No MQTT integration;
+- No ESP / real servo integration;
+- No simulation of individual real hair strands;
+- No physical scissor opening or closing;
+- No pursuit of high-precision soft-body / hair physics;
+- No mandatory inverse kinematics (IK) implementation;
+- No early commitment to a particular robot arm model or number of degrees of freedom;
+- No early commitment to final competition rules, final scoring weights, or a CAT dynamic item bank.
 
 ---
 
-## 3. 技术架构
+## 3. Technical Architecture
 
-### 3.1 技术栈
+### 3.1 Technology Stack
 
-| 层级 | 技术 | 当前职责 |
+| Layer | Technology | Current responsibility |
 |---|---|---|
-| Web 应用 | React | 页面、组件、状态与交互组织 |
-| 类型系统 | TypeScript | 数据模型、Command、接口与模块边界 |
-| 3D React 层 | React Three Fiber | 使用 React 方式组织 Three.js 场景 |
-| 3D 渲染 | Three.js | Scene、Camera、Light、Robot、Voxel 等 |
-| 可视化编程 | Blockly | 拼图式程序编辑与自定义舵机 Block |
-| 构建工具 | Vite | 本地开发与前端构建 |
+| Web application | React | Organize pages, components, state, and interactions |
+| Type system | TypeScript | Data models, Commands, interfaces, and module boundaries |
+| 3D React layer | React Three Fiber | Organize Three.js scenes using React |
+| 3D rendering | Three.js | Scene, Camera, Light, Robot, Voxel, etc. |
+| Visual programming | Blockly | Block-based program editing and custom servo Blocks |
+| Build tool | Vite | Local development and frontend builds |
 
-### 3.2 总体分层
+### 3.2 Overall Layers
 
 ```text
 React UI
@@ -95,41 +95,41 @@ R3F / Three.js Rendering
 Voxel Hair State / Remove / Target
 ```
 
-### 3.3 关键架构约束
+### 3.3 Key Architectural Constraints
 
-- Blockly **禁止直接修改 Three.js Mesh**。
-- 3D 组件 **禁止直接承担评分逻辑**。
-- UI **禁止直接写死机械臂关节数量**。
-- 剪发结果由 Voxel State 表示，而不是仅通过视觉效果表示。
-- 当前 Demo 的业务计算全部可在浏览器本地完成，但必须通过接口 / service abstraction 组织，为未来后端替换留出入口。
+- Blockly **must not modify Three.js Mesh directly**.
+- 3D components **must not directly contain scoring logic**.
+- The UI **must not hardcode the number of robot arm joints**.
+- Hair-cut results are represented by Voxel State, rather than visual effects alone.
+- All business calculations in the current Demo can run locally in the browser, but must be organized through interfaces / service abstractions to allow future backend replacements.
 
 ---
 
-## 4. Voxel 头部 / 头发模型
+## 4. Voxel Head / Hair Model
 
-### 4.1 设计目标
+### 4.1 Design Goals
 
-头发采用离散 voxel 表示，而不是连续发丝或复杂 Mesh Deformation。每一个 Hair Voxel 是一个可独立存在或删除的最小“头发单元”。
+Hair is represented by discrete voxels rather than continuous strands or complex Mesh Deformation. Each Hair Voxel is the smallest “hair unit” that can independently exist or be deleted.
 
-概念模型：
+Conceptual model:
 
 ```text
 Voxel Space
 [x][y][z]
 
-0 = 空
-1 = 存在头发 voxel
+0 = empty
+1 = hair voxel present
 ```
 
-头部本体与头发建议在逻辑上分离：
+The head body and hair should be logically separate:
 
 ```text
 Head
-├── Solid Head / Face  （不可剪）
-└── Hair Voxels        （可剪）
+├── Solid Head / Face  (cannot be cut)
+└── Hair Voxels        (can be cut)
 ```
 
-### 4.2 推荐数据结构
+### 4.2 Recommended Data Structures
 
 ```ts
 export type VoxelKey = string; // e.g. "12,8,4"
@@ -150,17 +150,17 @@ export interface HairState {
 }
 ```
 
-实际渲染层可以根据性能选择：
+The rendering layer can choose based on performance:
 
-- 少量 voxel：普通 Mesh；
-- 较多 voxel：`THREE.InstancedMesh`；
-- 更大规模：后续再考虑 chunk / greedy meshing 等优化。
+- A small number of voxels: ordinary Mesh;
+- More voxels: `THREE.InstancedMesh`;
+- Larger scale: consider optimizations such as chunks / greedy meshing later.
 
-当前 Demo 不要求一开始就实现复杂 voxel engine。
+The current Demo does not require a complex voxel engine from the outset.
 
 ### 4.3 Target Hairstyle
 
-目标发型同样使用 HairState / voxel 集合表达：
+The target hairstyle is also represented as a HairState / voxel set:
 
 ```ts
 export interface HairstyleTarget {
@@ -170,17 +170,17 @@ export interface HairstyleTarget {
 }
 ```
 
-因此“用户当前发型”与“目标发型”可以直接做集合比较。
+The “user's current hairstyle” and the “target hairstyle” can therefore be compared directly as sets.
 
 ---
 
-## 5. 机械臂与舵机控制模型
+## 5. Robot Arm and Servo Control Model
 
-### 5.1 当前确定原则
+### 5.1 Currently Confirmed Principles
 
-玩家主要控制对象是机械臂的 **Servo / Joint**，而不是直接给末端执行器下达 Cartesian `Move X/Y/Z` 指令。
+Players primarily control the robot arm's **Servo / Joint**, rather than directly issuing Cartesian `Move X/Y/Z` commands to the end effector.
 
-当前大方向：
+Current overall direction:
 
 ```text
 Blockly Command
@@ -194,22 +194,22 @@ Robot Pose
 End-Effector Position
 ```
 
-### 5.2 当前不确定项（TBD）
+### 5.2 Current Unconfirmed Items (TBD)
 
-以下内容后续再确定，当前实现必须可配置：
+The following will be determined later and must remain configurable in the current implementation:
 
-- 舵机数量；
-- 机械臂自由度；
-- 每个舵机名称；
-- 每个舵机角度上下限；
-- 舵机速度；
-- 是否允许“绝对角度”与“相对角度”两种 Block；
-- 是否支持多个舵机同时运动；
-- 是否加入 wait / delay；
-- 是否加入传感器、if、while 等高级 Block；
-- 是否严格模拟真实舵机运动速度和误差。
+- Number of servos;
+- Robot arm degrees of freedom;
+- Name of each servo;
+- Lower and upper angle limits for each servo;
+- Servo speeds;
+- Whether both “absolute angle” and “relative angle” Blocks are allowed;
+- Whether multiple servos can move simultaneously;
+- Whether to add wait / delay;
+- Whether to add advanced Blocks such as sensors, if, and while;
+- Whether to strictly simulate real servo speeds and errors.
 
-### 5.3 通用数据结构
+### 5.3 General Data Structures
 
 ```ts
 export type JointId = string;
@@ -233,9 +233,9 @@ export interface RobotState {
 }
 ```
 
-### 5.4 第一版 Robot Command
+### 5.4 First-Version Robot Command
 
-第一版只需要保留最小可扩展语义：
+The first version needs only minimal extensible semantics:
 
 ```ts
 export type RobotCommand =
@@ -255,19 +255,19 @@ export type RobotCommand =
     };
 ```
 
-注意：**不存在 `open-scissors` / `close-scissors` 指令。**
+Note: **There are no `open-scissors` / `close-scissors` commands.**
 
 ---
 
-## 6. 剪发 / 碰撞判定
+## 6. Hair-Cut / Collision Detection
 
-### 6.1 当前规则
+### 6.1 Current Rules
 
-当前 Demo 中，机械臂末端执行器本身视为“剪发工具”。
+In the current Demo, the robot arm's end effector itself is the “hair-cutting tool”.
 
-> 当末端执行器的有效碰撞体与一个 Hair Voxel 发生有效接触时，该 Hair Voxel 立即视为被剪掉，并从当前 HairState 中删除。
+> When the end effector's effective collider makes valid contact with a Hair Voxel, that Hair Voxel is immediately considered cut and removed from the current HairState.
 
-流程：
+Flow:
 
 ```text
 End Effector Move
@@ -285,39 +285,39 @@ Hit Hair Voxel?
    Update Rendering
 ```
 
-### 6.2 实现边界
+### 6.2 Implementation Boundaries
 
-当前只需要稳定、可重复的几何接触判定，不需要真实剪刀物理。
+Only stable, repeatable geometric contact detection is currently needed; real scissor physics is not required.
 
-可采用：
+Possible approaches:
 
-- 包围盒 AABB；
-- Sphere / Box overlap；
-- 基于 voxel 网格坐标的空间判断；
-- 简单 Ray / Sweep（如后续有需要）。
+- AABB bounding boxes;
+- Sphere / Box overlap;
+- Spatial checks based on voxel grid coordinates;
+- Simple Ray / Sweep checks (if needed later).
 
-当前 **不要求引入完整物理引擎**。如果后续玩法证明需要真实碰撞，再单独评估 Rapier 等方案。
+There is currently **no requirement to introduce a full physics engine**. If later gameplay demonstrates a need for physical collisions, evaluate options such as Rapier separately.
 
 ---
 
-## 7. Blockly 与 Program IR
+## 7. Blockly and Program IR
 
-### 7.1 Blockly 的职责
+### 7.1 Blockly Responsibilities
 
-Blockly 只负责：
+Blockly is responsible only for:
 
-- 提供拼图式编程 UI；
-- 生成结构化 Program IR；
-- 表达舵机 / 关节控制和基本流程控制。
+- Providing a block-based programming UI;
+- Generating structured Program IR;
+- Expressing servo / joint control and basic flow control.
 
-Blockly 不直接：
+Blockly does not directly:
 
-- 修改 Robot Mesh；
-- 删除 Hair Voxel；
-- 计算得分；
-- 访问后端。
+- Modify Robot Mesh;
+- Delete Hair Voxels;
+- Calculate scores;
+- Access the backend.
 
-### 7.2 第一版候选 Block
+### 7.2 Candidate Blocks for the First Version
 
 ```text
 Servo / Joint
@@ -330,11 +330,11 @@ Control
 └── Wait [time]
 ```
 
-具体 Block 名称、舵机 ID、角度范围仍为 TBD。
+Specific Block names, servo IDs, and angle ranges remain TBD.
 
 ### 7.3 Program IR
 
-示例：
+Example:
 
 ```ts
 export type ProgramNode =
@@ -350,21 +350,21 @@ export interface Program {
 }
 ```
 
-执行时由 Program Executor 展开 / 解释为 RobotCommand 流。
+At execution time, the Program Executor expands / interprets this into a RobotCommand stream.
 
 ---
 
-## 8. 评分与 Difficulty 设计
+## 8. Scoring and Difficulty Design
 
-### 8.1 三项评分维度
+### 8.1 Three Scoring Dimensions
 
-当前采用：
+The current approach uses:
 
-1. **目标发型完成度（Completion）**：第一标准，权重最高；
-2. **程序效率（Program Efficiency）**：第二标准；
-3. **完成时间（Completion Time）**：第三标准。
+1. **Target hairstyle completion (Completion)**: the first criterion, with the highest weight;
+2. **Program efficiency (Program Efficiency)**: the second criterion;
+3. **Completion time (Completion Time)**: the third criterion.
 
-三项统一换算为 `0~100` 分，然后计算加权平均：
+All three are converted to scores of `0~100`, then combined as a weighted average:
 
 ```text
 FinalScore =
@@ -375,9 +375,9 @@ FinalScore =
 wCompletion + wEfficiency + wTime = 1
 ```
 
-### 8.2 默认 Demo 权重
+### 8.2 Default Demo Weights
 
-为便于 Codex 直接实现 Demo，当前提供**可配置默认值**：
+To let Codex implement the Demo directly, **configurable defaults** are currently provided:
 
 ```ts
 export const DEFAULT_SCORE_WEIGHTS = {
@@ -387,32 +387,32 @@ export const DEFAULT_SCORE_WEIGHTS = {
 };
 ```
 
-该权重不是最终产品规则，必须集中在配置中，不得散落硬编码。
+These weights are not the final product rules; they must be centralized in configuration rather than scattered as hardcoded values.
 
-### 8.3 完成度：Voxel IoU
+### 8.3 Completion: Voxel IoU
 
-推荐第一版直接使用 Hair Voxel 集合 IoU：
+The first version should directly use the IoU of Hair Voxel sets:
 
 ```text
 CompletionScore = |Target ∩ Result| / |Target ∪ Result| × 100
 ```
 
-它可以同时惩罚：
+This penalizes all of the following:
 
-- 应该保留却被剪掉的 voxel；
-- 应该剪掉却仍然存在的 voxel；
-- 结果形状位置错误。
+- Voxels cut that should have been retained;
+- Voxels still present that should have been cut;
+- Incorrect positioning of the resulting shape.
 
-### 8.4 程序效率
+### 8.4 Program Efficiency
 
-程序效率应鼓励：
+Program efficiency should encourage:
 
-- 更少的无效操作；
-- 更紧凑的程序；
-- 合理使用循环；
-- 更少的实际机械臂动作。
+- Fewer ineffective operations;
+- More compact programs;
+- Appropriate use of loops;
+- Fewer actual robot arm actions.
 
-第一版建议把“程序成本”抽象为独立函数，不把规则绑定在 Blockly：
+For the first version, “program cost” should be abstracted as an independent function, without tying the rules to Blockly:
 
 ```ts
 export interface ProgramMetrics {
@@ -426,7 +426,7 @@ export interface EfficiencyConfig {
 }
 ```
 
-Demo 可采用：
+The Demo can use:
 
 ```text
 ProgramCost = SourceBlockCount
@@ -435,39 +435,39 @@ ProgramCost = SourceBlockCount
 EfficiencyScore = min(100, referenceCost / ProgramCost × 100)
 ```
 
-`referenceCost` 由 Challenge 配置提供；以后可替换为最优解、动态基准或后端计算。
+`referenceCost` is supplied by Challenge configuration; it may later be replaced with an optimal solution, dynamic baseline, or backend calculation.
 
-### 8.5 时间得分
+### 8.5 Time Score
 
-Challenge 提供 `referenceTimeMs`：
+The Challenge supplies `referenceTimeMs`:
 
 ```text
 TimeScore = min(100, referenceTime / elapsedTime × 100)
 ```
 
-因此：
+Therefore:
 
-- 小于等于参考时间：100 分；
-- 超过参考时间：按比例下降。
+- At or below the reference time: 100 points;
+- Above the reference time: decreases proportionally.
 
-未来可以改为分段函数、倒计时或竞技模式，不影响其他模块。
+This can later change to a piecewise function, countdown, or competition mode without affecting other modules.
 
-### 8.6 Difficulty 的当前含义
+### 8.6 Current Meaning of Difficulty
 
-当前阶段 Difficulty 不单独绑定一个固定“难度公式”。它可以由 Challenge 配置综合体现，例如：
+At this stage, Difficulty is not tied to a separate fixed “difficulty formula”. It can be reflected by a combination of Challenge settings, such as:
 
-- Target Hairstyle 的复杂程度；
-- 可用 Block 类型；
-- 机械臂初始姿态；
-- 评分参考成本；
-- 评分参考时间；
-- 后续可能加入的舵机限制。
+- Target Hairstyle complexity;
+- Available Block types;
+- Initial robot arm pose;
+- Scoring reference cost;
+- Scoring reference time;
+- Servo restrictions that may be introduced later.
 
 ---
 
-## 9. Challenge 数据模型
+## 9. Challenge Data Model
 
-当前 Demo 使用本地静态 Challenge 数据。
+The current Demo uses local static Challenge data.
 
 ```ts
 export interface Challenge {
@@ -497,25 +497,25 @@ export interface Challenge {
 }
 ```
 
-第一版 Challenge 可以直接存放在：
+First-version Challenges can be stored directly in:
 
 ```text
 src/data/challenges/*.ts
 ```
 
-或 JSON 文件中。
+or in JSON files.
 
 ---
 
-## 10. 前端独立运行与后端接口预留
+## 10. Independent Frontend Operation and Reserved Backend Interfaces
 
-### 10.1 当前原则
+### 10.1 Current Principles
 
-**Demo 的全部核心流程必须在没有后端的情况下可运行。**
+**All core Demo flows must run without a backend.**
 
-同时，业务模块不得直接依赖“本地静态数据”这一实现细节。
+Business modules must also avoid directly depending on the “local static data” implementation detail.
 
-推荐使用 Provider / Gateway 抽象：
+Provider / Gateway abstractions are recommended:
 
 ```ts
 export interface ChallengeProvider {
@@ -528,7 +528,7 @@ export interface ScoreProvider {
 }
 ```
 
-当前实现：
+Current implementations:
 
 ```text
 ChallengeProvider
@@ -538,7 +538,7 @@ ScoreProvider
     └── LocalScoreProvider
 ```
 
-未来可替换：
+Future replacements:
 
 ```text
 ChallengeProvider
@@ -548,26 +548,26 @@ ScoreProvider
     └── HttpScoreProvider
 ```
 
-UI、Blockly、Robot Controller 不应该知道当前使用的是 Local 还是 HTTP。
+The UI, Blockly, and Robot Controller should not know whether Local or HTTP is currently in use.
 
-### 10.2 建议预留 API 形状
+### 10.2 Suggested Reserved API Shapes
 
-未来可能需要：
+The following may be needed in the future:
 
 ```text
 GET  /api/challenges
 GET  /api/challenges/:id
 POST /api/score
-POST /api/simulations       （未来）
+POST /api/simulations       (future)
 ```
 
-这里只定义接口边界，**当前 Demo 不实现网络调用**。
+This defines only the interface boundaries; **the current Demo does not implement network calls**.
 
 ---
 
-## 11. 当前不接真实 ESP
+## 11. No Real ESP Integration at This Stage
 
-当前系统链路只有：
+The current system chain is limited to:
 
 ```text
 Blockly
@@ -581,7 +581,7 @@ Virtual Robot Controller
 R3F / Three.js
 ```
 
-暂时不存在：
+The following are absent for now:
 
 ```text
 ESP
@@ -591,17 +591,17 @@ Real Servo
 Real Robot
 ```
 
-但 Robot Command 应继续使用通用、与硬件语义接近的 `jointId + angle` 形式，避免未来硬件接入时完全重做编程层。
+Robot Commands should nevertheless retain the general `jointId + angle` form, close to hardware semantics, to avoid completely rebuilding the programming layer for future hardware integration.
 
 ---
 
-## 12. 推荐前端目录结构
+## 12. Recommended Frontend Directory Structure
 
 ```text
 src/
 ├── app/
 │   ├── App.tsx
-│   └── routes.tsx                 # 如暂时单页可省略
+│   └── routes.tsx                 # Can be omitted if the app is a single page for now
 │
 ├── components/
 │   ├── challenge/
@@ -653,101 +653,101 @@ src/
 └── main.tsx
 ```
 
-目录名称可根据项目现状调整，但**模块边界应保留**。
+Directory names may be adjusted to the current project, but **module boundaries should be preserved**.
 
 ---
 
-## 13. 前端 Demo 最小验收标准（MVP）
+## 13. Minimum Frontend Demo Acceptance Criteria (MVP)
 
-### P0 - 必须完成
+### P0 - Required
 
-- [ ] React + TypeScript + Vite 项目可正常启动；
-- [ ] R3F / Three.js 3D Canvas 正常渲染；
-- [ ] 页面中存在一个可观察的虚拟机械臂；
-- [ ] 存在方块化 Head + Hair Voxel；
-- [ ] Hair Voxel 有独立逻辑状态；
-- [ ] Blockly Workspace 可以编辑基础舵机/关节指令；
-- [ ] Blockly 能转换为 Program IR；
-- [ ] Program Executor 能按顺序执行 Command；
-- [ ] 机械臂关节能根据 Command 运动；
-- [ ] 末端碰到 Hair Voxel 时，该 voxel 被删除；
-- [ ] Reset 能恢复初始机械臂和头发状态；
-- [ ] Demo 可以统计运行时间；
-- [ ] Demo 可以统计 source block 数与 executed command 数；
-- [ ] Demo 可以计算 Voxel IoU 完成度；
-- [ ] Demo 可以计算三项评分和最终加权分；
-- [ ] Challenge 与 Score 通过 Provider abstraction 获取/计算，而不是直接写死在 UI。
+- [ ] The React + TypeScript + Vite project starts successfully;
+- [ ] The R3F / Three.js 3D Canvas renders correctly;
+- [ ] The page contains an observable virtual robot arm;
+- [ ] A block-based Head + Hair Voxel model exists;
+- [ ] Hair Voxels have independent logical state;
+- [ ] Blockly Workspace supports editing basic servo/joint commands;
+- [ ] Blockly can convert to Program IR;
+- [ ] Program Executor can execute Commands in sequence;
+- [ ] Robot arm joints move according to Commands;
+- [ ] A Hair Voxel is deleted when the end effector touches it;
+- [ ] Reset restores the initial robot arm and hair state;
+- [ ] The Demo can track runtime;
+- [ ] The Demo can count source blocks and executed commands;
+- [ ] The Demo can calculate Voxel IoU completion;
+- [ ] The Demo can calculate all three scoring components and the final weighted score;
+- [ ] Challenges and Scores are retrieved/calculated through Provider abstractions rather than hardcoded directly in the UI.
 
-### P1 - 可以随后补充
+### P1 - Can Be Added Later
 
-- [ ] 更好的 voxel 视觉；
-- [ ] `InstancedMesh` 优化；
-- [ ] 多个 Challenge；
-- [ ] 更丰富 Blockly 控制结构；
-- [ ] 相机视角 / OrbitControls；
-- [ ] 程序单步执行、暂停、继续；
-- [ ] 当前执行 Block 高亮；
-- [ ] 轨迹 / 调试信息；
-- [ ] 双人竞赛 UI。
+- [ ] Improved voxel visuals;
+- [ ] `InstancedMesh` optimization;
+- [ ] Multiple Challenges;
+- [ ] More Blockly control structures;
+- [ ] Camera views / OrbitControls;
+- [ ] Program stepping, pause, and resume;
+- [ ] Highlighting the currently executing Block;
+- [ ] Trajectories / debugging information;
+- [ ] Two-player competition UI.
 
 ---
 
-## 14. Codex 实施约束
+## 14. Codex Implementation Constraints
 
-Codex 在实现时必须遵守以下规则：
+Codex must follow these rules during implementation:
 
 ### MUST
 
-1. 使用 **React + TypeScript + Vite**。
-2. 使用 **@react-three/fiber + three** 作为 3D 主方案。
-3. 使用 **Blockly** 作为可视化编程方案。
-4. 将 Hair 表示为**可删除 voxel state**，而不仅是一个不可变 GLB 模型。
-5. 机械臂操作抽象为 **servo / joint command**。
-6. 暂时不要加入剪刀开关；末端与 hair voxel 接触即删除 voxel。
-7. Blockly → Program IR → Executor → Robot Controller，禁止 Blockly 直接控制 Mesh。
-8. 评分逻辑必须独立于 UI 与 3D 渲染。
-9. 后端暂时用 Local Provider / Mock 实现，但保留可替换接口。
-10. 所有 TBD 参数应集中配置，不要散落 magic numbers。
-11. 优先实现可执行 Demo，而不是过度封装或提前建设完整产品架构。
+1. Use **React + TypeScript + Vite**.
+2. Use **@react-three/fiber + three** as the primary 3D solution.
+3. Use **Blockly** for visual programming.
+4. Represent Hair as **deletable voxel state**, rather than only an immutable GLB model.
+5. Abstract robot arm operations as **servo / joint commands**.
+6. Do not add scissor opening or closing yet; contact between the end effector and a hair voxel deletes that voxel.
+7. Blockly → Program IR → Executor → Robot Controller; Blockly must not control Mesh directly.
+8. Scoring logic must be independent of the UI and 3D rendering.
+9. Use Local Provider / Mock implementations for the backend for now, while retaining replaceable interfaces.
+10. Centralize all TBD parameters in configuration; do not scatter magic numbers.
+11. Prioritize an executable Demo over excessive abstraction or prematurely building a complete product architecture.
 
 ### MUST NOT
 
-1. 不要引入 Unity。
-2. 不要引入真实 ESP / MQTT / WebSerial / WebBluetooth。
-3. 不要实现真实发丝模拟。
-4. 不要实现真实剪刀开合。
-5. 不要默认玩家使用 `Move X/Y/Z` 控制机械臂。
-6. 不要把机械臂自由度、舵机角度限制写死在组件内部。
-7. 不要让 React State 承担每帧 60 FPS 的高频动画更新；高频 3D 变化放在 R3F/Three.js 渲染逻辑中。
-8. 不要让网络接口成为 Demo 运行前提。
+1. Do not introduce Unity.
+2. Do not introduce real ESP / MQTT / WebSerial / WebBluetooth integration.
+3. Do not implement real hair-strand simulation.
+4. Do not implement physical scissor opening or closing.
+5. Do not assume players use `Move X/Y/Z` to control the robot arm.
+6. Do not hardcode robot arm degrees of freedom or servo angle limits inside components.
+7. Do not use React State for high-frequency animation updates at 60 FPS; keep high-frequency 3D changes in R3F/Three.js rendering logic.
+8. Do not make network interfaces a prerequisite for running the Demo.
 
 ---
 
-## 15. 当前 TBD 清单
+## 15. Current TBD List
 
-以下问题留待后续团队确认：
+The following questions await later team confirmation:
 
-- 机械臂具体模型 / 自由度；
-- 舵机具体数量与名称；
-- 舵机真实角度与速度限制；
-- Blockly 最终 Block 集合；
-- 是否保留绝对角度和相对角度两种控制；
-- 是否需要同时驱动多个舵机；
-- 末端执行器碰撞体的精确形状 / 大小；
-- voxel 分辨率与方块尺寸；
-- 头部本体的 voxel / mesh 表达；
-- Target Hairstyle 的正式制作流程；
-- Program Efficiency 的最终成本函数；
-- 三项评分最终权重；
-- 双人竞赛具体展示与胜负规则；
-- 后端 API 正式协议；
-- CAT / Dynamic QBank 接入方式；
-- 真实 ESP / MQTT 接入方式。
+- Specific robot arm model / degrees of freedom;
+- Specific servo count and names;
+- Real servo angle and speed limits;
+- Final Blockly Block set;
+- Whether to retain both absolute and relative angle control;
+- Whether multiple servos need to be driven simultaneously;
+- Exact shape / size of the end-effector collider;
+- Voxel resolution and block size;
+- Voxel / mesh representation of the head body;
+- Formal Target Hairstyle authoring process;
+- Final cost function for Program Efficiency;
+- Final weights for the three scoring components;
+- Specific presentation and win/loss rules for two-player competition;
+- Formal backend API protocol;
+- CAT / Dynamic QBank integration approach;
+- Real ESP / MQTT integration approach.
 
-在上述内容确认之前，应使用**配置、接口和可替换策略**处理，而不是假设某个方案已经确定。
+Until these are confirmed, use **configuration, interfaces, and replaceable strategies** rather than assuming an approach has already been decided.
 
 ---
 
-## 16. 一句话架构定义
+## 16. One-Sentence Architecture Definition
 
-> **HCR Simulator 当前是一个纯前端可运行的 Web 3D 编程 Demo：用户通过 Blockly 编排真实舵机语义的关节控制指令，驱动 R3F/Three.js 中的虚拟机械臂；机械臂末端触碰方块化 Hair Voxel 即完成剪除；系统基于目标 voxel 发型完成度、程序效率和完成时间计算加权得分，同时通过 Provider / Service 接口为未来后端与真实硬件接入保留扩展边界。**
+> **HCR Simulator is currently a Web 3D programming Demo that runs entirely on the frontend: users compose joint control commands with real servo semantics in Blockly to drive a virtual robot arm in R3F/Three.js; the arm's end effector cuts block-based Hair Voxels on contact; the system calculates a weighted score based on target voxel hairstyle completion, program efficiency, and completion time, while retaining extension boundaries through Provider / Service interfaces for future backend and real hardware integration.**

@@ -14,6 +14,7 @@ import {
 import {
   anyResearchEnabled,
   loadResearchPreferences,
+  resetResearchParticipation,
 } from '../features/preferences/researchPreferences';
 import { DataConsentDialog } from '../features/preferences/DataConsentDialog';
 import { ThemeToggle } from '../theme/ThemeToggle';
@@ -129,6 +130,10 @@ export function HomeScreen({
             spellCheck={false}
           />
         </label>
+
+        <button type="button" className="ghost-button" onClick={resetResearchParticipation}>
+          {t('newPlayer')}
+        </button>
 
         <label className="name-field locale-field">
           <span>{t('language')}</span>

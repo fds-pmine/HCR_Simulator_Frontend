@@ -46,6 +46,57 @@ describe('Cutter Grid Rust planner provider', () => {
     });
   });
 
+  it('accepts a compiled Wait 0 and a two-primitive detour', async () => {
+    const response = responseFor(profile, challenge);
+    const positioning = response.plan.positioning.primitives[0];
+    const primitive = { ...structuredClone(positioning), start: positioning.end };
+    const move = {
+      type: 'move' as const, occurrenceId: 'move:0', sourceBlockId: 'move',
+      logicalCommandCount: 1, direction: 'right' as const, distance: 1,
+      startCoord: [0, 0, 0] as const, endCoord: [1, 0, 0] as const,
+    };
+    const wait = {
+      type: 'wait' as const, occurrenceId: 'wait:0', sourceBlockId: 'wait',
+      logicalCommandCount: 1 as const, durationMs: 0,
+    };
+    response.plan.actions = [
+      { ...move, primitives: [primitive, primitive], contactEvents: [], expectedCutVoxels: [] },
+      { ...wait, expectedCutVoxels: [] },
+    ];
+    response.plan.endCoord = move.endCoord;
+    response.plan.executedCommandCount = 2;
+    response.plan.estimatedDurationMs = primitive.durationMs * 2;
+    response.plan.diagnostics.detourPrimitiveCount = 2;
+    response.plan.trajectorySignature = cutterGridRustPlanSignatureV4(response.plan);
+    const compiled = {
+      ...compiledFor(profile), executableActions: [move, wait], executedCommandCount: 2,
+    } satisfies CompiledCutterGridProgramV2;
+    const worker = workerReturning(planFor(profile, challenge));
+    const provider = new CutterGridPlannerProvider({
+      config: { baseUrl: 'http://planner.test' },
+      fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(response)), worker,
+    });
+
+    await expect(provider.planV4(challenge, compiled, profile)).resolves.toMatchObject({ source: 'rust-backend' });
+    expect(worker.planV4).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized duration even with a valid Rust signature', async () => {
+    const response = responseFor(profile, challenge);
+    const primitive = response.plan.positioning.primitives[0];
+    primitive.durationMs = 1e100;
+    response.plan.positioning.trajectorySignature = cutterGridRustPrimitiveSignatureV4(primitive);
+    response.plan.trajectorySignature = cutterGridRustPlanSignatureV4(response.plan);
+    const worker = workerReturning(planFor(profile, challenge));
+    const provider = new CutterGridPlannerProvider({
+      config: { baseUrl: 'http://planner.test' },
+      fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(response)), worker,
+    });
+
+    await expect(provider.planV4(challenge, compiledFor(profile), profile)).rejects.toThrow('contains invalid values');
+    expect(worker.planV4).not.toHaveBeenCalled();
+  });
+
   it('sends the pinned challenge version instead of a provider constant', async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
@@ -228,7 +279,7 @@ function compiledFor(profile: CutterGridProfileV4): CompiledCutterGridProgramV2 
 }
 
 function planFor(profile: CutterGridProfileV4, challenge: Challenge): CutterTrajectoryPlanV4 {
-  const primitive = profile.entryOptions[0].positioningPrimitive;
+  const primitive = structuredClone(profile.entryOptions[0].positioningPrimitive);
   const plan: CutterTrajectoryPlanV4 = {
     kind: 'cutter-grid-trajectory',
     version: 4,

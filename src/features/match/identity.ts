@@ -52,6 +52,14 @@ export function saveIdentity(identity: PlayerIdentity): PlayerIdentity {
   return identity;
 }
 
+export function clearIdentity(): void {
+  try {
+    globalThis.localStorage?.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable in restricted browsing contexts.
+  }
+}
+
 /** Trim and clamp a name the player typed, refusing to produce an empty one. */
 export function normalizeDisplayName(
   raw: string,

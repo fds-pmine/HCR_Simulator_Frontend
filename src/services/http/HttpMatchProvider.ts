@@ -177,6 +177,9 @@ export class HttpMatchProvider implements MatchProvider {
   }
 
   private base(matchId: string): string {
+    if (!/^[A-Z2-9]{6}$/.test(matchId)) {
+      throw new Error('The room code must contain six uppercase letters or digits 2–9.');
+    }
     return `/api/v1/matches/${encodeURIComponent(matchId)}`;
   }
 

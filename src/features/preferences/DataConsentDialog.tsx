@@ -116,7 +116,11 @@ export function DataConsentDialog({ onClose }: DataConsentDialogProps) {
               <button type="button" className="big-button" onClick={chooseNone}>
                 {t('exitStudy')}
               </button>
-              <button type="button" className="big-button big-button--primary" onClick={() => choose({ programAndScores: true, language: true, utcOffset: true })}>
+              <button type="button" className="big-button big-button--primary" onClick={() => choose({
+                programAndScores: true,
+                language: preferences.language,
+                utcOffset: preferences.utcOffset,
+              })}>
                 {t('participateStudy')}
               </button>
             </>

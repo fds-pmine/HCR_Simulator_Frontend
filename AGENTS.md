@@ -1,64 +1,64 @@
 # HCR Simulator Agent Guide
 
-## 当前阶段
+## Current phase
 
-仓库已按用户明确授权完成原 `docs/IMPLEMENTATION_PLAN.md` 的 Phase 1–6、五关节升级与确定性头部防穿模、Cutter Grid 首版 Phase 0–5，以及紧凑同步 PTP V4 Phase 1–6。V2 全局多分支 IK 与 V3 限 jerk 计划保留为被 V4 取代的历史记录；后续迁移须获得新的明确授权。原 Phase 7 与所有 Cutter Grid 阶段均不包含部署。
+Under the user's explicit authorization, the repository has completed the original Phase 1–6 in `docs/IMPLEMENTATION_PLAN.md`, the five-joint upgrade and deterministic head penetration prevention, the initial Cutter Grid Phase 0–5, and compact synchronized PTP V4 Phase 1–6. The V2 global multi-branch IK and V3 jerk-limited plans remain as historical records superseded by V4; further migration requires new explicit authorization. Neither the original Phase 7 nor any Cutter Grid phase includes deployment.
 
-- 每个 Phase 开始前重读实施计划与相关规格；
-- 每个 Phase 只实现该阶段范围，完成验证后独立 commit；
-- 不执行部署；除已在 v0.3 明确授权的 Cutter Grid 编译期 IK 与同步多关节轨迹外，不引入其他首版非目标能力；
-- 遇到跨阶段依赖时优先保持可测试接口，不以越层实现绕过计划。
+- Reread the implementation plan and relevant specifications before starting each phase.
+- Implement only the scope of that phase, verify it, and commit it separately.
+- Do not deploy. Apart from the Cutter Grid compile-time IK and synchronized multi-joint trajectories explicitly authorized in v0.3, do not introduce capabilities outside the initial release's goals.
+- When dependencies cross phases, preserve testable interfaces rather than bypassing the plan by implementing a later layer early.
 
-## 文档优先级
+## Documentation precedence
 
-1. 用户当前指令。
-2. 本文件。
-3. `docs/HCR_Simulator_SPEC_v0.3.md`。
-4. `docs/IMPLEMENTATION_PLAN.md`。
-5. `docs/ACCEPTANCE.md`。
-6. `docs/HCR_Simulator_SPEC_v0.2.md` 仅作为历史背景。
+1. The user's current instructions.
+2. This file.
+3. `docs/HCR_Simulator_SPEC_v0.3.md`.
+4. `docs/IMPLEMENTATION_PLAN.md`.
+5. `docs/ACCEPTANCE.md`.
+6. `docs/HCR_Simulator_SPEC_v0.2.md`, for historical context only.
 
-说明文档使用中文；类型、API、标识符、文件名和必要代码注释使用英文。
+Write documentation in English. Use English for types, APIs, identifiers, filenames, and necessary code comments.
 
-## 文档维护规则
+## Documentation maintenance rules
 
-- v0.3 必须可以独立阅读，不得要求实现者从 v0.2 拼接关键决策。
-- 产品或技术决策变化时，同时更新 v0.3、实施计划和验收清单。
-- 已确认决策使用明确陈述；尚未确认内容标记为“未来扩展/TBD”，不得伪装成首版要求。
-- 示例类型与公式是接口契约；修改字段或语义时必须同步所有引用。
-- 不覆盖 v0.2；它是历史记录。
+- v0.3 must stand alone; implementers must not need to reconstruct key decisions from v0.2.
+- When product or technical decisions change, update v0.3, the implementation plan, and the acceptance checklist together.
+- State confirmed decisions explicitly. Mark unconfirmed content as "Future extension/TBD" rather than presenting it as an initial-release requirement.
+- Example types and formulas are interface contracts. Update every reference when fields or semantics change.
+- Do not overwrite v0.2; it is a historical record.
 
-## 模块边界
+## Module boundaries
 
-- Blockly 只能生成 Program IR，不得直接操作 Three.js、Hair State 或评分。
-- R3F 组件只负责渲染和每帧驱动，不得包含评分规则。
-- Simulation Engine 负责命令执行、时间推进和碰撞协调。
-- 头部防穿模使用纯几何约束；碰撞时必须保留最后安全姿态并进入 `error`，不得在渲染层静默修正。
-- Hair Voxel 必须由可测试的逻辑集合表示，不能只存在于 Mesh。
-- Challenge 和评分必须通过 Provider 接口进入应用。
-- 所有机械臂、voxel、碰撞和评分参数必须来自集中配置。
-- React State 不得承担 60 FPS 高频关节插值；高频数据保留在控制器实例与 R3F refs 中。
+- Blockly may generate only Program IR; it must not manipulate Three.js, Hair State, or scoring directly.
+- R3F components handle rendering and per-frame driving only; they must not contain scoring rules.
+- The Simulation Engine owns command execution, time advancement, and collision coordination.
+- Head penetration prevention uses pure geometric constraints. On collision, preserve the last safe pose and enter `error`; do not silently correct the pose in the rendering layer.
+- Hair Voxels must be represented by a testable logical set, not only by meshes.
+- Challenges and scoring must enter the application through Provider interfaces.
+- All robot, voxel, collision, and scoring parameters must come from centralized configuration.
+- React State must not handle high-frequency joint interpolation at 60 FPS. Keep high-frequency data in controller instances and R3F refs.
 
-## 首版禁止事项
+## Prohibited in the initial release
 
-- 不增加通用相对角度、任意 Cartesian Move、运行时 IK、剪刀开合或物理引擎。Cutter Grid 仅允许规格定义的固定世界轴单格移动、编译期确定性 IK 和冻结同步轨迹。
-- 不增加 ESP、MQTT、WebSerial、WebBluetooth 或真实网络依赖。
-- 不引入外部 GLB/FBX 机械臂或头发资产。
-- 不把 Local Provider 实现直接导入业务 UI。
-- 不用 JavaScript `eval` 或 Blockly JavaScript Generator 执行用户程序。
+- Do not add generic relative angles, arbitrary Cartesian Move, runtime IK, scissor actuation, or a physics engine. Cutter Grid permits only the specified fixed-world-axis single-cell moves, deterministic compile-time IK, and frozen synchronized trajectories.
+- Do not add ESP, MQTT, WebSerial, WebBluetooth, or real network dependencies.
+- Do not introduce external GLB/FBX robot or hair assets.
+- Do not import Local Provider implementations directly into business UI.
+- Do not execute user programs with JavaScript `eval` or the Blockly JavaScript Generator.
 
-## 修改流程
+## Change process
 
-1. 先核对 v0.3 规格与 `docs/ACCEPTANCE.md`。
-2. 编码阶段开始后，按 `docs/IMPLEMENTATION_PLAN.md` 的依赖顺序实施。
-3. 保持领域逻辑为纯函数或可注入时钟的类，并先补相应测试。
-4. UI 改动必须保持 1280×720 下主控制无遮挡。
-5. 新增配置字段时同步更新类型、本地 Challenge、文档和测试。
-6. 不提交构建产物、测试报告或本地环境文件。
+1. Check the v0.3 specification and `docs/ACCEPTANCE.md` first.
+2. Once coding begins, follow the dependency order in `docs/IMPLEMENTATION_PLAN.md`.
+3. Keep domain logic in pure functions or classes with injectable clocks, and add the relevant tests first.
+4. UI changes must keep the main controls unobstructed at 1280×720.
+5. When adding configuration fields, update types, local Challenges, documentation, and tests together.
+6. Do not commit build artifacts, test reports, or local environment files.
 
-## 完成定义
+## Definition of done
 
-以下命令必须全部通过：
+All of the following commands must pass:
 
 ```bash
 npm run typecheck
@@ -68,4 +68,4 @@ npm run build
 npm run test:e2e
 ```
 
-并完成 `docs/ACCEPTANCE.md` 中的人工验收项。
+Also complete the manual acceptance items in `docs/ACCEPTANCE.md`.

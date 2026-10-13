@@ -55,13 +55,13 @@ describe('readBackendConfig', () => {
     ).toBeUndefined();
   });
 
-  it('reads the base URL and optional token', () => {
+  it('reads only the public base URL, ignoring a legacy build-time token', () => {
     expect(
       readBackendConfig({
         VITE_HCR_API_BASE_URL: 'http://localhost:8080',
         VITE_HCR_API_TOKEN: 'secret',
-      } as ImportMetaEnv),
-    ).toEqual({ baseUrl: 'http://localhost:8080', token: 'secret' });
+      } as unknown as ImportMetaEnv),
+    ).toEqual({ baseUrl: 'http://localhost:8080' });
   });
 });
 
@@ -76,17 +76,17 @@ describe('ApiClient', () => {
     );
   });
 
-  it('sends the bearer token when configured', async () => {
+  it('does not send a legacy build-time bearer token', async () => {
     const fetchImpl = createFetchMock(() => jsonResponse([]));
     const client = new ApiClient({
       baseUrl: 'https://backend.test',
-      token: 'secret',
       fetchImpl: fetchImpl as unknown as typeof fetch,
+      ...{ token: 'secret' },
     });
     await client.get('/api/v1/challenges');
 
     const headers = initOf(fetchImpl).headers as Record<string, string>;
-    expect(headers.Authorization).toBe('Bearer secret');
+    expect(headers.Authorization).toBeUndefined();
   });
 
   it('surfaces the wire error code and field', async () => {
@@ -259,6 +259,28 @@ describe('HttpSessionProvider', () => {
 
 describe('HttpMatchProvider', () => {
   const ACK = { submissionId: 'sub-1', accepted: true, serverReceivedAt: 1 };
+
+  it.each(['.', '..', '../ABC234', '%2e%2e', 'ABC/23', 'ABC123', 'ABC23', 'ABC2345'])(
+    'rejects invalid room code %s before making any request', async (code) => {
+      const { client, fetchImpl } = clientReturning(ACK);
+      const provider = new HttpMatchProvider(client);
+      const calls = [
+        () => provider.joinMatch(code),
+        () => provider.startMatch(code),
+        () => provider.getMatch(code),
+        () => provider.getMatchChallenge(code),
+        () => provider.getResults(code),
+        () => provider.rematch(code),
+        () => provider.setCrews(code, {}),
+        () => provider.submit(code, {
+          submissionId: 'sub-1', challengeId: 'neat-short-cap', challengeVersion: 1,
+          program: { nodes: [], sourceBlockCount: 0 },
+        }),
+      ];
+      for (const call of calls) await expect(call()).rejects.toThrow('room code');
+      expect(fetchImpl).not.toHaveBeenCalled();
+    },
+  );
 
   it('sends a servo entry exactly as it did before Cutter Grid rounds existed', async () => {
     const { client, fetchImpl } = clientReturning(ACK);

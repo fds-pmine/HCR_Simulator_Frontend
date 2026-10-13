@@ -20,6 +20,10 @@ export const CREWS: readonly CrewId[] = ['A', 'B', 'C', 'D', 'E', 'F'];
 /** Player id to crew. A player who is in no crew is simply absent. */
 export type CrewMap = Readonly<Record<string, CrewId>>;
 
+export function crewFor(crews: CrewMap, playerId: string): CrewId | undefined {
+  return Object.hasOwn(crews, playerId) ? crews[playerId] : undefined;
+}
+
 /**
  * The next crew in the cycle, ending at unassigned.
  *
@@ -69,7 +73,6 @@ export function drawCrews(
   crewCount = CREWS.length,
 ): CrewMap {
   const crews = Math.max(1, Math.min(crewCount, CREWS.length));
-  if (playerIds.length === 0) return {};
 
   const dealt = [...playerIds].sort(
     (left, right) =>
@@ -77,8 +80,9 @@ export function drawCrews(
       left.localeCompare(right),
   );
 
-  return Object.fromEntries(
-    dealt.map((playerId, index) => [playerId, CREWS[index % crews]]),
+  return Object.assign(
+    Object.create(null),
+    Object.fromEntries(dealt.map((playerId, index) => [playerId, CREWS[index % crews]])),
   );
 }
 
@@ -113,10 +117,13 @@ export function crewsFor(
   players: readonly MatchPlayer[],
   matchId: string,
 ): CrewMap {
-  const assigned = Object.fromEntries(
-    players
-      .filter((player) => player.crew !== undefined)
-      .map((player) => [player.playerId, player.crew as CrewId]),
+  const assigned: CrewMap = Object.assign(
+    Object.create(null),
+    Object.fromEntries(
+      players
+        .filter((player) => player.crew !== undefined)
+        .map((player) => [player.playerId, player.crew as CrewId]),
+    ),
   );
   if (Object.keys(assigned).length > 0) return assigned;
 
@@ -125,11 +132,13 @@ export function crewsFor(
 }
 
 export function assignCrew(crews: CrewMap, playerId: string): CrewMap {
-  const next = nextCrew(crews[playerId]);
-  const rest = Object.fromEntries(
-    Object.entries(crews).filter(([id]) => id !== playerId),
+  const next = nextCrew(crewFor(crews, playerId));
+  const rest: Record<string, CrewId> = Object.assign(
+    Object.create(null),
+    Object.fromEntries(Object.entries(crews).filter(([id]) => id !== playerId)),
   );
-  return next === undefined ? rest : { ...rest, [playerId]: next };
+  if (next !== undefined) rest[playerId] = next;
+  return rest;
 }
 
 /**
@@ -170,7 +179,7 @@ export function crewTotals(
   >();
 
   for (const row of rows) {
-    const crew = crews[row.playerId];
+    const crew = crewFor(crews, row.playerId);
     if (crew === undefined) continue;
     // A member who never submitted counts as zero rather than being skipped:
     // under either rule, a crew that leaves somebody behind should feel it.

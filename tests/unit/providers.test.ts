@@ -89,6 +89,33 @@ describe('LocalChallengeProvider', () => {
 });
 
 describe('challenge validation', () => {
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, undefined])(
+    'rejects a non-finite servo offset or center (%s)', (value) => {
+      for (const field of ['offsetDeg', 'centerDeg'] as const) {
+        const definition = cloneDefinition();
+        definition.robotConfig.joints[0].servo![field] = value as number;
+        expect(() => validateChallengeDefinition(definition)).toThrow(ChallengeValidationError);
+      }
+    },
+  );
+
+  it.each([
+    [], [1, 1], [1, 1, 1, 1], [1, 0, 1], [1, -1, 1],
+    [1, Number.NaN, 1], [1, Number.POSITIVE_INFINITY, 1], null,
+  ])('rejects malformed or non-positive head scale %s', (value) => {
+    const definition = cloneDefinition();
+    definition.voxelConfig.headScale = value as unknown as ChallengeDefinition['voxelConfig']['headScale'];
+    expect(() => validateChallengeDefinition(definition)).toThrow(ChallengeValidationError);
+  });
+
+  it.each([[], [1, 1], [1, Number.POSITIVE_INFINITY, 1], null])(
+    'rejects malformed head center %s', (value) => {
+      const definition = cloneDefinition();
+      definition.voxelConfig.headCenter = value as unknown as ChallengeDefinition['voxelConfig']['headCenter'];
+      expect(() => validateChallengeDefinition(definition)).toThrow(ChallengeValidationError);
+    },
+  );
+
   it('requires every hardware-backed joint to initialize at firmware Home', () => {
     const invalidHome = cloneDefinition();
     invalidHome.robotConfig.joints[0].initialAngleDeg = 45;

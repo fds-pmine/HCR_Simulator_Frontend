@@ -1,15 +1,15 @@
-# HCR Simulator Demo 实施计划
+# HCR Simulator Demo Implementation Plan
 
-> 本文记录分阶段实施状态。原 Servo Phase 1–6、五关节/头部防穿模增量、自动化集成与质量门、Cutter Grid 首版 Phase 0–5，以及紧凑同步 PTP V4 Phase 1–6 已完成；全局多分支 IK 与限 jerk 阶段保留为 V4 取代前的历史记录。
+> This document records implementation status by phase. Original Servo Phases 1–6, the five-joint/head penetration prevention increments, automated integration and quality gates, initial Cutter Grid Phases 0–5, and compact synchronized PTP V4 Phases 1–6 are complete; the global multi-branch IK and jerk-limited phases remain as historical records from before V4 superseded them.
 
-## 1. 实施原则
+## 1. Implementation Principles
 
-- 按“纯领域逻辑 → Provider → Blockly → 仿真 → 3D → 工作台 → E2E”的依赖顺序推进。
-- 每个阶段先建立可测试契约，再连接 UI。
-- 优先保证一个 Challenge 的完整、确定性闭环，不提前扩充产品范围。
-- 所有阶段持续遵守 `AGENTS.md` 和 v0.3 规格。
+- Follow the dependency order: pure domain logic → Provider → Blockly → simulation → 3D → workbench → E2E.
+- Establish testable contracts before connecting the UI in each phase.
+- Prioritize a complete, deterministic loop for one Challenge; do not expand product scope early.
+- Follow `AGENTS.md` and the v0.3 specification throughout every phase.
 
-## 2. 目标工程结构
+## 2. Target Project Structure
 
 ```text
 src/
@@ -61,187 +61,187 @@ tests/
 └── e2e/
 ```
 
-目录可在不破坏模块边界的前提下小幅调整；不要为首版建立路由、后端或通用插件系统。
+Directories may be adjusted slightly without breaking module boundaries; do not build routing, a backend, or a general plugin system for the initial version.
 
-## 3. 分阶段任务
+## 3. Phased Tasks
 
-### Phase 0 — 文档基线
+### Phase 0 — Documentation Baseline
 
-- [x] 保留 v0.2 历史规格。
-- [x] 建立可独立阅读的 v0.3 规格。
-- [x] 建立根 README 和 AGENTS.md。
-- [x] 建立实施计划与验收清单。
-- [x] 明确当前阶段不创建代码和依赖。
+- [x] Preserve the historical v0.2 specification.
+- [x] Establish a standalone v0.3 specification.
+- [x] Create the root README and AGENTS.md.
+- [x] Create the implementation plan and acceptance checklist.
+- [x] State explicitly that this phase creates no code or dependencies.
 
-### Phase 1 — 工程与质量门
+### Phase 1 — Project Setup and Quality Gates
 
-- [x] 创建 React + TypeScript + Vite 工程。
-- [x] 安装 R3F、Three.js、Drei、Blockly、Zustand。
-- [x] 配置 ESLint、Vitest、jsdom 和 Playwright。
-- [x] 提供 `dev`、`typecheck`、`lint`、`test`、`build`、`test:e2e` 命令。
-- [x] 建立应用入口、全局样式和测试初始化。
+- [x] Create a React + TypeScript + Vite project.
+- [x] Install R3F, Three.js, Drei, Blockly, and Zustand.
+- [x] Configure ESLint, Vitest, jsdom, and Playwright.
+- [x] Provide `dev`, `typecheck`, `lint`, `test`, `build`, and `test:e2e` commands.
+- [x] Establish the application entry point, global styles, and test setup.
 
-阶段出口：空应用可以启动和构建，全部质量命令存在。
+Phase exit: the empty application starts and builds, and all quality commands exist.
 
-### Phase 2 — 领域模型、Challenge 与评分
+### Phase 2 — Domain Model, Challenge, and Scoring
 
-- [x] 实现 v0.3 中的 domain types、VoxelKey 转换和配置校验。
-- [x] 实现确定性目标短发生成器和初始厚帽型生成器。
-- [x] 建立唯一 Challenge Definition、机械臂配置和示例 Workspace 数据，并固定 `Neat Short Haircut`、`Thick Cap Initial Hairstyle`、`Symmetric Neat Crop` 英文显示名。
-- [x] 实现 ChallengeProvider / ScoreProvider 接口与 Local 实现。
-- [x] 实现 IoU、Program Cost、时间估算和加权评分。
-- [x] 覆盖集合不变量、Provider 与评分边界单测。
+- [x] Implement the v0.3 domain types, VoxelKey conversions, and configuration validation.
+- [x] Implement deterministic generators for the target short haircut and initial thick cap hairstyle.
+- [x] Establish the single Challenge Definition, robot configuration, and example Workspace data, with the fixed English display names `Neat Short Haircut`, `Thick Cap Initial Hairstyle`, and `Symmetric Neat Crop`.
+- [x] Implement the ChallengeProvider / ScoreProvider interfaces and Local implementations.
+- [x] Implement IoU, Program Cost, time estimation, and weighted scoring.
+- [x] Cover set invariants, Providers, and scoring boundaries with unit tests.
 
-阶段出口：不依赖 React 或 Three.js 即可加载 Challenge 并得到确定性评分。
+Phase exit: a Challenge can be loaded and scored deterministically without React or Three.js.
 
-### Phase 3 — Blockly 与 Program IR
+### Phase 3 — Blockly and Program IR
 
-- [x] 注册使用英文标签与 tooltip 的绝对关节、Wait 和 Repeat 积木。
-- [x] 根据 Challenge 动态建立关节下拉框、角度验证和工具箱。
-- [x] 实现预置 Workspace 的反序列化。
-- [x] 实现单顶层栈校验和结构化 Program IR 编译。
-- [x] 实现 Repeat 展开、500 原子命令限制和 Source Block ID 保留。
-- [x] 覆盖空程序、多顶层、字段越界、嵌套 Repeat 和计数规则单测。
+- [x] Register absolute-joint, Wait, and Repeat blocks with English labels and tooltips.
+- [x] Build joint dropdowns, angle validation, and the toolbox dynamically from the Challenge.
+- [x] Implement deserialization of preset Workspaces.
+- [x] Implement single top-level stack validation and structured Program IR compilation.
+- [x] Implement Repeat expansion, the 500 atomic-command limit, and Source Block ID preservation.
+- [x] Cover empty programs, multiple top-level stacks, out-of-range fields, nested Repeat, and counting rules with unit tests.
 
-阶段出口：示例 Workspace 可编译为稳定、可检查的 Runtime Command 列表，不执行动态 JavaScript。
+Phase exit: the example Workspace compiles to a stable, inspectable Runtime Command list without executing dynamic JavaScript.
 
-### Phase 4 — 机械臂、仿真和碰撞
+### Phase 4 — Robot, Simulation, and Collision
 
-- [x] 实现纯正向运动学函数和已知姿态测试。
-- [x] 增加 `shoulderRoll` 并将旋转链升级为五关节完整三维正向运动学。
-- [x] 实现 RobotController 的当前角度、目标角度和线性推进。
-- [x] 建立机械装置胶囊/球体与扩张头部椭球的确定性安全约束。
-- [x] 以最多 0.5° 子步和 12 次二分搜索停在最后安全姿态。
-- [x] 实现 Sphere Sweep / Voxel AABB 连续接触检测。
-- [x] 实现 Program Executor 与 SimulationEngine 状态机。
-- [x] 实现 Run、Pause、Resume、Step、Stop、Reset 和完成回调。
-- [x] 实现 Hair Set 删除、指标累积、日志上限和评分触发。
-- [x] 覆盖帧率无关剪发/头部碰撞、暂停冻结、单步边界、错误定位和 Reset 单测。
+- [x] Implement pure forward-kinematics functions and known-pose tests.
+- [x] Add `shoulderRoll` and upgrade the rotation chain to full five-joint three-dimensional forward kinematics.
+- [x] Implement current angles, target angles, and linear advancement in RobotController.
+- [x] Establish deterministic safety constraints between mechanism capsules/spheres and the expanded head ellipsoid.
+- [x] Stop at the last safe pose using substeps of at most 0.5° and 12 binary-search iterations.
+- [x] Implement Sphere Sweep / Voxel AABB continuous contact detection.
+- [x] Implement the Program Executor and SimulationEngine state machine.
+- [x] Implement Run, Pause, Resume, Step, Stop, Reset, and completion callbacks.
+- [x] Implement Hair Set deletion, metric accumulation, log limits, and scoring triggers.
+- [x] Cover frame-rate-independent cutting/head collision, pause freezing, step boundaries, error localization, and Reset with unit tests.
 
-阶段出口：无 UI 时可用注入 delta 的测试完整运行程序，并得到命中集合和 ScoreResult。
+Phase exit: tests with injected delta can run a complete program without UI and produce a hit set and ScoreResult.
 
-### Phase 5 — R3F 场景
+### Phase 5 — R3F Scene
 
-- [x] 创建 Canvas、相机、灯光、地面和 OrbitControls。
-- [x] 使用嵌套 Group 渲染程序化五关节机械臂和 X 轴肩部万向环。
-- [x] 使用当前 Hair Set 渲染可删除 voxel。
-- [x] 渲染不可剪头部、末端工具和可切换 Target Ghost。
-- [x] 在 `useFrame` 中推进引擎并更新高频 refs。
-- [x] 增加 WebGL 不可用的降级错误界面。
+- [x] Create the Canvas, camera, lights, ground, and OrbitControls.
+- [x] Render the procedural five-joint robot and X-axis shoulder gimbal using nested Groups.
+- [x] Render removable voxels from the current Hair Set.
+- [x] Render the uncuttable head, end tool, and toggleable Target Ghost.
+- [x] Advance the engine and update high-frequency refs in `useFrame`.
+- [x] Add a fallback error interface when WebGL is unavailable.
 
-阶段出口：机械臂动画、Hair 删除和目标预览与引擎状态一致，3D 组件不包含业务评分。
+Phase exit: robot animation, Hair deletion, and target preview match engine state; 3D components contain no business scoring rules.
 
-### Phase 6 — 工作台与调试交互
+### Phase 6 — Workbench and Debugging Interaction
 
-- [x] 建立 3D 主视图、左 Blockly、右 Inspector、底部控制和日志抽屉。
-- [x] 连接 Challenge 加载、状态机控制和 Blockly 只读状态。
-- [x] 实现当前 Block 高亮和相关编译错误定位。
-- [x] 展示关节、末端、voxel、程序指标和结果分解。
-- [x] 实现面板折叠、键盘焦点、按钮禁用和 1280×720 降级布局。
-- [x] 统一工作台、Blockly、日志、错误、降级界面与无障碍标签的英文文案，并使用 `Base Yaw`、`Shoulder Roll`、`Shoulder`、`Elbow`、`Wrist` 关节显示名。
-- [x] 校准含非零 `shoulderRoll` 的安全示例程序，使其自然结束且 Completion Score ≥80。
+- [x] Build the main 3D view, left Blockly panel, right Inspector, bottom controls, and log drawer.
+- [x] Connect Challenge loading, state-machine controls, and Blockly read-only state.
+- [x] Implement current Block highlighting and localization of related compilation errors.
+- [x] Display joints, end-effector position, voxels, program metrics, and result breakdowns.
+- [x] Implement collapsible panels, keyboard focus, disabled buttons, and the 1280×720 fallback layout.
+- [x] Standardize English copy across the workbench, Blockly, logs, errors, fallback interfaces, and accessibility labels, using the joint display names `Base Yaw`, `Shoulder Roll`, `Shoulder`, `Elbow`, and `Wrist`.
+- [x] Calibrate a safe example program with nonzero `shoulderRoll` so it finishes naturally with Completion Score ≥80.
 
-阶段出口：人工可以完成从加载、运行、调试到评分和重置的完整流程。
+Phase exit: a person can complete the full flow from loading, running, and debugging to scoring and resetting.
 
-### Phase 7 — 集成测试与交付
+### Phase 7 — Integration Testing and Delivery
 
-- [x] 完成 Playwright 主闭环、错误流程和英文运行时文案断言。
-- [x] 在 Chrome / Edge 的目标视口人工验收。
-- [x] 运行全部质量门并修复失败。
-- [x] 按实际工程更新 README 启动说明和验收清单。
-- [x] 确认没有后端、硬件、持久化或部署依赖。
+- [x] Complete Playwright coverage of the main loop, error flows, and English runtime-copy assertions.
+- [x] Perform manual acceptance in Chrome / Edge at the target viewports.
+- [x] Run all quality gates and fix failures.
+- [x] Update README startup instructions and the acceptance checklist to match the actual project.
+- [x] Confirm there are no backend, hardware, persistence, or deployment dependencies.
 
-阶段出口：`docs/ACCEPTANCE.md` 全部适用项通过。
+Phase exit: all applicable items in `docs/ACCEPTANCE.md` pass.
 
-### Cutter Grid Phase 0 — 基线、规格与可行性门禁
+### Cutter Grid Phase 0 — Baseline, Specification, and Feasibility Gates
 
-- [x] 从重新获取的 `origin/main@afad77e` 创建 `feat/cutter-grid-control`，并记录 typecheck、lint、unit、build 和 E2E 全绿基线。
-- [x] 同步 v0.3、实施计划、验收清单和 AGENTS 约束，把 Cutter Grid 编译期 IK 作为受控例外。
-- [x] 增加版本化 Program/Profile/Trajectory 类型与覆盖全部认证输入的 Challenge 签名。
-- [x] 增加固定六方向、有限边界、坐标转换、候选起点排序和几何接触审计纯函数。
-- [x] 缓存默认 Challenge 的几何审计：首选起点不接触 Hair、六方向均存在安全边、12 个目标均被无附带剪除的边覆盖。
-- [x] 明确几何审计不能代替关节轨迹认证；入口在 Phase 2 Profile 完成前保持关闭。
+- [x] Create `feat/cutter-grid-control` from the freshly fetched `origin/main@afad77e` and record an all-green typecheck, lint, unit, build, and E2E baseline.
+- [x] Synchronize v0.3, the implementation plan, acceptance checklist, and AGENTS constraints, treating Cutter Grid compile-time IK as a controlled exception.
+- [x] Add versioned Program/Profile/Trajectory types and a Challenge signature covering every certification input.
+- [x] Add pure functions for the six fixed directions, finite bounds, coordinate conversion, candidate-start ordering, and geometric contact audits.
+- [x] Cache the default Challenge geometric audit: the preferred start has no Hair contact, safe edges exist in all six directions, and all 12 targets are covered by edges with no collateral cutting.
+- [x] State explicitly that geometric audits cannot replace joint-trajectory certification; keep the entry point disabled until the Phase 2 Profile is complete.
 
-阶段出口：证明网格和 `0.12` 刀头在纯几何层可行，且任何 Challenge 漂移会使缓存失效；不接入玩家入口。
+Phase exit: demonstrate geometric feasibility of the grid and `0.12` tool, with any Challenge drift invalidating the cache; do not connect the player entry point.
 
-### Cutter Grid Phase 1 — Blockly、独立 IR 与 Workspace 隔离
+### Cutter Grid Phase 1 — Blockly, Separate IR, and Workspace Isolation
 
-- [x] 增加 `servo | cutter-grid` 模式、六种 Move 积木和模式工具箱。
-- [x] 实现距离/Wait/Repeat 校验、单格展开、500 原子动作限制和错误定位。
-- [x] 按 Challenge 签名与模式保存独立内存 Workspace，只允许在 `idle` 切换。
-- [x] 保持 Servo Program IR、编译器和后端序列化完全不变。
+- [x] Add `servo | cutter-grid` modes, six Move blocks, and mode-specific toolboxes.
+- [x] Implement distance/Wait/Repeat validation, single-cell expansion, the 500 atomic-action limit, and error localization.
+- [x] Save separate in-memory Workspaces by Challenge signature and mode, allowing mode switches only in `idle`.
+- [x] Keep Servo Program IR, its compiler, and backend serialization completely unchanged.
 
-阶段出口：两种语言可以独立编辑和编译，但 Cutter Grid 尚不执行 IK。
+Phase exit: both languages can be edited and compiled separately, but Cutter Grid does not execute IK yet.
 
-### Cutter Grid Phase 2 — 确定性 IK、Worker 与认证 Profile
+### Cutter Grid Phase 2 — Deterministic IK, Worker, and Certified Profile
 
-- [x] 实现版本化 DLS IK、固定备用种子、稳定候选排序、量化和签名。
-- [x] 实现直线细分、C1 平滑、转角切线切断、同步时间参数化和二次验证。
-- [x] 实现可取消 Worker、请求版本和过期结果丢弃。
-- [x] 生成认证 Profile，证明入场零接触、参考程序精确剪除 12 个目标且六方向可用。
+- [x] Implement versioned DLS IK, fixed fallback seeds, stable candidate ordering, quantization, and signatures.
+- [x] Implement straight-line subdivision, C1 smoothing, tangent breaks at corners, synchronized time parameterization, and secondary validation.
+- [x] Implement a cancellable Worker, request versioning, and stale-result rejection.
+- [x] Generate a certified Profile proving zero-contact entry, exact removal of the 12 targets by the reference program, and availability of all six directions.
 
-阶段出口：Run/Test/Step 可获得同一冻结轨迹，且只有签名匹配的 Challenge 可以启用模式。
+Phase exit: Run/Test/Step obtain the same frozen trajectory, and only a Challenge with a matching signature can enable the mode.
 
-### Cutter Grid Phase 3 — 仿真执行与接触复验
+### Cutter Grid Phase 3 — Simulation Execution and Contact Revalidation
 
-- [x] 增加 `positioning`、`planning` 状态和同步五关节轨迹执行器。
-- [x] Step 以单格/Wait 为边界；Run、Test、Step 复用冻结计划。
-- [x] 复用头部防穿模与 `0.12` 连续扫掠接触，复验终态、剪发集合、耗时和错误。
-- [x] 保持 Servo 单关节执行链路不变。
+- [x] Add `positioning` and `planning` states and a synchronized five-joint trajectory executor.
+- [x] Bound Step by a single cell/Wait; Run, Test, and Step reuse the frozen plan.
+- [x] Reuse head penetration prevention and `0.12` continuous swept contact to revalidate final state, cut set, duration, and errors.
+- [x] Keep the Servo single-joint execution path unchanged.
 
-阶段出口：无 UI 也能确定性回放 Cutter Grid 轨迹并完成本地评分。
+Phase exit: Cutter Grid trajectories can be replayed deterministically and scored locally without UI.
 
-### Cutter Grid Phase 4 — UI、课程与 Provider 隔离
+### Cutter Grid Phase 4 — UI, Lessons, and Provider Isolation
 
-- [x] 增加轻量可关闭网格、轴向图例、坐标/路径/阻塞状态和 Inspector 摘要。
-- [x] 增加固定轴、距离、Repeat、误剪和不可达课程。
-- [x] Cutter Grid 强制本地评分并禁用 Session/Match/ArmDock；Versus 保持 Servo-only。
-- [x] 覆盖模式、Workspace、规划状态、错误定位和提交隔离 E2E。
+- [x] Add a lightweight toggleable grid, axis legend, coordinate/path/blocked states, and Inspector summaries.
+- [x] Add lessons on fixed axes, distance, Repeat, accidental cutting, and unreachable positions.
+- [x] Require local scoring for Cutter Grid and disable Session/Match/ArmDock; keep Versus Servo-only.
+- [x] Cover modes, Workspaces, planning state, error localization, and submission isolation with E2E tests.
 
-阶段出口：Practice/Lessons 中可完成完整 Cutter Grid 本地闭环，后端和比赛不受污染。
+Phase exit: Practice/Lessons support the complete local Cutter Grid loop without affecting the backend or competitions.
 
-### Cutter Grid Phase 5 — 验收与分支推送
+### Cutter Grid Phase 5 — Acceptance and Branch Push
 
-- [x] 通过全部自动化质量门和 Chrome/Edge 双视口截图验收。
-- [x] 审计前端范围、后端零改动、构建产物未提交和各阶段独立 commit。
-- [x] 仅推送 `feat/cutter-grid-control`，不推送或合并 `main`。
+- [x] Pass all automated quality gates and Chrome/Edge screenshot acceptance at both viewports.
+- [x] Audit frontend scope, zero backend changes, absence of committed build artifacts, and separate commits for every phase.
+- [x] Push only `feat/cutter-grid-control`; do not push or merge `main`.
 
-阶段出口：功能分支可供审查，所有适用验收项具有直接证据。
+Phase exit: the feature branch is ready for review, with direct evidence for every applicable acceptance item.
 
-### Cutter Grid 教程与课程扩展
+### Cutter Grid Tutorial and Lesson Expansion
 
-- [x] Tutorial 增加 Cutter Grid/Servo 路线选择，保留原八步 Servo 教程。
-- [x] 增加八步 Cutter Grid 引导，以认证五段路径逐步判定真实 Cutter Grid IR，并以真实 Test 评分完成最后操作步骤。
-- [x] Cutter Grid Lessons 从五课扩展为十课，每课至少二十个 section；补充反向移动、Waypoint Wait、路径顺序、程序压缩和认证完整剪发，并支持课内前后导航及连续下一课。
-- [x] 八个 Servo Angles Lessons 各扩展为至少二十个 section，第 20 节保留真实 100 Completion 评分门槛，切换下一课时重置课内进度。
-- [x] Tutorial 增加 `Grid → Servo Angles` 过渡展示，复用真实双模式 Workbench、独立 Workspace、Grid Inspector 与 Servo telemetry；统一初始状态为 X/Y/Z/B/E = 90°，以 `servo.offsetDeg` 校准 90° 对应的安全几何姿态，Inspector 实时显示 X/Y/Z/B（E parked 90°），Electron Servo 计划不插入隐藏姿态命令。
-- [x] 覆盖纯课程判定、选择/路由 UI，以及完整认证路径规划与评分 E2E；保持 Cutter Grid-only 与 Servo/后端隔离。
+- [x] Add Cutter Grid/Servo route selection to Tutorial, retaining the original eight-step Servo tutorial.
+- [x] Add an eight-step Cutter Grid guide that checks real Cutter Grid IR step by step along the certified five-segment path and completes the final practical steps with actual Test scoring.
+- [x] Expand Cutter Grid Lessons from five to ten lessons, each with at least twenty sections; add reverse moves, Waypoint Wait, path ordering, program compression, and certified complete cutting, with previous/next section navigation and continuous progression to the next lesson.
+- [x] Expand each of the eight Servo Angles Lessons to at least twenty sections, keeping the actual 100 Completion scoring gate in section 20 and resetting section progress on the next lesson.
+- [x] Add a `Grid → Servo Angles` transition demonstration to Tutorial, reusing the real dual-mode Workbench, separate Workspaces, Grid Inspector, and Servo telemetry; standardize the initial state as X/Y/Z/B/E = 90°, calibrate the safe geometric pose corresponding to 90° through `servo.offsetDeg`, show X/Y/Z/B live in Inspector (E parked 90°), and insert no hidden pose commands into Electron Servo plans.
+- [x] Cover pure lesson checks, selection/routing UI, and complete certified path planning and scoring with E2E tests; preserve Cutter Grid-only isolation from Servo/backend paths.
 
-阶段出口：首次用户可在不接触 Servo 角度的情况下完成一条真实认证 Grid 路径，并继续十课渐进课程。
+Phase exit: first-time users can complete a real certified Grid path without using Servo angles and continue through ten progressive lessons.
 
-### Cutter Grid Global IK Repair Phase 0 — 诊断契约与测试向量
+### Cutter Grid Global IK Repair Phase 0 — Diagnostic Contracts and Test Vectors
 
-- [x] 从最新远端 `feat/cutter-grid-control` fast-forward 基线开始，记录干净前后端工作区。
-- [x] 固化 `Up 6 → Left 2 → Forward 3` 的 11 个原子动作、终点 `(-2,6,-3)`、第三个最终前向四分层 `(1.03,1.66,0.84)`、高/低 Wrist 分支与反向连续低 Wrist 证据。
-- [x] 固化 `0.12` 真实扫掠的 5 格结果及 1 格非目标附带剪除，禁止由规划器改变该基线。
-- [x] 引入不接入 V1 执行器的 V2 Profile、轨迹、进度和错误类型壳，明确 V1/V2 fail-closed 边界。
+- [x] Start from a fast-forward baseline of the latest remote `feat/cutter-grid-control` and record clean frontend/backend workspaces.
+- [x] Pin the 11 atomic actions of `Up 6 → Left 2 → Forward 3`, endpoint `(-2,6,-3)`, the third final forward quarter-layer `(1.03,1.66,0.84)`, high/low Wrist branches, and evidence of reverse-continuous low Wrist.
+- [x] Pin the 5-cell result of the actual `0.12` sweep and its 1 non-target collateral cut; the planner must not change this baseline.
+- [x] Introduce V2 Profile, trajectory, progress, and error type shells without connecting them to the V1 executor, and define the V1/V2 fail-closed boundary.
 
-阶段出口：V2 缺陷、语义和固定回归由纯函数及测试明确表达，且现有首版运行入口不变。
+Phase exit: pure functions and tests express the V2 defects, semantics, and fixed regressions explicitly; the existing initial-version runtime entry remains unchanged.
 
-### Cutter Grid Global IK Repair Phase 1 — 多解 IK 与连续边验证
+### Cutter Grid Global IK Repair Phase 1 — Multi-Solution IK and Continuous Edge Validation
 
-- [x] 将 DLS 拆分为单 seed 投影器和多 seed 候选枚举器，实现确定性 Halton 扩展、去重、多样性保留和净空度量。
-- [x] 实现二阶转换所需的自适应 Hermite 边验证；不再以固定最大归一化关节变化作为分支过滤。
-- [x] 通过候选共存、碰撞/偏差拒绝、确定性和回归测试。
+- [x] Split DLS into a single-seed projector and multi-seed candidate enumerator, implementing deterministic Halton expansion, deduplication, diversity preservation, and clearance metrics.
+- [x] Implement adaptive Hermite edge validation for second-order transitions; stop using a fixed maximum normalized joint change as a branch filter.
+- [x] Pass candidate-coexistence, collision/deviation rejection, determinism, and regression tests.
 
-阶段出口：领域层可以产生并验证多条安全 IK 分支，尚不替换 Profile、Worker 或执行器。
+Phase exit: the domain layer generates and validates multiple safe IK branches without replacing the Profile, Worker, or executor yet.
 
-### Cutter Grid Global IK Repair Phase 2 — Profile V2 与多入口认证
+### Cutter Grid Global IK Repair Phase 2 — Profile V2 and Multi-Entry Certification
 
-- [x] 生成最多 32 个原点构型、直接或确定性 PRM 的零接触入场，并至少认证两个不同入口。
-- [x] 产出 V2 Profile/签名资产，重认证参考程序、六方向和静态节点语义；完整 V2 参考轨迹签名仍在 Phase 3 全局规划后认证。
+- [x] Generate up to 32 origin configurations with zero-contact direct or deterministic PRM entry, and certify at least two distinct entries.
+- [x] Produce V2 Profile/signature assets and recertify the reference program, six directions, and static-node semantics; certify the full V2 reference-trajectory signature after global planning in Phase 3.
 
-阶段出口：V2 Profile 证明多入口与首版所有认证要求；V1 Profile 被 V2 入口 fail-closed 拒绝。
+Phase exit: the V2 Profile demonstrates multiple entries and all initial-version certification requirements; the V2 entry rejects V1 Profiles fail closed.
 
 ### Cutter Grid Global IK Repair Phase 2.1 — 90° Home certification repair
 
@@ -351,146 +351,146 @@ inherit them silently:
       rebuild from memory. The requirement stays visible as the practical
       prompt beneath it.
 
-### Cutter Grid Global IK Repair Phase 3 — 全局图、Worker 与生命周期
+### Cutter Grid Global IK Repair Phase 3 — Global Graph, Worker, and Lifecycle
 
-- [ ] 实现二阶分层 DAG、渐进搜索、稳定进度/错误、V2 冻结计划与量化失败重选。
-- [ ] 将 Run/Test/Step/Reset 改为整体选择入口与玩家路径、回放同一计划内入场和玩家轨迹。
+- [ ] Implement a second-order layered DAG, progressive search, stable progress/errors, V2 frozen plans, and reselection after quantization failure.
+- [ ] Change Run/Test/Step/Reset to select entry and player path together and replay entry and player trajectories within the same plan.
 
-阶段出口：固定回归与所有运行入口选择相同低 Wrist 连续分支，且执行器不做运行时 IK。
+Phase exit: the fixed regression and all runtime entry points select the same continuous low-Wrist branch, and the executor performs no runtime IK.
 
-### Cutter Grid Global IK Repair Phase 4 — UI、回归与发布
+### Cutter Grid Global IK Repair Phase 4 — UI, Regression, and Release
 
-- [ ] 展示静态 IK 与当前程序连通状态、规划进度和诊断；完成 E2E、质量门与双浏览器视觉验收。
-- [ ] 只推送 `feat/cutter-grid-control`，审计后端零改动、构建产物未提交和阶段独立提交。
+- [ ] Display static IK and current-program connectivity, planning progress, and diagnostics; complete E2E, quality gates, and visual acceptance in both browsers.
+- [ ] Push only `feat/cutter-grid-control`, auditing zero backend changes, absence of committed build artifacts, and separate phase commits.
 
-阶段出口：V2 全局多分支规划通过全部验收并可供审查。
+Phase exit: V2 global multi-branch planning passes all acceptance checks and is ready for review.
 
-### Cutter Grid Motion Stability V3 Phase 0 — 契约、基线与 Rust 迁移向量
+### Cutter Grid Motion Stability V3 Phase 0 — Contracts, Baseline, and Rust Migration Vectors
 
-- [ ] 记录 C1 Hermite、渲染 `delta` 倍率和 IK 分支的独立诊断证据；固化 `Up 6 → Left 2 → Forward 3`、认证参考程序、Wait/Repeat 长程序的 V2 签名、关节 `q/v/a` 与接触基线。
-- [ ] 定义纯领域 V3 Profile/Plan/错误/签名契约和前端—Rust JSON fixture；fixture 引用已版本化 Profile，保存完整计划签名、原子 checkpoint/接触/诊断摘要及结构化失败结果，规划数据不得依赖 DOM、Worker、React 或渲染时钟。
-- [x] 在前端生成并回归验证 V3 conformance bundle：认证参考程序、全局 IK 回归程序与缺少动态限制错误均可从版本化 Challenge/Profile 输入重建；Rust 端消费与验证留待后端获准迁移后完成。
-- [ ] 移除“直接乘渲染 delta”的加速语义，改为请求 `1.25x` 的动态限制重定时输入；本阶段不改变生产运行入口。
+- [ ] Record separate diagnostic evidence for C1 Hermite, rendered `delta` scaling, and IK branches; pin V2 signatures, joint `q/v/a`, and contact baselines for `Up 6 → Left 2 → Forward 3`, the certified reference program, and long Wait/Repeat programs.
+- [ ] Define pure-domain V3 Profile/Plan/error/signature contracts and frontend–Rust JSON fixtures; fixtures reference versioned Profiles and store full plan signatures, atomic checkpoint/contact/diagnostic summaries, and structured failures. Planning data must not depend on DOM, Worker, React, or the render clock.
+- [x] Generate and regression-test a V3 conformance bundle in the frontend: the certified reference program, global IK regression program, and missing-dynamic-limits error can all be reconstructed from versioned Challenge/Profile inputs; Rust consumption and validation await authorization for backend migration.
+- [ ] Remove acceleration semantics that directly multiply render delta, replacing them with dynamic-limit retiming input requesting `1.25x`; this phase does not change the production runtime entry point.
 
-阶段出口：V3 输入输出、迁移边界和失败语义由测试与 fixture 固化，前端与将来的 `hcr_sim` 可使用同一数据契约。
+Phase exit: tests and fixtures pin V3 inputs/outputs, migration boundaries, and failure semantics, allowing the frontend and future `hcr_sim` to use the same data contract.
 
-### Cutter Grid Motion Stability V3 Phase 1 — 固定路径限 jerk 轨迹
+### Cutter Grid Motion Stability V3 Phase 1 — Jerk-Limited Trajectories on a Fixed Path
 
-- [x] 完成本地 Ruckig Community WASM Spike：固定 `v0.19.4`/MIT 与 Emscripten `4.0.20`，五关节离线 state-to-state ABI 在 Chromium/Edge Worker 中通过端点与零外部请求门禁；云客户端源码被排除，当前不替换 V3 运行轨迹。
-- [x] 以前端纯 TypeScript ABI 适配器固定 Ruckig 的九组五关节输入、sample-major `q/v/a/j` 输出、非有限值拒绝和错误路径释放；适配器仍不加载 URL 或驱动运行时规划。
-- [x] 以 TOPP-RA 共享边界预备本地 Ruckig 分段编排：每段传递完整 `q/v/a`，按不超过 `5ms` 采样并验证动态限制，失败对同一边界以 `1.1x` 最小时长重试至 `50x` 后 fail closed；调用方可注入纯领域空间审计，逐段验证限位、头部、固定 Cartesian 管道、联合采样密度和接触许可，并在完成整段玩家 Move 后精确比对聚合接触集。尚未接入 Worker 运行轨迹。
-- [x] 完成纯领域、保守的 TOPP-RA 风格前向/后向可达传播：从固定 C2 几何输出确定性的路径速度及 `q/v/a` 边界，原子端点保持静止，并以真实全局 IK 回归几何验证速度/加速度限制。它是 Ruckig 输入预备层，尚未接入运行时。
-- [ ] 实现连续角度 unwrap、全局 C2 五次几何样条、pause-safe checkpoint、速度/加速度可达重定时和逐段 `q/v/a` jerk 平滑；所有计算保持纯函数和确定性。
-- [ ] 对全局最小 jerk 样条的限位 overshoot 采用签名可见的确定性单调 C2 约束解，并重新执行完整几何审计；不得放宽限位或回退到 V2 C1 插值。
-- [ ] 对每段实施联合自适应验证：关节 `v/a/j`、头部净空、关节限位、Cartesian 偏差及固定刀头扫掠集合。
-- [ ] 在失败时返回 V3 专用错误与首个来源积木/坐标，禁止回退到 C1、逐帧滤波或可行前缀执行。
+- [x] Complete a local Ruckig Community WASM spike: pin `v0.19.4`/MIT and Emscripten `4.0.20`; the five-joint offline state-to-state ABI passes endpoint and zero-external-request gates in Chromium/Edge Workers. Cloud client sources are excluded; this does not replace the V3 runtime trajectory.
+- [x] Pin nine groups of five-joint Ruckig inputs, sample-major `q/v/a/j` output, non-finite-value rejection, and cleanup on errors through a pure TypeScript frontend ABI adapter; the adapter still loads no URLs and drives no runtime planning.
+- [x] Prepare local Ruckig segment orchestration with shared TOPP-RA boundaries: pass complete `q/v/a` per segment, sample at intervals no greater than `5ms`, and validate dynamic limits. On failure, retry the same boundary with `1.1x` minimum-duration increases up to `50x`, then fail closed. Callers can inject a pure-domain spatial audit to validate limits, head clearance, the fixed Cartesian tube, combined sampling density, and permitted contacts per segment, then compare the aggregate contact set exactly after the complete player Move. This is not connected to Worker runtime trajectories yet.
+- [x] Complete pure-domain, conservative TOPP-RA-style forward/backward reachability propagation: output deterministic path speeds and `q/v/a` boundaries from fixed C2 geometry, keep atomic endpoints at rest, and validate velocity/acceleration limits against real global IK regression geometry. This prepares Ruckig inputs and is not connected to runtime yet.
+- [ ] Implement continuous angle unwrapping, global C2 quintic geometric splines, pause-safe checkpoints, velocity/acceleration reachability retiming, and per-segment `q/v/a` jerk smoothing; keep every calculation pure and deterministic.
+- [ ] Resolve limit overshoot in global minimum-jerk splines with a deterministic monotone C2 constrained solution visible in the signature, then rerun the complete geometric audit; do not relax limits or fall back to V2 C1 interpolation.
+- [ ] Apply combined adaptive validation to every segment: joint `v/a/j`, head clearance, joint limits, Cartesian deviation, and the fixed-tool swept set.
+- [ ] Return V3-specific errors and the first source block/coordinate on failure; forbid fallback to C1, per-frame filtering, or execution of a feasible prefix.
 
-阶段出口：V3 可为 V2 已选构型链生成可序列化冻结轨迹，并通过数值/接触回归。
+Phase exit: V3 generates serializable frozen trajectories for the configuration chain selected by V2 and passes numerical/contact regressions.
 
-### Cutter Grid Motion Stability V3 Phase 2 — 前端绝对时间试验与诊断
+### Cutter Grid Motion Stability V3 Phase 2 — Frontend Absolute-Time Experiments and Diagnostics
 
-- [x] Worker 为 V3 以独立版本化进度消息报告 V2 图搜索及几何平滑、时间参数化、jerk 平滑和播放验证；进度观察不参与候选选择或轨迹签名，并明确区分 Cartesian 层与真实运动段计数。
-- [x] 在前端 rAF 回放后以有界遥测记录计划/渲染时间、阶段、入口、`q/v/a/j`、末端跟踪误差、帧间隔及 `50ms` 长帧；Inspector 以默认折叠的开发诊断摘要显示它，记录不反馈到规划、执行、碰撞或评分。
-- [ ] Worker 只规划冻结 V3 轨迹；前端执行器按绝对计划时间采样，支持暂停、隐藏页、丢帧和取消而不改变轨迹语义。
-- [ ] 接触、Step、Run/Test、评分和 Inspector 使用同一冻结 V3 计划；UI 高频关节更新不经过 React State。
-- [ ] 验证 `30/60/90/120/144Hz`、长帧和 Chrome/Edge 下的计划一致性、无关节瞬跳及实际时长提速。
+- [x] Have the Worker report V2 graph search, geometric smoothing, time parameterization, jerk smoothing, and playback validation for V3 through separately versioned progress messages; progress observation does not affect candidate selection or trajectory signatures and explicitly distinguishes Cartesian-layer counts from actual motion-segment counts.
+- [x] Record plan/render time, stage, entry, `q/v/a/j`, end-effector tracking error, frame intervals, and `50ms` long frames with bounded telemetry after frontend rAF playback; Inspector shows a development-diagnostics summary collapsed by default. Records do not feed back into planning, execution, collision, or scoring.
+- [ ] Have the Worker plan frozen V3 trajectories only; the frontend executor samples absolute plan time and supports pausing, hidden pages, dropped frames, and cancellation without changing trajectory semantics.
+- [ ] Use the same frozen V3 plan for contact, Step, Run/Test, scoring, and Inspector; high-frequency UI joint updates bypass React State.
+- [ ] Validate plan consistency, absence of joint jumps, and actual duration improvement at `30/60/90/120/144Hz`, with long frames, and in Chrome/Edge.
 
-阶段出口：前端可作为 Rust 实现前的可视化试验台，V3 不再使用渲染倍率加速。
+Phase exit: the frontend serves as a visual testbed before Rust implementation, and V3 no longer accelerates by scaling render time.
 
-### Cutter Grid Motion Stability V3 Phase 3 — Rust 权威迁移准备
+### Cutter Grid Motion Stability V3 Phase 3 — Preparation for Rust Authority Migration
 
-- [ ] 在 `hcr_sim` 实现同一纯领域规划器并以共享 fixture 与前端逐项对照；在未得到后端 Session/Match 启用授权前不修改网络提交路径。
-- [ ] 前端改为消费 Rust 产生或跨语言验证的 V3 计划，保留本地试验开关和诊断，不在 UI 层产生另一套路径规划规则。
+- [ ] Implement the same pure-domain planner in `hcr_sim` and compare it item by item with the frontend using shared fixtures; do not change network submission paths before backend Session/Match enablement is authorized.
+- [ ] Change the frontend to consume Rust-generated or cross-language-validated V3 plans, retaining local experiment controls and diagnostics without creating another set of path-planning rules in the UI.
 
-阶段出口：Rust 规划器是最终权威，前端仅负责请求、回放与可视化；跨语言签名、错误和接触结果一致。
+Phase exit: the Rust planner is the final authority, and the frontend only requests, replays, and visualizes; signatures, errors, and contact results agree across languages.
 
-### Cutter Grid Compact PTP V4 Phase 1 — 契约、基线与失败测试
+### Cutter Grid Compact PTP V4 Phase 1 — Contracts, Baseline, and Failure Tests
 
-- [x] 新增受 Git 管理的 V4 实施计划，并同步 v0.3、验收清单；明确 V3 固定 Cartesian 管道、逐格零速、`1.25x` 和密集输出只作历史基线。
-- [x] 固化全局 IK 回归的 V3 基线：11 个原子 Move、44 个 Cartesian 层、4,286 个认证样本、6,976ms 玩家计划时长、`1.25x` 动态请求、几何签名 `188fb68c5336a3b4` 和轨迹签名 `73549fa7dad52468`。
-- [x] 新增 V4 基线、预期失败与待实现性能门禁测试：Move N 分组、每 Move 1–2 条 primitive、`1.0x`、实际扫掠、`3s/10s/5s` 目标与 ArmDock 禁用。
+- [x] Add a Git-tracked V4 implementation plan and synchronize v0.3 and the acceptance checklist; state explicitly that the V3 fixed Cartesian tube, zero speed at every cell, `1.25x`, and dense output are historical baselines only.
+- [x] Pin the V3 global IK regression baseline: 11 atomic Moves, 44 Cartesian layers, 4,286 certification samples, 6,976ms player-plan duration, `1.25x` dynamic request, geometry signature `188fb68c5336a3b4`, and trajectory signature `73549fa7dad52468`.
+- [x] Add V4 baseline, expected-failure, and pending performance-gate tests: Move N grouping, 1–2 primitives per Move, `1.0x`, actual sweep, `3s/10s/5s` targets, and ArmDock disablement.
 
-阶段出口：V4 设计、历史对照和测试入口可复核，不改变生产运行入口。
+Phase exit: the V4 design, historical comparison, and test entry points are reviewable without changing the production runtime entry point.
 
-### Cutter Grid Compact PTP V4 Phase 2 — 分组 IR 与协议
+### Cutter Grid Compact PTP V4 Phase 2 — Grouped IR and Protocol
 
-- [x] 实现 `CutterGridExecutableActionV2`、稳定 occurrence、500 逻辑成本、V4 Profile/Plan/错误/进度与 `plan-v4` Worker 协议。
-- [x] 保持 V1–V3 fail closed，暂不切换 V3 运行入口；Phase 2 的 V4 Worker 结构化返回 `planner-not-ready`，不会回退为旧规划器。
+- [x] Implement `CutterGridExecutableActionV2`, stable occurrences, 500 logical cost, V4 Profile/Plan/errors/progress, and the `plan-v4` Worker protocol.
+- [x] Keep V1–V3 fail closed without switching the V3 runtime entry point yet; the Phase 2 V4 Worker returns structured `planner-not-ready` without falling back to older planners.
 
-阶段出口：纯领域 V4 输入输出可构造、序列化和测试。
+Phase exit: pure-domain V4 inputs and outputs can be constructed, serialized, and tested.
 
-### Cutter Grid Compact PTP V4 Phase 3 — 稀疏图与两指令规划
+### Cutter Grid Compact PTP V4 Phase 3 — Sparse Graph and Two-Instruction Planning
 
-- [x] 实现端点 IK 候选、4/8/全部边扩展、同步五次直接 PTP、256 节点 roadmap 和单避障构型压缩。
-- [x] 验证全程序入口选择、错误 Wrist 分支规避和每 Move 最多两条 primitive。
+- [x] Implement endpoint IK candidates, 4/8/all edge expansion, synchronized quintic direct PTP, a 256-node roadmap, and compression to a single obstacle-avoidance configuration.
+- [x] Validate program-wide entry selection, avoidance of the wrong Wrist branch, and the maximum of two primitives per Move.
 
-阶段出口：生成确定性、紧凑、无碰撞的 V4 几何计划。
+Phase exit: generate deterministic, compact, collision-free V4 geometric plans.
 
-### Cutter Grid Compact PTP V4 Phase 4 — 动态认证与实际扫掠
+### Cutter Grid Compact PTP V4 Phase 4 — Dynamic Certification and Actual Sweep
 
-- [x] 实现 `1.0x` 时间律、C2 避障边界、保守自适应净空证明、实际 Hair 接触事件和 V4 fixture。
-- [x] 重新认证 100 Completion 参考程序；密集认证样本不得进入序列化计划。
+- [x] Implement the `1.0x` time law, C2 obstacle-avoidance boundaries, conservative adaptive clearance proofs, actual Hair contact events, and V4 fixtures.
+- [x] Recertify the 100 Completion reference program; dense certification samples must not enter the serialized plan.
 
-阶段出口：冻结 V4 计划具有真实接触、动态限制和签名证据。
+Phase exit: frozen V4 plans contain evidence of actual contact, dynamic limits, and signatures.
 
-### Cutter Grid Compact PTP V4 Phase 5 — 执行、UI 与硬件边界
+### Cutter Grid Compact PTP V4 Phase 5 — Execution, UI, and Hardware Boundaries
 
-- [x] 接入按可见动作 Step 的绝对时间执行器、真实曲线/预计剪发 UI 与取消生命周期。
-- [x] 实现并测试 `CutterArmMotionProgramV1`，但 ArmDock 继续拒绝 V4 下发。
+- [x] Connect the absolute-time executor with Step per visible action, actual-curve/expected-cut UI, and cancellation lifecycle.
+- [x] Implement and test `CutterArmMotionProgramV1`, while ArmDock continues to reject V4 dispatch.
 
-阶段出口：Run/Test/Step 和不同 tick 回放同一 V4 计划，硬件未越权启用。
+Phase exit: Run/Test/Step and different ticks replay the same V4 plan; hardware is not enabled without authorization.
 
-### Cutter Grid Compact PTP V4 Phase 6 — 验收与发布准备
+### Cutter Grid Compact PTP V4 Phase 6 — Acceptance and Release Preparation
 
-- [x] 已重读 V4 计划、v0.3、验收清单、规划/认证/执行测试和 Playwright 配置，确认仅补充验收证据。
-- [x] 完成全部质量门、Profile/几何/动态审计，并以独占单 Worker 的五次冷启动 P95 完成性能测量：`Right 2 = 1,671.8ms`，全局回归 `= 2,886.2ms`；Chrome/Edge 双分辨率视觉验收通过。
-- [x] 已审计后端与硬件下发零改动；验收文档将独立 commit，分支仅供审查而不合并 `main`。
+- [x] Reread the V4 plan, v0.3, acceptance checklist, planning/certification/execution tests, and Playwright configuration, confirming that this phase only supplements acceptance evidence.
+- [x] Complete all quality gates and Profile/geometric/dynamic audits, measuring P95 over five cold starts with one exclusive Worker: `Right 2 = 1,671.8ms`, global regression `= 2,886.2ms`; visual acceptance passes at both resolutions in Chrome/Edge.
+- [x] Audit zero changes to the backend and hardware dispatch; commit the acceptance documentation separately and offer the branch for review only, without merging `main`.
 
-阶段出口：V4 满足紧凑指令、流畅性、性能和安全门禁，可供分支审查。
+Phase exit: V4 meets compact-instruction, smoothness, performance, and safety gates and is ready for branch review.
 
-## Cutter Grid V4 Rust 后端规划迁移
+## Cutter Grid V4 Rust Backend Planner Migration
 
-本迁移及 CAT/机械校准后续以 `docs/BACKEND_CUTTER_GRID_V4_MIGRATION_PLAN.md` 为准。每个阶段均须遵循：阅读相关计划与代码、更新本节及验收项、修改、测试、在各自仓库独立 commit；不得写入或推送 `main`。
+This migration and subsequent CAT/mechanical calibration follow `docs/BACKEND_CUTTER_GRID_V4_MIGRATION_PLAN.md`. Each phase must read the relevant plans and code, update this section and acceptance items, modify, test, and commit separately in each repository; do not write to or push `main`.
 
-2026-08-25 合并后审计：后端 `54a8582` 已包含下列 Phase 2–5 的实现，前端 `a45a832` 已包含 Provider。原清单落后于代码；本轮已补上 CAT 的 mode-pinned Session、显式 Practice 路由、Challenge version 透传和畸形成功响应校验。Rust 全仓质量门仍需在后端仓库单独执行后才能把 Phase 7 标为完成。
+Post-merge audit on 2026-08-25: backend `54a8582` already contains the Phase 2–5 implementations below, and frontend `a45a832` already contains the Provider. The original checklist lagged behind the code; this round added CAT mode-pinned Sessions, explicit Practice routing, Challenge version forwarding, and malformed-success-response validation. Full Rust repository quality gates still need to run separately in the backend repository before Phase 7 can be marked complete.
 
-### Phase 1 — 契约、基线与失败测试（进行中）
+### Phase 1 — Contracts, Baseline, and Failure Tests (In Progress)
 
-- [x] 前端从包含 V4 的 `origin/feat/cutter-grid-control` 创建 `feat/cutter-grid-rust-planner-client`；后端从最新 `origin/main` 创建 `feat/cutter-grid-v4-rust-planner`。实施前已重新 `fetch`，基线分别为前端 `5e614cf`、后端 `501a995`。
-- [x] 定义独立 `CutterGridPlanRequestV1` / `CutterGridPlanResponseV1`、V4 Profile/Plan/同步 PTP/诊断 DTO 与 `TRAJECTORY_PLANNING_FAILED` 错误映射；V2 客户端上传轨迹审计仅保留历史兼容。
-- [x] 固化跨语言 JSON fixture 与预期失败向量；运行时路由已在后续阶段启用。
-- [ ] Rust 质量门待外部工作区依赖恢复后执行：2026-08-25 对最新后端运行 `cargo test -p hcr_qbank -p hcr_service` 时，加载同级路径依赖 `/private/tmp/arona/Cargo.toml` 失败；禁止通过修改 Cargo 配置或伪造依赖绕过。
+- [x] Create frontend `feat/cutter-grid-rust-planner-client` from `origin/feat/cutter-grid-control` containing V4, and backend `feat/cutter-grid-v4-rust-planner` from the latest `origin/main`. Run `fetch` again before implementation; baselines are frontend `5e614cf` and backend `501a995`.
+- [x] Define separate `CutterGridPlanRequestV1` / `CutterGridPlanResponseV1`, V4 Profile/Plan/synchronized PTP/diagnostic DTOs, and `TRAJECTORY_PLANNING_FAILED` error mapping; retain V2 client-uploaded trajectory audits only for historical compatibility.
+- [x] Pin cross-language JSON fixtures and expected-failure vectors; runtime routing was enabled in later phases.
+- [ ] Run Rust quality gates after external workspace dependencies are restored: on 2026-08-25, `cargo test -p hcr_qbank -p hcr_service` against the latest backend failed to load the sibling path dependency `/private/tmp/arona/Cargo.toml`; do not bypass this by changing Cargo configuration or fabricating dependencies.
 
-阶段出口：契约、错误定位与版本边界有测试覆盖，前后端文档同步；不改变 Practice 的 Worker 入口。
+Phase exit: contracts, error localization, and version boundaries have test coverage, with frontend/backend documentation synchronized; the Practice Worker entry point is unchanged.
 
-### Phase 2 — 程序编译、几何与 IK
+### Phase 2 — Program Compilation, Geometry, and IK
 
-- [x] 在 `hcr_sim` 的 `std + planner` 纯领域模块移植分组 action 编译、坐标转换、运动学、头部净空、Halton seed、多解 DLS 与确定性候选排序。
-- [x] 固定六方向、Repeat、500 上限以及低 Wrist 回归；使用跨语言 fixture 比较 action、坐标、命令数、候选分支与结构化失败。
+- [x] Port grouped-action compilation, coordinate conversion, kinematics, head clearance, Halton seeds, multi-solution DLS, and deterministic candidate ordering into the `std + planner` pure-domain module of `hcr_sim`.
+- [x] Pin the six directions, Repeat, the 500 limit, and low-Wrist regression; use cross-language fixtures to compare actions, coordinates, command counts, candidate branches, and structured failures.
 
-### Phase 3 — Profile 与紧凑 PTP 图搜索
+### Phase 3 — Profile and Compact PTP Graph Search
 
-- [x] 在服务端注册认证 V4 Profile，移植入口选择、端点图、直接 PTP 和单避障 roadmap；每个可见 Move 严格限制为 1–2 条 primitive。
-- [x] 对 Profile、roadmap、无 Profile 和断开边建立独立测试，且客户端不得上传任何 Profile 资产。
+- [x] Register certified V4 Profiles on the server and port entry selection, endpoint graphs, direct PTP, and the single-obstacle-avoidance roadmap; strictly limit every visible Move to 1–2 primitives.
+- [x] Add separate tests for Profiles, roadmaps, missing Profiles, and disconnected edges; clients must not upload any Profile assets.
 
-### Phase 4 — 动态认证、扫掠与序列化
+### Phase 4 — Dynamic Certification, Sweep, and Serialization
 
-- [x] 移植 `1.0x` 同步五次时间律、`q/v/a/j` 限制、自适应碰撞认证、实际 `0.12` 刀头扫掠、接触事件和 Rust 本地轨迹签名。
-- [x] 建立 TS/Rust 成功/失败向量的语义与数值容差门禁；不要求跨实现签名字节相同。
+- [x] Port the `1.0x` synchronized quintic time law, `q/v/a/j` limits, adaptive collision certification, actual `0.12` tool sweep, contact events, and Rust-local trajectory signatures.
+- [x] Establish semantic and numerical-tolerance gates for TS/Rust success/failure vectors; byte-identical signatures across implementations are not required.
 
-### Phase 5 — 服务端规划接口
+### Phase 5 — Server Planning Interface
 
-- [x] 实现 Profile 注册表、`POST /api/v1/cutter-grid/plans`、64KiB 请求上限、受限 `spawn_blocking` 并发池（默认 2）以及 HTTP 422/429 错误映射。
-- [x] 该接口只为 Practice 生成计划；不评分、不提交、不创建 Session/Match 状态，也不接触 ArmDock。
+- [x] Implement the Profile registry, `POST /api/v1/cutter-grid/plans`, 64KiB request limit, bounded `spawn_blocking` concurrency pool (default 2), and HTTP 422/429 error mapping.
+- [x] This interface only generates plans for Practice; it does not score, submit, create Session/Match state, or access ArmDock.
 
-### Phase 6 — 前端主备 Provider
+### Phase 6 — Frontend Primary and Fallback Provider
 
-- [x] 新增 `CutterGridPlannerProvider`，使 Workbench 不直接依赖 Worker；默认本地，只有在线 Practice 显式 Rust，离线仍为 Worker。
-- [x] 仅网络、30 秒超时、429 或 5xx 回退 TypeScript。确定性 4xx、签名错误和畸形成功响应 fail closed；Inspector 显示来源。
+- [x] Add `CutterGridPlannerProvider` so Workbench does not depend directly on Worker; default to local planning, with Rust explicitly selected only for online Practice and Worker retained offline.
+- [x] Fall back to TypeScript only on network errors, the 30-second timeout, 429, or 5xx. Deterministic 4xx, signature errors, and malformed success responses fail closed; Inspector shows the source.
 
-### Phase 7 — 全量验收与发布准备
+### Phase 7 — Full Acceptance and Release Preparation
 
-- [ ] 分别通过两仓库质量门、跨语言审计、性能与 Chrome/Edge 视觉验收；只推送功能分支供审查，不合并或部署。
+- [ ] Pass quality gates in both repositories, cross-language audits, performance checks, and Chrome/Edge visual acceptance; push only feature branches for review without merging or deploying.
 
 ## Versus round work, 2026-09-10
 
@@ -555,62 +555,109 @@ online Cutter Grid round or session can currently use. The other eight live in
 `src/data/cutter-grid-profiles/` on this side; vendoring them into `crates/hcr/assets/` is what would open
 the rest, and is not done here.
 
-### macOS 免费 ad-hoc 签名 CI，2026-10-07
+### macOS Free Ad-Hoc Signing CI, 2026-10-07
 
-- [x] 将 macOS 标签与手动构建改为免费 ad-hoc 签名，移除 Apple 凭据要求与付费公证流程。
-- [x] 添加 electron-builder 25.1.8 的自定义签名 hook，保留 Electron entitlements 与 Hardened Runtime；提供用户本地重新签名命令。
-- [x] 在上传前检查 x64 与 arm64 的完整签名、ad-hoc 类型及应用标识。
-- [x] 添加本地网络用途说明，记录首次打开、Local Network 授权与 ad-hoc 权限身份限制。
-- [x] 本地验证配置 schema、workflow YAML/Bash、签名脚本与 entitlements plist；使用本地 Electron 33.4.11 成功打包 arm64 应用，并通过完整签名、用途说明、Electron 可执行文件的 Node 模式启动及本地重新签名后的相同检查。
-- [ ] 在 GitHub 执行免费签名的手动构建并验证两个架构的新安装包。当前只修改仓库配置，不执行部署或发布。
+- [x] Switch macOS tag and manual builds to free ad-hoc signing, removing Apple credential requirements and paid notarization.
+- [x] Add a custom signing hook for electron-builder 25.1.8, retaining Electron entitlements and Hardened Runtime; provide a command for local user re-signing.
+- [x] Check complete signatures, ad-hoc type, and application identity for x64 and arm64 before upload.
+- [x] Add a local-network usage description and document first launch, Local Network permission, and ad-hoc permission-identity limitations.
+- [x] Validate the configuration schema, workflow YAML/Bash, signing script, and entitlements plist locally; successfully package the arm64 application with local Electron 33.4.11 and pass checks for complete signing, usage description, Electron executable startup in Node mode, and the same checks after local re-signing.
+- [ ] Run the free-signing manual build on GitHub and verify the new installers for both architectures. Current work changes repository configuration only, with no deployment or release.
 
-## 4. 关键实现约定
+### Audit security remediation and code quality plan (2026-10-13)
 
-### 仿真与 React
+The work was scoped against `HCR_Frontend_Audit.md` (baseline `424b53b`) under the user's task request. An uncommitted security patch and directly related regression tests were prepared before the AI-tier clarification. Remaining work is tracked in English GitHub `[Draft]` issues. Each later phase must reread the specification and this plan and be verified separately. Deployment is outside this plan.
 
-- `SimulationEngine` 是长期存在的可测试实例，不在 React render 中反复创建。
-- R3F `useFrame` 只调用引擎 tick 和更新 Group refs。
-- Zustand 存储状态枚举、Hair Set、低频关节快照、指标、日志和 UI 开关。
-- 高频角度与末端位置以控制器为权威；向 UI 发布快照时限频。
+Governance status: the user specified **Human-Led** after supplying the FDS policy. The human must write the structure and load-bearing logic; substantive AI-written security logic remains a proposal for human authorship/adaptation, not a compliant completed implementation. This repository has no `GOVERNANCE.md`, `POLICY.md`, or `CONTRIBUTING.md`, so assignments and independent reviewers cannot be verified. The current branch is `main`, while the supplied policy names `master`; do not infer a governed target or invent ownership. Formal Update Reports and QA records must be handwritten in ink without AI assistance. This technical plan is neither record and makes no approval claim. No commits, PRs, merges, deployments, or releases were made by this task.
+
+Suggested staging for the human implementation: separate independently valid changes for arm preflight; desktop HTTP/lifecycle security; input/plan validation; identity/consent/recovery; and dependency/CI hardening. Keep mechanical edits separate from semantic commits. Size personal PRs around the policy's approximately ten independent design definitions, splitting these broad scopes further when necessary; do not treat this entire patch as one eligible Trivial Update. Confirm the branch route and responsible reviewers before entering any governed integration branch.
+
+| Phase | Scope and dependencies | Exit criteria |
+|---|---|---|
+| S1, current proposal | Candidate repository fixes for F1–F3 and F5–F20; F4, hardware calibration, and cross-platform evidence remain open | Human-authored implementation under Human-Led, the five established quality gates, security regressions, and 1280×720 privacy/recovery checks; independent review and applicable human records before integration |
+| Q1, next for review | Unicode name contract; cross-round state, automatic next rounds, in-room errors, submission exclusion, response-body deadlines, and polling races (Q1, Q3–Q6, Q10, Q16–Q17) | Frontend/backend name contract tests, delayed requests/fake clocks, and duplicate-submission regressions; hiding a button does not establish authorization |
+| Q2, depends on the state regression baseline | Grid replanning after terminal states and V4 Step (Q2, Q8); additional evidence for Servo frame-rate determinism (Q7) | Regressions for rerunning after edits and stepping while paused; for Q7, preserve a reproducing program before selecting an integration strategy |
+| Q3, depends on the first two phases being stable | Profile cold loading, empty-node boundaries, worker/fixture dependency graph, and Provider boundaries (Q11–Q13, Q15, Q18) | Before/after cold-loading and bundle-size measurements; identical trajectories, signatures, and scores; preserve historical V2/V3 files unless deletion receives separate explicit authorization |
+| Q4, independent follow-up | Remaining type checks, package size, and lockfile/icon/theme/CI version gates (Q14, Q19–Q20) | All quality gates, actual package checks, and specific UI regressions; no deployment |
+
+This round covers complete Servo preflight and rejection of unsupported joints; HTTPS external links, sandbox/single-instance/fuses; absolute arm HTTP deadlines, canonical addresses, errors without response bodies, reload cancellation, and serialized parking; prototype-safe crew lookup and root recovery; withdrawal/new-player identity clearing and preservation of consent choices; Challenge geometry and remote-plan resource bounds; room codes and removal of public tokens; CI credentials/SHA/registry; score descriptions and classroom static hosting. Q9's Wait 0/obstacle-avoidance primitive compatibility is also fixed. Q18's path memoization and sampling cap, and Q14's Electron security tests/CJS lint, are complete; their remaining parts stay open.
+
+Audit review corrections: Q7's historical score difference was not reproduced in this round and remains an evidence gap. The planner already bounds HTTP body consumption with a timeout; Q16's gap is in `ApiClient`. `WorkbenchBootstrap` is already test-only, while the old ArmDock V1/V2 endpoint branches remain callable and must not be deleted as presumed dead code.
+
+These fixes are not a complete safety or security proof. F4 requires backend anonymous credentials, host permissions, and negative server tests. F1 still requires calibration of real directions, offsets, and head position, verification of the firmware Home path, and evaluation of the renderer-to-main trust boundary. F3/F11 still require installation, signing, and sandbox/fuse verification on all three desktop platforms. Electron's [official release record](https://releases.electronjs.org/release/v44.7.0) and [permission documentation](https://www.electronjs.org/docs/latest/api/session) support the runtime version and clipboard permission decisions. After dependency patches, production `npm audit --omit=dev` reports no vulnerabilities. The full audit retains eight moderate findings from the build tools' `sprintf-js` chain; downgrading to a version with known installer risks is not an acceptable way to clear those findings.
+
+The remaining issues were created on GitHub as ordinary issues with `[Draft]` titles; they are backlog proposals, not approved work or formal governance records:
+
+| Issue | Scope | Audit references |
+|---|---|---|
+| [#4](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/4) | Unicode names and backend transport | Q1 |
+| [#5](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/5) | Round state, feedback and network recovery | Q3, Q4, Q6, Q16, Q17 |
+| [#6](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/6) | Submission lifecycle and duplicate attempts | Q5, Q10 |
+| [#7](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/7) | Grid restart and V4 Step | Q2, Q8 |
+| [#8](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/8) | Frame-rate determinism evidence | Q7 |
+| [#9](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/9) | Profile cold loading and empty-node bounds | Q11, remaining Q18 |
+| [#10](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/10) | Production imports and Provider boundaries | Q12, Q13, Q15 |
+| [#11](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/11) | Quality coverage, installer payload and hygiene | Remaining Q14, Q19, Q20 |
+| [#12](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/12) | Backend identity and authority | F4 |
+| [#13](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/13) | Physical calibration and desktop acceptance | A8, A9, residual F1/F3/F11 |
+| [#14](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/14) | Remaining build-tool advisory | Residual F3/F14 |
+
+Verification of the uncommitted proposal:
+
+- `npm run typecheck`, `npm run lint`, and `npm run build` pass. Builder configuration schema and official-registry lockfile checks also pass; build output retains the existing large-chunk warning.
+- Focused security regressions pass, including actual loopback HTTP fixtures and sequencer cancellation/parking tests. Chromium checks cover all ten localized menus and English participation/recovery at 1280×720.
+- The initial full `npm test` run passed 74 files and 666 tests but failed the tutorial-route `beforeAll` deadline; two associated tests were skipped. A lower-concurrency rerun also exceeded the same 10-second hook deadline. The tutorial file passes with a diagnostic CLI hook override, taking 11.41 seconds for setup/tests; no checked-in timeout relaxation was made.
+- `npm run test:e2e` did not pass: the Grid submission test exceeded its 30-second total deadline, despite its failure snapshot showing a completed run and accepted attempt. It requests a 60-second acknowledgment wait inside that shorter total budget. No full E2E pass is claimed.
+- Read-only profiling found a real proposed hot-path regression: 20,000 clearance evaluations took 116–128ms at the baseline versus 391–400ms in the candidate, with identical output (about 3.4× steady-state cost). New malformed-input checks repeat inside ellipsoid clearance bisections. This is tracked in [#9](https://github.com/fds-pmine/HCR_Simulator_Frontend/issues/9); increasing test deadlines alone would not fix it. Human-authored correction and complete gate reruns are required.
+- Backend authorization, actual desktop packages/fuses, physical calibration, and eight moderate build-tool dependency findings remain open as linked above. All source changes remain uncommitted; the original untracked audit is preserved.
+
+## 4. Key Implementation Conventions
+
+### Simulation and React
+
+- `SimulationEngine` is a long-lived testable instance; do not recreate it repeatedly during React render.
+- R3F `useFrame` only calls the engine tick and updates Group refs.
+- Zustand stores state enums, the Hair Set, low-frequency joint snapshots, metrics, logs, and UI toggles.
+- The controller is authoritative for high-frequency angles and end-effector positions; throttle snapshots published to the UI.
 
 ### Blockly
 
-- Workspace 由编辑器组件拥有，通过显式 API 提供 `compile`、`setReadOnly`、`highlightBlock` 和 `resetHighlight`。
-- 编译器只接收 Blockly Workspace 与 Challenge 配置，返回成功结果或结构化错误。
-- UI 不遍历 Block 来自行生成命令。
-- 积木字段、工具箱分类和 tooltip 使用英文；翻译不得改变 Blockly 类型、字段名或 Program IR。
+- The editor component owns the Workspace and exposes `compile`, `setReadOnly`, `highlightBlock`, and `resetHighlight` through explicit APIs.
+- The compiler accepts only the Blockly Workspace and Challenge configuration, returning a successful result or structured error.
+- The UI must not traverse Blocks to generate commands itself.
+- Block fields, toolbox categories, and tooltips use English; translation must not change Blockly types, field names, or Program IR.
 
-### 接触
+### Contact
 
-- 运动 tick 先取得 previous position，再推进关节并取得 current position。
-- 碰撞函数无副作用，只返回命中的 VoxelKey。
-- SimulationEngine 统一删除 voxel、更新计数和写日志。
-- 头部安全约束在 RobotController 提交每个角度子步前执行，渲染层不得覆盖结果。
-- 头部碰撞命令保持未完成，SimulationEngine 进入 `error`、保留现场且不触发评分。
+- A motion tick obtains the previous position, advances the joints, then obtains the current position.
+- Collision functions have no side effects and return only hit VoxelKeys.
+- SimulationEngine centrally deletes voxels, updates counts, and writes logs.
+- Apply head safety constraints before RobotController commits every angular substep; the rendering layer must not override the result.
+- A command causing head collision remains incomplete; SimulationEngine enters `error`, preserves the scene state, and does not trigger scoring.
 
-### 评分
+### Scoring
 
-- 评分输入为不可变快照。
-- LocalScoreProvider 只调用纯评分函数。
-- UI 只格式化 ScoreResult，不重算任何分项。
+- Scoring inputs are immutable snapshots.
+- LocalScoreProvider only calls pure scoring functions.
+- The UI only formats ScoreResult and does not recalculate any component.
 
-## 5. 风险与处理
+## 5. Risks and Mitigations
 
-| 风险 | 处理 |
+| Risk | Mitigation |
 |---|---|
-| 示例机械臂路径误剪 Target | 将初始额外层与目标层留出碰撞半径安全间距，并用确定性集成测试校准 |
-| 低帧率漏碰撞 | 使用线段扫掠而非只检测当前帧端点 |
-| 机械装置穿入头部 | 对全部连杆、关节和工具执行扩张椭球约束，并对子步边界二分回退 |
-| Blockly 版本 API 变化 | 把注册、序列化和编译封装在 feature 内，不让版本细节扩散 |
-| 每帧 React 更新造成卡顿 | 高频状态留在引擎/ref，UI 快照限频 |
-| E2E WebGL 不稳定 | 主断言读取可见状态和业务结果，3D 视觉由人工验收补充 |
-| 重复运行结果不一致 | Run 强制从 Challenge 初始状态重建，时间分使用指令估算 |
+| The example robot path accidentally cuts the Target | Leave collision-radius safety clearance between the initial extra layer and target layer, and calibrate with deterministic integration tests |
+| Missed collisions at low frame rates | Use segment sweeps rather than checking only the current frame endpoint |
+| Mechanism penetrates the head | Apply expanded-ellipsoid constraints to all links, joints, and tools, with binary-search rollback at substep boundaries |
+| Blockly version API changes | Encapsulate registration, serialization, and compilation within the feature to contain version-specific details |
+| Per-frame React updates cause stutter | Keep high-frequency state in the engine/refs and throttle UI snapshots |
+| Unstable E2E WebGL | Base primary assertions on visible state and business results, with manual acceptance supplementing 3D visuals |
+| Inconsistent repeated-run results | Force Run to rebuild from the Challenge initial state and use instruction-estimated time for time scoring |
 
-## 6. 最终交付定义
+## 6. Final Delivery Definition
 
-- v0.3 规格中的首版范围全部实现。
-- 示例程序自然结束、至少删除一个 voxel，Completion Score ≥80。
-- 所有自动化质量门通过。
-- 1280×720 和 1920×1080 人工验收通过。
-- 文档与实际行为一致，没有保留已解决的首版 TBD。
-- 不包含明确非目标功能或隐式网络依赖。
+- Implement the entire initial-version scope in the v0.3 specification.
+- The example program finishes naturally, removes at least one voxel, and achieves Completion Score ≥80.
+- All automated quality gates pass.
+- Manual acceptance passes at 1280×720 and 1920×1080.
+- Documentation matches actual behavior, with no resolved initial-version TBDs left open.
+- Include no explicitly excluded features or implicit network dependencies.

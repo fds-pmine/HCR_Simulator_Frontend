@@ -118,6 +118,25 @@ const servoPose = (
   );
 
 describe('robot kinematics', () => {
+  it('treats malformed head or pose geometry as a collision', () => {
+    const safe = [100, 100, 100] as const;
+    const center = [0, 0, 0] as const;
+    const scale = [1, 1, 1] as const;
+    expect(segmentIntersectsExpandedEllipsoid(safe, safe, center, scale, 0)).toBe(false);
+    const invalidVectors = [
+      [Number.NaN, 100, 100], [Number.POSITIVE_INFINITY, 100, 100], [], [1, 1],
+    ] as unknown as Vec3Tuple[];
+    for (const vector of invalidVectors) {
+      expect(segmentIntersectsExpandedEllipsoid(vector, safe, center, scale, 0)).toBe(true);
+      expect(segmentIntersectsExpandedEllipsoid(safe, vector, center, scale, 0)).toBe(true);
+      expect(segmentIntersectsExpandedEllipsoid(safe, safe, vector, scale, 0)).toBe(true);
+      expect(segmentIntersectsExpandedEllipsoid(safe, safe, center, vector, 0)).toBe(true);
+    }
+    expect(segmentIntersectsExpandedEllipsoid(safe, safe, center, [0, 1, 1], 0)).toBe(true);
+    expect(segmentIntersectsExpandedEllipsoid(safe, safe, center, [-1, 1, 1], 0)).toBe(true);
+    expect(segmentIntersectsExpandedEllipsoid(safe, safe, center, scale, Number.NaN)).toBe(true);
+  });
+
   it('computes the known zero-angle planar pose', () => {
     const angles = servoPose({
       baseYaw: 0,

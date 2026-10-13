@@ -28,6 +28,9 @@ type MessageKey = keyof typeof EN_MESSAGES;
 const EN_MESSAGES = {
   language: 'LANGUAGE',
   player: 'PLAYER',
+  newPlayer: 'New player / not you?',
+  appErrorTitle: 'Something went wrong',
+  appErrorBody: 'Return to the menu to recover. Unsaved work may be lost.',
   tagline: 'Program the arm. Shape the haircut. Beat the clock.',
   tutorial: 'Tutorial',
   tutorialBody: 'Learn Grid paths, Servo Angles, and how the two control levels connect.',
@@ -379,6 +382,7 @@ const EN_MESSAGES = {
 const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
   en: EN_MESSAGES,
   'zh-CN': {
+    newPlayer: '新玩家 / 不是你？', appErrorTitle: '发生了错误', appErrorBody: '返回菜单即可恢复。未保存的操作可能丢失。',
     language: '语言', player: '玩家', tagline: '编程控制机械臂，修剪发型，挑战时间。',
     tutorial: '教程', tutorialBody: '学习网格路径、舵机角度，以及两种控制方式如何衔接。', learn: '开始学习 →',
     lessons: '课程', lessonsBody: '十节 Cutter Grid 与八节舵机角度课程，每课均有必答选择题和 Blockly 实操。', practise: '开始练习 →',
@@ -415,6 +419,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     keepPractising: '继续练习', nextChallengeIn: '下一题还有', practiceSessions: '轮练习',
   },
   'zh-TW': {
+    newPlayer: '新玩家 / 不是你？', appErrorTitle: '發生錯誤', appErrorBody: '返回選單即可恢復。未儲存的操作可能遺失。',
     language: '語言', player: '玩家', tagline: '編程控制機械臂、修剪髮型、挑戰時間。',
     tutorial: '教學', tutorialBody: '學習網格路徑、伺服角度，以及兩種控制方式如何銜接。', learn: '開始學習 →',
     lessons: '課程', lessonsBody: '十節 Cutter Grid 與八節伺服角度課程，每課均有必答選擇題和 Blockly 實作。', practise: '開始練習 →',
@@ -452,6 +457,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     keepPractising: '繼續練習', nextChallengeIn: '下一題還有', practiceSessions: '輪練習',
   },
   'zh-HK': {
+    newPlayer: '新玩家 / 唔係你？', appErrorTitle: '發生錯誤', appErrorBody: '返回選單即可恢復。未儲存的操作可能遺失。',
     language: '語言', player: '玩家', tagline: '編程控制機械臂、剪出髮型、挑戰時間。',
     tutorial: '教學', tutorialBody: '學識網格路徑、舵機角度，同埋兩種控制方式點樣配合。', learn: '開始學 →',
     lessons: '課堂', lessonsBody: '十課 Cutter Grid 同八課舵機角度，每課都有必答選擇題同 Blockly 實作。', practise: '開始練習 →',
@@ -480,6 +486,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     keepPractising: '繼續練習', nextChallengeIn: '下一題仲有', practiceSessions: '輪練習',
   },
   ja: {
+    newPlayer: '別のプレイヤー / 自分ではない？', appErrorTitle: 'エラーが発生しました', appErrorBody: 'メニューに戻ると復旧できます。未保存の作業は失われる場合があります。',
     language: '言語', player: 'プレイヤー', tagline: 'アームをプログラムし、髪型を作り、時間に挑戦。',
     tutorial: 'チュートリアル', tutorialBody: 'グリッド経路、サーボ角度、2つの操作方法のつながりを学びます。', learn: '学ぶ →',
     lessons: 'レッスン', lessonsBody: 'Cutter Grid 10課とサーボ角度8課。各課に必須のクイズとBlockly実習があります。', practise: '練習 →',
@@ -503,6 +510,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     keepPractising: '練習を続ける', nextChallengeIn: '次の課題まで', practiceSessions: 'セッション',
   },
   ko: {
+    newPlayer: '새 플레이어 / 본인이 아닌가요?', appErrorTitle: '오류가 발생했습니다', appErrorBody: '메뉴로 돌아가 복구하세요. 저장하지 않은 작업은 사라질 수 있습니다.',
     language: '언어', player: '플레이어', tagline: '로봇 팔을 프로그래밍하고 머리를 다듬어 기록에 도전하세요.',
     tutorial: '튜토리얼', tutorialBody: '그리드 경로, 서보 각도와 두 제어 방식의 연결을 배웁니다.', learn: '학습 →',
     lessons: '레슨', lessonsBody: 'Cutter Grid 10개와 서보 각도 8개 레슨에는 필수 퀴즈와 Blockly 실습이 있습니다.', practise: '연습 →',
@@ -526,6 +534,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     keepPractising: '계속 연습하기', nextChallengeIn: '다음 과제까지', practiceSessions: '세션',
   },
   es: {
+    newPlayer: '¿Otro jugador / no eres tú?', appErrorTitle: 'Se ha producido un error', appErrorBody: 'Vuelve al menú para recuperarte. El trabajo sin guardar puede perderse.',
     language: 'IDIOMA', player: 'JUGADOR', tagline: 'Programa el brazo. Corta el cabello. Supera el reloj.',
     tutorial: 'Tutorial', tutorialBody: 'Aprende rutas de cuadrícula, ángulos de servo y cómo se conectan.', learn: 'Aprender →',
     lessons: 'Lecciones', lessonsBody: 'Diez lecciones Cutter Grid y ocho de servos, cada una con cuestionario y práctica Blockly obligatorios.', practise: 'Practicar →',
@@ -549,6 +558,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     keepPractising: 'Seguir practicando', nextChallengeIn: 'Siguiente reto en', practiceSessions: 'sesiones hasta ahora',
   },
   fr: {
+    newPlayer: 'Autre joueur / ce n’est pas vous ?', appErrorTitle: 'Une erreur est survenue', appErrorBody: 'Revenez au menu pour reprendre. Le travail non enregistré peut être perdu.',
     language: 'LANGUE', player: 'JOUEUR', tagline: 'Programmez le bras. Taillez les cheveux. Battez le chrono.',
     tutorial: 'Tutoriel', tutorialBody: 'Découvrez les trajectoires, les angles des servos et leur relation.', learn: 'Apprendre →',
     lessons: 'Leçons', lessonsBody: 'Dix leçons Cutter Grid et huit sur les servos, chacune avec un quiz et un exercice Blockly obligatoires.', practise: 'Pratiquer →',
@@ -572,6 +582,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     keepPractising: 'Continuer à s’entraîner', nextChallengeIn: 'Prochain défi dans', practiceSessions: 'sessions jusqu’ici',
   },
   ru: {
+    newPlayer: 'Новый игрок / это не вы?', appErrorTitle: 'Произошла ошибка', appErrorBody: 'Вернитесь в меню для восстановления. Несохранённая работа может быть потеряна.',
     language: 'ЯЗЫК', player: 'ИГРОК', tagline: 'Программируйте манипулятор. Стригите волосы. Побеждайте время.',
     tutorial: 'Обучение', tutorialBody: 'Изучите маршруты сетки, углы сервоприводов и связь двух способов управления.', learn: 'Учиться →',
     lessons: 'Уроки', lessonsBody: '10 уроков Cutter Grid и 8 уроков по сервоприводам с обязательной викториной и практикой Blockly.', practise: 'Практика →',
@@ -595,6 +606,7 @@ const MESSAGES: Record<AppLocale, Partial<Record<MessageKey, string>>> = {
     keepPractising: 'Продолжить практику', nextChallengeIn: 'Следующее задание через', practiceSessions: 'сессий',
   },
   de: {
+    newPlayer: 'Neuer Spieler / nicht du?', appErrorTitle: 'Ein Fehler ist aufgetreten', appErrorBody: 'Kehre zur Wiederherstellung ins Menü zurück. Ungespeicherte Arbeit kann verloren gehen.',
     language: 'SPRACHE', player: 'SPIELER', tagline: 'Programmiere den Roboterarm. Schneide die Frisur. Schlage die Zeit.',
     tutorial: 'Tutorial', tutorialBody: 'Lerne Rasterpfade, Servowinkel und das Zusammenspiel beider Steuerungsarten kennen.', learn: 'Lernen →',
     lessons: 'Lektionen', lessonsBody: 'Zehn Lektionen zum Cutter Grid und acht zu Servowinkeln, jeweils mit Pflichtquiz und Blockly-Praxisaufgabe.', practise: 'Üben →',

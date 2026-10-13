@@ -7,6 +7,8 @@ import { DEFAULT_CHALLENGE_ID } from '../../src/data/challenges/defaultChallenge
 import { LocalChallengeProvider } from '../../src/services/local/LocalChallengeProvider';
 import type { Challenge } from '../../src/types/domain';
 import type { RobotCommand } from '../../src/features/blockly/programTypes';
+import { computeRobotPose, createInitialJointAngles } from '../../src/features/robot/kinematics';
+import { findRobotHeadCollision } from '../../src/features/robot/headCollision';
 
 /**
  * `electron/arm.cjs` runs in Electron's main process, but everything asserted
@@ -108,12 +110,68 @@ describe('buildArmPlan', () => {
     expect(last?.durationMs).toBe(Math.round((30 / joint.speedDegPerSec) * 1000));
   });
 
-  it('reports joints with no servo instead of silently dropping them', () => {
-    const plan = buildArmPlan(challenge, [move('shoulderRoll', 10)]);
+  it('refuses the entire plan when a joint has no servo', () => {
+    const plan = buildArmPlan(challenge, [
+      move('baseYaw', 100),
+      move('shoulderRoll', 10),
+    ]);
     expect(plan.unsupported).toEqual([
       { jointId: 'shoulderRoll', name: expect.any(String) },
     ]);
-    expect(plan.steps.every((step) => step.type !== 'move' || step.value !== 10)).toBe(true);
+    expect(plan.steps).toEqual([]);
+  });
+
+  it('refuses an unknown joint instead of silently running a partial program', () => {
+    const plan = buildArmPlan(challenge, [move('missing-joint', 90)]);
+    expect(plan.unsupported).toEqual([
+      { jointId: 'missing-joint', name: 'missing-joint' },
+    ]);
+    expect(plan.steps).toEqual([]);
+  });
+
+  it('refuses the unsafe simulator fixture before sending even Home', () => {
+    const plan = buildArmPlan(challenge, [
+      move('shoulder', 70),
+      move('elbow', 65),
+      move('wrist', 140),
+      move('baseYaw', 111),
+    ]);
+    expect(plan.steps).toEqual([]);
+    expect(plan.collision).toMatchObject({ jointId: 'baseYaw' });
+  });
+
+  it('checks and emits the exact tenth-degree values the firmware receives', () => {
+    const plan = buildArmPlan(challenge, [move('baseYaw', 100.04)]);
+    expect(plan.steps.at(-1)).toMatchObject({ type: 'move', value: 100 });
+  });
+
+  it('rejects a swept collision even when the final pose is safe', () => {
+    const extended = structuredClone(challenge);
+    const base = extended.robotConfig.joints.find((joint) => joint.id === 'baseYaw');
+    if (!base) throw new Error('Missing baseYaw fixture.');
+    base.maxAngleDeg = 180;
+    const angles = {
+      ...createInitialJointAngles(extended.robotConfig),
+      shoulder: 70, elbow: 65, wrist: 140, baseYaw: 180,
+    };
+    expect(findRobotHeadCollision(
+      computeRobotPose(extended.robotConfig, angles),
+      extended.voxelConfig,
+      extended.robotConfig.geometry,
+    )).toBeUndefined();
+    const plan = buildArmPlan(extended, [
+      move('shoulder', 70), move('elbow', 65), move('wrist', 140), move('baseYaw', 180),
+    ]);
+    expect(plan.steps).toEqual([]);
+    expect(plan.collision).toMatchObject({ jointId: 'baseYaw' });
+  });
+
+  it('rejects a colliding firmware Home before building a runnable plan', () => {
+    const invalid = structuredClone(challenge);
+    invalid.voxelConfig.headCenter = computeRobotPose(
+      challenge.robotConfig, createInitialJointAngles(challenge.robotConfig),
+    ).endEffector;
+    expect(() => buildArmPlan(invalid, [])).toThrow(/Home collides.*Nothing was sent/);
   });
 
   it('passes waits through unchanged', () => {
@@ -186,16 +244,14 @@ describe('every simulator-legal program is also arm-legal', () => {
     expect(sequencer.MAX_STEPS - worstCase).toBe(11);
   });
 
-  it('builds a plan the sequencer accepts, for a program at the joint limits', () => {
-    const commands: RobotCommand[] = challenge.robotConfig.joints
-      .filter((joint) => joint.servo)
-      .flatMap((joint) => [
-        move(joint.id, joint.minAngleDeg),
-        move(joint.id, joint.maxAngleDeg),
-      ]);
+  it('builds a safe plan the sequencer accepts', () => {
+    const commands = [move('baseYaw', 150)];
 
     const plan = buildArmPlan(challenge, commands);
     expect(plan.unsupported).toHaveLength(0);
+    expect(plan.collision).toBeUndefined();
+    expect(plan.steps).toHaveLength(2);
+    expect(() => sequencer.validatePlan(plan.steps)).not.toThrow();
     // Every emitted value survives the main-process range check.
     for (const step of plan.steps) {
       if (step.type === 'move') {

@@ -23,7 +23,7 @@ import { initialsOf, type PlayerIdentity } from './identity';
 import { formatPlayerLocalTime, formatUtcOffset } from './playerTime';
 import { useLocalization } from '../preferences/localization';
 import type { RoundFormat } from '../../types/match';
-import type { CrewMap } from './crews';
+import { crewFor, type CrewMap } from './crews';
 import { roundLengthUnits } from './roundRules';
 
 interface MatchLobbyProps {
@@ -111,6 +111,7 @@ export function MatchLobby({
           <ul className="roster">
             {state.players.map((player) => {
               const localTime = formatPlayerLocalTime(player.utcOffsetMinutes);
+              const crew = crewFor(crews, player.playerId);
               return (
               <li key={player.playerId} className="roster__row">
                 <span className="roster__avatar">{initialsOf(player.displayName)}</span>
@@ -141,12 +142,12 @@ export function MatchLobby({
                 {format === 'crews' ? (
                   <button
                     type="button"
-                    className={`roster__crew ${crews[player.playerId] ? 'is-set' : ''}`}
+                    className={`roster__crew ${crew ? 'is-set' : ''}`}
                     onClick={() => onAssignCrew(player.playerId)}
                     title={t('assignCrew')}
                     data-testid={`crew-${player.playerId}`}
                   >
-                    {crews[player.playerId] ?? '+'}
+                    {crew ?? '+'}
                   </button>
                 ) : null}
               </li>

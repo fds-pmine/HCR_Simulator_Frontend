@@ -83,6 +83,7 @@ export function validateChallengeDefinition(
   validateVector(geometry.basePosition, 'Robot base position');
   validateVector(definition.voxelConfig.origin, 'Voxel origin');
   validateVector(definition.voxelConfig.headCenter, 'Head center');
+  validateVector(definition.voxelConfig.headScale, 'Head scale');
   if (
     definition.voxelConfig.headScale.some(
       (value) => !Number.isFinite(value) || value <= 0,
@@ -166,6 +167,14 @@ function validateJoint(joint: JointConfig): void {
   if (!Number.isFinite(joint.speedDegPerSec) || joint.speedDegPerSec <= 0) {
     fail(`Joint "${joint.id}" speed must be greater than 0.`);
   }
+  if (joint.servo && (
+    !Number.isFinite(joint.servo.offsetDeg) ||
+    !Number.isFinite(joint.servo.centerDeg) ||
+    !['X', 'Y', 'Z', 'B', 'E'].includes(joint.servo.axis) ||
+    (joint.servo.direction !== 1 && joint.servo.direction !== -1)
+  )) {
+    fail(`Joint "${joint.id}" has an invalid servo mapping.`);
+  }
   // A joint configured past its servo's travel does not look wrong on screen —
   // it simulates correctly and then the arm cannot reproduce it. Refuse the
   // definition instead, which matters most when `offsetDeg` is being changed
@@ -207,8 +216,8 @@ function validateVector(
   label: string,
 ): void {
   if (
-    value.length !== 3 ||
-    value.some((component) => !Number.isFinite(component))
+    !Array.isArray(value) || value.length !== 3 ||
+    ![0, 1, 2].every((axis) => Number.isFinite(value[axis]))
   ) {
     fail(`${label} must contain three finite numbers.`);
   }

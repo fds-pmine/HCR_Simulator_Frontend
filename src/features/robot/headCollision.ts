@@ -132,6 +132,7 @@ export function measureRobotHeadClearance(
   return Math.min(
     ...robotHeadCollisionPrimitives(pose, geometry).map((primitive) => {
       const collisionExpansion = primitive.radius + geometry.collision.headClearance;
+      if (!Number.isFinite(collisionExpansion) || collisionExpansion < 0) return Number.NEGATIVE_INFINITY;
       const contactExpansion = minimumEllipsoidExpansionForSegment(
         primitive.start,
         primitive.end,
@@ -176,6 +177,14 @@ export function segmentIntersectsExpandedEllipsoid(
   scale: Vec3Tuple,
   expansion: number,
 ): boolean {
+  if (
+    ![start, end, center, scale].every((vector) =>
+      Array.isArray(vector) && vector.length === 3 &&
+      [0, 1, 2].every((axis) => Number.isFinite(vector[axis])),
+    ) ||
+    scale.some((axis) => axis <= 0) ||
+    !Number.isFinite(expansion) || expansion < 0
+  ) return true;
   const axes: Vec3Tuple = [
     scale[0] + expansion,
     scale[1] + expansion,
@@ -205,7 +214,8 @@ export function segmentIntersectsExpandedEllipsoid(
     normalizedStart[2] + direction[2] * closestT,
   ];
 
-  return dot(closest, closest) <= 1;
+  const distanceSquared = dot(closest, closest);
+  return !Number.isFinite(distanceSquared) || distanceSquared <= 1;
 }
 
 function normalizePoint(

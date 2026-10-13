@@ -4,9 +4,8 @@ const { pathToFileURL } = require('node:url')
 const arm = require('./arm.cjs')
 const sequencer = require('./sequencer.cjs')
 
-// Set by `npm run electron:dev`. When packaged there is no such variable, so
-// the built files are served over `hcr://app` instead.
-const startUrl = process.env.ELECTRON_START_URL
+// Development overrides must never replace the packaged page with arm access.
+const startUrl = app.isPackaged ? undefined : process.env.ELECTRON_START_URL
 
 /**
  * The packaged app's own origin.
@@ -91,6 +90,20 @@ function registerAppProtocol() {
 }
 
 let mainWindow
+const ownsInstanceLock = app.requestSingleInstanceLock()
+if (!ownsInstanceLock) {
+  app.quit()
+}
+
+function openExternal(url) {
+  try {
+    if (new URL(url).protocol === 'https:') {
+      shell.openExternal(url).catch(() => {})
+    }
+  } catch {
+    // Malformed URLs have no permitted OS handler.
+  }
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -105,7 +118,32 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
+  })
+
+  const page = new URL(startUrl ?? APP_ORIGIN)
+  const canWriteClipboard = (contents, permission, details = {}) => {
+    if (contents !== win.webContents || permission !== 'clipboard-sanitized-write' || !details.isMainFrame) return false
+    try {
+      const requesting = new URL(details.requestingUrl)
+      return requesting.protocol === page.protocol && requesting.host === page.host
+    } catch {
+      return false
+    }
+  }
+  win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => {
+    callback(canWriteClipboard(contents, permission, details))
+  })
+  win.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) => {
+    return canWriteClipboard(contents, permission, details)
+  })
+  win.webContents.on('did-start-navigation', (_event, _url, inPlace, isMainFrame) => {
+    if (isMainFrame && !inPlace) sequencer.abort()
+  })
+  win.webContents.on('render-process-gone', () => sequencer.abort())
+  win.on('closed', () => {
+    if (sequencer.isRunning()) void sequencer.shutdown()
   })
 
   if (startUrl) {
@@ -140,13 +178,13 @@ function createWindow() {
   // External links belong in the system browser; without this they replace the
   // workbench and take a half-written program with them.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    openExternal(url)
     return { action: 'deny' }
   })
   win.webContents.on('will-navigate', (event, url) => {
     if (url !== win.webContents.getURL()) {
       event.preventDefault()
-      shell.openExternal(url)
+      openExternal(url)
     }
   })
 
@@ -172,14 +210,21 @@ function handle(channel, fn) {
 }
 
 function registerArmHandlers() {
+  const requireStopped = () => {
+    if (sequencer.isRunning()) throw new Error('Stop the running program first.')
+  }
   handle('arm:get-address', () => arm.getAddress())
   handle('arm:set-address', (address) => {
+    requireStopped()
     arm.setAddress(address)
     return arm.getAddress()
   })
   handle('arm:check', () => arm.health())
   handle('arm:read-angles', () => arm.readAngles())
-  handle('arm:home', () => arm.home())
+  handle('arm:home', () => {
+    requireStopped()
+    return arm.home()
+  })
 
   /**
    * Ask the arm where it is on the upstream network.
@@ -215,7 +260,7 @@ function registerAppHandlers() {
   })
 }
 
-app.whenReady().then(() => {
+if (ownsInstanceLock) app.whenReady().then(() => {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
@@ -247,6 +292,12 @@ app.whenReady().then(() => {
       mainWindow = createWindow()
     }
   })
+})
+
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
 })
 
 /**

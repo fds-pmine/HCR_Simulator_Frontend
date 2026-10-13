@@ -15,7 +15,6 @@ import type { AppServices } from '../../app/servicesContext';
  */
 export interface BackendConfig {
   baseUrl: string;
-  token?: string;
 }
 
 export function readBackendConfig(
@@ -25,8 +24,7 @@ export function readBackendConfig(
   if (!baseUrl) {
     return undefined;
   }
-  const token = env.VITE_HCR_API_TOKEN?.trim();
-  return token ? { baseUrl, token } : { baseUrl };
+  return { baseUrl };
 }
 
 /** Build the remote provider set. */

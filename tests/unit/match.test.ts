@@ -320,7 +320,7 @@ describe('HttpMatchProvider', () => {
     const provider = new HttpMatchProvider(client);
     provider.setPlayer({ playerId: 'u-42', displayName: 'Ada' });
 
-    await provider.joinMatch('m-1');
+    await provider.joinMatch('ABC234');
 
     const headers = calls[0]?.init?.headers as Record<string, string>;
     expect(headers['X-HCR-Player']).toBe('u-42');
@@ -340,7 +340,7 @@ describe('HttpMatchProvider', () => {
     }));
     const provider = new HttpMatchProvider(client);
 
-    await provider.submit('m-1', {
+    await provider.submit('ABC234', {
       submissionId: 's-1',
       challengeId: 'neat-short-cap',
       challengeVersion: 1,
@@ -350,7 +350,7 @@ describe('HttpMatchProvider', () => {
 
     const body = JSON.parse(String(calls[0]?.init?.body)) as Record<string, unknown>;
     expect(body).not.toHaveProperty('clientScore');
-    expect(body.matchId).toBe('m-1');
+    expect(body.matchId).toBe('ABC234');
     expect(body.challengeVersion).toBe(1);
   });
 

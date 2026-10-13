@@ -64,8 +64,6 @@ export class HcrApiError extends Error {
 export interface ApiClientOptions {
   /** Base URL, e.g. `https://example.com` or `http://localhost:18623`. */
   baseUrl: string;
-  /** Bearer token, when the deployment requires authentication. */
-  token?: string;
   /** Injected for tests; defaults to the global. */
   fetchImpl?: typeof fetch;
   /** Abort a request that takes longer than this. */
@@ -118,9 +116,6 @@ export class ApiClient {
           ...(body === undefined
             ? {}
             : { 'Content-Type': 'application/json' }),
-          ...(this.options.token
-            ? { Authorization: `Bearer ${this.options.token}` }
-            : {}),
           ...extraHeaders,
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),

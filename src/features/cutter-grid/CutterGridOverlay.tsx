@@ -1,7 +1,8 @@
 import { Line } from '@react-three/drei';
+import { useMemo } from 'react';
 import { useSceneTokens } from '../../theme/useSceneTokens';
-import type { Challenge, Vec3Tuple } from '../../types/domain';
-import { evaluateCutterGridSyncPtpV4 } from './compactPtpV4';
+import type { Challenge } from '../../types/domain';
+import { plannedMovePaths } from './overlayPaths';
 import type {
   CutterGridProfileV1,
   CutterGridProfileV2,
@@ -46,7 +47,7 @@ export function CutterGridOverlay({
   const boundsSize = min.map(
     (value, axis) => max[axis] - value,
   ) as [number, number, number];
-  const movePaths = plannedMovePaths(challenge, plan);
+  const movePaths = useMemo(() => plannedMovePaths(challenge, plan), [challenge, plan]);
   return (
     <group>
       <mesh position={boundsCenter}>
@@ -92,42 +93,4 @@ function reachable(node: ProfileNode): boolean {
   return 'reachable' in node
     ? node.reachable
     : node.staticIkStatus === 'safe-candidate-known';
-}
-
-function plannedMovePaths(
-  challenge: Challenge,
-  plan:
-    | CutterTrajectoryPlanV1
-    | CutterTrajectoryPlanV2
-    | CutterTrajectoryPlanV3
-    | CutterTrajectoryPlanV4
-    | undefined,
-): Array<{ id: string; points: Vec3Tuple[]; stepIndex: number }> {
-  if (!plan) return [];
-  if (plan.version === 4) {
-    return plan.actions.flatMap((action, stepIndex) => {
-      if (action.type === 'wait') return [];
-      const points: Vec3Tuple[] = [];
-      for (const primitive of action.primitives) {
-        const samples = Math.max(4, Math.ceil(primitive.durationMs / 40));
-        for (let index = points.length === 0 ? 0 : 1; index <= samples; index += 1) {
-          points.push(evaluateCutterGridSyncPtpV4(
-            challenge,
-            primitive,
-            (primitive.durationMs * index) / samples,
-          ).endEffector);
-        }
-      }
-      return [{ id: `v4-${action.occurrenceId}`, points, stepIndex }];
-    });
-  }
-  return plan.steps.flatMap((step, stepIndex) =>
-    step.kind === 'move-cell'
-      ? [{
-        id: `v${plan.version}-${step.index}`,
-        points: step.waypoints.map((waypoint) => waypoint.endEffector),
-        stepIndex,
-      }]
-      : [],
-  );
 }
